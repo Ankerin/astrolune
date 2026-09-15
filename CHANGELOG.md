@@ -21,4 +21,4 @@ All notable changes to AstroLune will be documented in this file. The format fol
 - ALVM, Trocto, Regol, and Kreep language architecture.
 - General-purpose user storage/share service scope.
 
-[Unreleased]: https://github.com/astrolune-network/astrolune
+[Unreleased]: https://github.com/Ankerin/astrolune
