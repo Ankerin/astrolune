@@ -29,8 +29,6 @@ pub const MAX_STATE_KEY_LEN: usize = 256;
 /// Current canonical encoding version.
 pub const PROTOCOL_VERSION: u16 = 1;
 
-
-
 /// A value that has one canonical byte representation.
 pub trait CanonicalEncode {
     /// Appends the canonical representation to `output`.
@@ -55,8 +53,6 @@ pub trait CanonicalDecode: Sized {
     /// unsupported, too large, truncated, or contains trailing bytes.
     fn decode(bytes: &[u8]) -> Result<Self, DecodeError>;
 }
-
-
 
 impl CanonicalEncode for u8 {
     fn encode(&self, output: &mut Vec<u8>) {
@@ -93,8 +89,6 @@ impl<const N: usize> CanonicalEncode for [u8; N] {
         output.extend_from_slice(self);
     }
 }
-
-
 
 impl CanonicalDecode for u8 {
     fn decode(bytes: &[u8]) -> Result<Self, DecodeError> {
@@ -154,8 +148,6 @@ impl<const N: usize> CanonicalDecode for [u8; N] {
     }
 }
 
-
-
 /// Encodes a length as a compact prefix.
 fn encode_length(len: usize, output: &mut Vec<u8>) {
     if len < 128 {
@@ -191,8 +183,6 @@ fn decode_bytes<'a>(decoder: &mut Decoder<'a>) -> Result<&'a [u8], DecodeError> 
     let len = decode_length(decoder)?;
     decoder.read_exact(len)
 }
-
-
 
 impl CanonicalEncode for Hash256 {
     fn encode(&self, output: &mut Vec<u8>) {
@@ -274,7 +264,12 @@ impl CanonicalDecode for Resources {
         let io = decoder.read_u64()?;
         let bandwidth = decoder.read_u64()?;
         decoder.finish()?;
-        Ok(Self { compute, memory, io, bandwidth })
+        Ok(Self {
+            compute,
+            memory,
+            io,
+            bandwidth,
+        })
     }
 }
 
@@ -377,8 +372,6 @@ impl CanonicalDecode for BlockHeader {
         })
     }
 }
-
-
 
 /// Cursor that performs bounded reads without allocation.
 #[derive(Clone, Copy, Debug)]
@@ -496,8 +489,6 @@ impl<'a> Decoder<'a> {
     }
 }
 
-
-
 /// Extension trait for decoding a value from an already-positioned decoder.
 trait DecoderExt<'a> {
     /// Reads a `StateKey` at the current position.
@@ -521,7 +512,12 @@ impl<'a> DecoderExt<'a> for Decoder<'a> {
         let memory = self.read_u64()?;
         let io = self.read_u64()?;
         let bandwidth = self.read_u64()?;
-        Ok(Resources { compute, memory, io, bandwidth })
+        Ok(Resources {
+            compute,
+            memory,
+            io,
+            bandwidth,
+        })
     }
 }
 
@@ -541,8 +537,6 @@ impl DecodeAt for Resources {
         decoder.read_resources()
     }
 }
-
-
 
 /// Canonical decoding failures.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -575,8 +569,6 @@ impl std::fmt::Display for DecodeError {
 }
 
 impl std::error::Error for DecodeError {}
-
-
 
 #[cfg(test)]
 mod tests {
@@ -699,7 +691,12 @@ mod tests {
 
     #[test]
     fn resources_roundtrip() {
-        let r = Resources { compute: 100, memory: 200, io: 300, bandwidth: 400 };
+        let r = Resources {
+            compute: 100,
+            memory: 200,
+            io: 300,
+            bandwidth: 400,
+        };
         let encoded = r.to_bytes();
         assert_eq!(encoded.len(), 32);
         let decoded = Resources::decode(&encoded).unwrap();
@@ -715,7 +712,12 @@ mod tests {
             sender: Address([1u8; 32]),
             nonce: 42,
             access_list: vec![StateKey(vec![10, 20])],
-            resource_limit: Resources { compute: 100, memory: 200, io: 300, bandwidth: 400 },
+            resource_limit: Resources {
+                compute: 100,
+                memory: 200,
+                io: 300,
+                bandwidth: 400,
+            },
             payload: vec![0xDE, 0xAD],
             signature: [0xBE; 64],
         };
@@ -751,7 +753,12 @@ mod tests {
             state_root: Hash256([3u8; 32]),
             receipts_root: Hash256([4u8; 32]),
             committee_root: Hash256([5u8; 32]),
-            capacity: Resources { compute: 10, memory: 20, io: 30, bandwidth: 40 },
+            capacity: Resources {
+                compute: 10,
+                memory: 20,
+                io: 30,
+                bandwidth: 40,
+            },
         };
         let encoded = header.to_bytes();
         let decoded = BlockHeader::decode(&encoded).unwrap();

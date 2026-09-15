@@ -454,16 +454,39 @@ mod tests {
 
     #[test]
     fn resource_usage_saturating_add() {
-        let a = ResourceUsage { compute: 1, memory: 2, io: 3 };
-        let b = ResourceUsage { compute: 4, memory: 5, io: 6 };
+        let a = ResourceUsage {
+            compute: 1,
+            memory: 2,
+            io: 3,
+        };
+        let b = ResourceUsage {
+            compute: 4,
+            memory: 5,
+            io: 6,
+        };
         let sum = a.saturating_add(b);
-        assert_eq!(sum, ResourceUsage { compute: 5, memory: 7, io: 9 });
+        assert_eq!(
+            sum,
+            ResourceUsage {
+                compute: 5,
+                memory: 7,
+                io: 9
+            }
+        );
     }
 
     #[test]
     fn resource_usage_overflow_saturates() {
-        let max = ResourceUsage { compute: u64::MAX, memory: 0, io: 0 };
-        let one = ResourceUsage { compute: 1, memory: 0, io: 0 };
+        let max = ResourceUsage {
+            compute: u64::MAX,
+            memory: 0,
+            io: 0,
+        };
+        let one = ResourceUsage {
+            compute: 1,
+            memory: 0,
+            io: 0,
+        };
         let sum = max.saturating_add(one);
         assert_eq!(sum.compute, u64::MAX);
     }

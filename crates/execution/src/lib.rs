@@ -176,11 +176,7 @@ pub struct SimpleExecutor<'a, DB: StateDatabase> {
 
 impl<'a, DB: StateDatabase> SimpleExecutor<'a, DB> {
     /// Creates a new executor with the given database, validator, and config.
-    pub fn new(
-        database: &'a mut DB,
-        validator: BasicValidator,
-        config: ExecutorConfig,
-    ) -> Self {
+    pub fn new(database: &'a mut DB, validator: BasicValidator, config: ExecutorConfig) -> Self {
         Self {
             database,
             validator,
@@ -213,10 +209,8 @@ impl<'a, DB: StateDatabase> SimpleExecutor<'a, DB> {
 
             // Build a simple diff: put the payload under a key derived from tx id
             let mut diff = StateDiff::new();
-            let key = types::StateKey::new(
-                format!("tx:{}", validated.id).into_bytes(),
-            )
-            .ok_or(ExecutionError::InvalidContract)?;
+            let key = types::StateKey::new(format!("tx:{}", validated.id).into_bytes())
+                .ok_or(ExecutionError::InvalidContract)?;
 
             // For payments, the diff is a simple record; for contracts, execution
             // would produce a more complex diff. Here we record the transaction.
@@ -314,7 +308,12 @@ mod tests {
             sender: sender(),
             nonce,
             access_list: Vec::new(),
-            resource_limit: Resources { compute: 10, memory: 1, io: 1, bandwidth: 1 },
+            resource_limit: Resources {
+                compute: 10,
+                memory: 1,
+                io: 1,
+                bandwidth: 1,
+            },
             payload,
             signature: [0xFF; 64],
         }
@@ -346,10 +345,7 @@ mod tests {
         use state::AccessMode;
         let scheduler = SerialScheduler;
         let mut tx = make_tx(0, vec![]);
-        tx.access_list = vec![
-            types::StateKey(vec![1, 2]),
-            types::StateKey(vec![3, 4]),
-        ];
+        tx.access_list = vec![types::StateKey(vec![1, 2]), types::StateKey(vec![3, 4])];
         let lease = scheduler.lease(&tx);
         assert_eq!(lease.requests.len(), 2);
         assert!(lease.covers(&types::StateKey(vec![1, 2]), AccessMode::Write));
@@ -360,9 +356,18 @@ mod tests {
 
     #[test]
     fn lane_conversion() {
-        assert_eq!(ExecutionLane::from(TransactionLane::Payments), ExecutionLane::Payments);
-        assert_eq!(ExecutionLane::from(TransactionLane::Contracts), ExecutionLane::Contracts);
-        assert_eq!(ExecutionLane::from(TransactionLane::System), ExecutionLane::System);
+        assert_eq!(
+            ExecutionLane::from(TransactionLane::Payments),
+            ExecutionLane::Payments
+        );
+        assert_eq!(
+            ExecutionLane::from(TransactionLane::Contracts),
+            ExecutionLane::Contracts
+        );
+        assert_eq!(
+            ExecutionLane::from(TransactionLane::System),
+            ExecutionLane::System
+        );
     }
 
     // -- SimpleExecutor tests --
@@ -370,7 +375,13 @@ mod tests {
     #[test]
     fn executor_empty_block() {
         let mut accounts = std::collections::BTreeMap::new();
-        accounts.insert(sender(), AccountState { nonce: 0, balance: 1000 });
+        accounts.insert(
+            sender(),
+            AccountState {
+                nonce: 0,
+                balance: 1000,
+            },
+        );
         let validator = BasicValidator::new(accounts);
 
         let mut state = InMemoryState::new();
@@ -385,7 +396,13 @@ mod tests {
     #[test]
     fn executor_single_transaction() {
         let mut accounts = std::collections::BTreeMap::new();
-        accounts.insert(sender(), AccountState { nonce: 0, balance: 1000 });
+        accounts.insert(
+            sender(),
+            AccountState {
+                nonce: 0,
+                balance: 1000,
+            },
+        );
         let validator = BasicValidator::new(accounts);
 
         let mut state = InMemoryState::new();
@@ -402,7 +419,13 @@ mod tests {
     #[test]
     fn executor_multiple_transactions_sequential() {
         let mut accounts = std::collections::BTreeMap::new();
-        accounts.insert(sender(), AccountState { nonce: 0, balance: 10_000 });
+        accounts.insert(
+            sender(),
+            AccountState {
+                nonce: 0,
+                balance: 10_000,
+            },
+        );
         let validator = BasicValidator::new(accounts);
 
         let mut state = InMemoryState::new();
@@ -439,7 +462,10 @@ mod tests {
         let validator = BasicValidator::empty();
         let mut state = InMemoryState::new();
         let root0 = state.root();
-        let config = ExecutorConfig { chain_id: 7, ..config() };
+        let config = ExecutorConfig {
+            chain_id: 7,
+            ..config()
+        };
         let mut executor = SimpleExecutor::new(&mut state, validator, config);
 
         let mut tx = make_tx(0, vec![]);
@@ -453,7 +479,13 @@ mod tests {
     #[test]
     fn executor_receipt_commitment_deterministic() {
         let mut accounts = std::collections::BTreeMap::new();
-        accounts.insert(sender(), AccountState { nonce: 0, balance: 1000 });
+        accounts.insert(
+            sender(),
+            AccountState {
+                nonce: 0,
+                balance: 1000,
+            },
+        );
         let validator = BasicValidator::new(accounts);
 
         let mut state = InMemoryState::new();

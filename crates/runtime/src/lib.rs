@@ -48,7 +48,11 @@ pub trait ModuleValidator {
     ///
     /// Returns [`RuntimeError`] when the module is malformed, unsupported, or
     /// exceeds configured limits.
-    fn validate(&self, bytes: &[u8], version: RuntimeVersion) -> Result<ContractModule, RuntimeError>;
+    fn validate(
+        &self,
+        bytes: &[u8],
+        version: RuntimeVersion,
+    ) -> Result<ContractModule, RuntimeError>;
 }
 
 /// Local execution backend class.
@@ -81,7 +85,8 @@ pub trait RuntimeBackend: Send + Sync {
     /// # Errors
     ///
     /// Returns [`RuntimeError`] for deterministic traps and resource exhaustion.
-    fn execute(&self, module: &ContractModule, input: &[u8]) -> Result<RuntimeOutput, RuntimeError>;
+    fn execute(&self, module: &ContractModule, input: &[u8])
+    -> Result<RuntimeOutput, RuntimeError>;
 }
 
 /// Contract validation and execution failures.

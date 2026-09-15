@@ -36,7 +36,9 @@ fn main() {
         Some("--version" | "-V") => println!("cargo-contract {}", env!("CARGO_PKG_VERSION")),
         Some("build") => {
             println!("Deterministic contract build (engineering baseline)");
-            println!("Planned: canonical target selection, AOT compilation, metering instrumentation");
+            println!(
+                "Planned: canonical target selection, AOT compilation, metering instrumentation"
+            );
             println!("Planned: reproducible artifacts, source hash, compiler version pinning");
         }
         Some("validate") => {

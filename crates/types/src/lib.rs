@@ -445,8 +445,10 @@ mod tests {
 
     #[test]
     fn hash256_display_is_hex_lowercase() {
-        let hash = Hash256([0x0A, 0xFB, 0x00, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]);
+        let hash = Hash256([
+            0x0A, 0xFB, 0x00, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0,
+        ]);
         let display = format!("{hash}");
         assert!(display.starts_with("0afb00"));
         assert_eq!(display.len(), 64);
@@ -508,45 +510,111 @@ mod tests {
 
     #[test]
     fn resources_fits_in() {
-        let small = Resources { compute: 1, memory: 2, io: 3, bandwidth: 4 };
-        let large = Resources { compute: 5, memory: 5, io: 5, bandwidth: 5 };
+        let small = Resources {
+            compute: 1,
+            memory: 2,
+            io: 3,
+            bandwidth: 4,
+        };
+        let large = Resources {
+            compute: 5,
+            memory: 5,
+            io: 5,
+            bandwidth: 5,
+        };
         assert!(small.fits_in(large));
         assert!(!large.fits_in(small));
     }
 
     #[test]
     fn resources_checked_add() {
-        let a = Resources { compute: 1, memory: 2, io: 3, bandwidth: 4 };
-        let b = Resources { compute: 5, memory: 6, io: 7, bandwidth: 8 };
+        let a = Resources {
+            compute: 1,
+            memory: 2,
+            io: 3,
+            bandwidth: 4,
+        };
+        let b = Resources {
+            compute: 5,
+            memory: 6,
+            io: 7,
+            bandwidth: 8,
+        };
         let sum = a.checked_add(b).unwrap();
-        assert_eq!(sum, Resources { compute: 6, memory: 8, io: 10, bandwidth: 12 });
+        assert_eq!(
+            sum,
+            Resources {
+                compute: 6,
+                memory: 8,
+                io: 10,
+                bandwidth: 12
+            }
+        );
     }
 
     #[test]
     fn resources_checked_add_overflow() {
-        let max = Resources { compute: u64::MAX, memory: 0, io: 0, bandwidth: 0 };
-        let one = Resources { compute: 1, memory: 0, io: 0, bandwidth: 0 };
+        let max = Resources {
+            compute: u64::MAX,
+            memory: 0,
+            io: 0,
+            bandwidth: 0,
+        };
+        let one = Resources {
+            compute: 1,
+            memory: 0,
+            io: 0,
+            bandwidth: 0,
+        };
         assert!(max.checked_add(one).is_none());
     }
 
     #[test]
     fn resources_saturating_add() {
-        let a = Resources { compute: u64::MAX, memory: 0, io: 0, bandwidth: 0 };
-        let b = Resources { compute: 1, memory: 0, io: 0, bandwidth: 0 };
+        let a = Resources {
+            compute: u64::MAX,
+            memory: 0,
+            io: 0,
+            bandwidth: 0,
+        };
+        let b = Resources {
+            compute: 1,
+            memory: 0,
+            io: 0,
+            bandwidth: 0,
+        };
         let sum = a.saturating_add(b);
         assert_eq!(sum.compute, u64::MAX);
     }
 
     #[test]
     fn resources_checked_mul() {
-        let r = Resources { compute: 3, memory: 4, io: 5, bandwidth: 6 };
+        let r = Resources {
+            compute: 3,
+            memory: 4,
+            io: 5,
+            bandwidth: 6,
+        };
         let product = r.checked_mul(2).unwrap();
-        assert_eq!(product, Resources { compute: 6, memory: 8, io: 10, bandwidth: 12 });
+        assert_eq!(
+            product,
+            Resources {
+                compute: 6,
+                memory: 8,
+                io: 10,
+                bandwidth: 12
+            }
+        );
     }
 
     #[test]
     fn resources_checked_mul_overflow() {
-        let r = Resources { compute: u64::MAX, memory: 0, io: 0, bandwidth: 0 };
+        let r = Resources {
+            compute: u64::MAX,
+            memory: 0,
+            io: 0,
+            bandwidth: 0,
+        };
         assert!(r.checked_mul(2).is_none());
     }
 
@@ -555,10 +623,20 @@ mod tests {
         let none = Resources::ZERO;
         assert_eq!(none.count(), 0);
 
-        let partial = Resources { compute: 1, memory: 0, io: 3, bandwidth: 0 };
+        let partial = Resources {
+            compute: 1,
+            memory: 0,
+            io: 3,
+            bandwidth: 0,
+        };
         assert_eq!(partial.count(), 2);
 
-        let all = Resources { compute: 1, memory: 1, io: 1, bandwidth: 1 };
+        let all = Resources {
+            compute: 1,
+            memory: 1,
+            io: 1,
+            bandwidth: 1,
+        };
         assert_eq!(all.count(), 4);
     }
 
@@ -595,7 +673,12 @@ mod tests {
         let receipt = ExecutionReceipt {
             transaction: Hash256([1u8; 32]),
             succeeded: true,
-            resources: Resources { compute: 10, memory: 20, io: 30, bandwidth: 40 },
+            resources: Resources {
+                compute: 10,
+                memory: 20,
+                io: 30,
+                bandwidth: 40,
+            },
             output_root: Hash256([2u8; 32]),
         };
         let c1 = receipt.commitment();
@@ -621,7 +704,12 @@ mod tests {
         let r1 = ExecutionReceipt {
             transaction: Hash256([1u8; 32]),
             succeeded: true,
-            resources: Resources { compute: 10, memory: 0, io: 0, bandwidth: 0 },
+            resources: Resources {
+                compute: 10,
+                memory: 0,
+                io: 0,
+                bandwidth: 0,
+            },
             output_root: Hash256::ZERO,
         };
         let mut r2 = r1.clone();
@@ -640,7 +728,12 @@ mod tests {
             state_root: Hash256([2u8; 32]),
             receipts_root: Hash256([3u8; 32]),
             committee_root: Hash256([4u8; 32]),
-            capacity: Resources { compute: 100, memory: 200, io: 300, bandwidth: 400 },
+            capacity: Resources {
+                compute: 100,
+                memory: 200,
+                io: 300,
+                bandwidth: 400,
+            },
         };
         let h1 = header.compute_hash();
         let h2 = header.compute_hash();
@@ -667,7 +760,12 @@ mod tests {
             state_root: Hash256([2u8; 32]),
             receipts_root: Hash256([3u8; 32]),
             committee_root: Hash256([4u8; 32]),
-            capacity: Resources { compute: 100, memory: 0, io: 0, bandwidth: 0 },
+            capacity: Resources {
+                compute: 100,
+                memory: 0,
+                io: 0,
+                bandwidth: 0,
+            },
         };
 
         assert!(child.validate_parent(&genesis));

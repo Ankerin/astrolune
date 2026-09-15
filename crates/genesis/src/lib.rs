@@ -71,8 +71,14 @@ impl Genesis {
         {
             return Err(GenesisError::InvalidCommittee);
         }
-        if self.validators.windows(2).any(|pair| pair[0].id >= pair[1].id)
-            || self.validators.iter().any(|validator| validator.weight == 0)
+        if self
+            .validators
+            .windows(2)
+            .any(|pair| pair[0].id >= pair[1].id)
+            || self
+                .validators
+                .iter()
+                .any(|validator| validator.weight == 0)
         {
             return Err(GenesisError::InvalidValidators);
         }

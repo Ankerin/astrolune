@@ -279,7 +279,12 @@ mod tests {
     }
 
     fn resources_with(compute: u64) -> Resources {
-        Resources { compute, memory: 1, io: 1, bandwidth: 1 }
+        Resources {
+            compute,
+            memory: 1,
+            io: 1,
+            bandwidth: 1,
+        }
     }
 
     // -- Lane assignment --
@@ -310,7 +315,13 @@ mod tests {
     #[test]
     fn valid_transaction_passes() {
         let mut accounts = std::collections::BTreeMap::new();
-        accounts.insert(sender(), AccountState { nonce: 0, balance: 1000 });
+        accounts.insert(
+            sender(),
+            AccountState {
+                nonce: 0,
+                balance: 1000,
+            },
+        );
         let validator = BasicValidator::new(accounts);
 
         let tx = make_tx(0, vec![1, 2, 3], resources_with(10));
@@ -345,7 +356,13 @@ mod tests {
     #[test]
     fn rejects_invalid_nonce() {
         let mut accounts = std::collections::BTreeMap::new();
-        accounts.insert(sender(), AccountState { nonce: 5, balance: 1000 });
+        accounts.insert(
+            sender(),
+            AccountState {
+                nonce: 5,
+                balance: 1000,
+            },
+        );
         let validator = BasicValidator::new(accounts);
 
         let tx = make_tx(0, vec![], Resources::default());
@@ -372,11 +389,26 @@ mod tests {
     #[test]
     fn rejects_insufficient_resources() {
         let mut accounts = std::collections::BTreeMap::new();
-        accounts.insert(sender(), AccountState { nonce: 0, balance: 5 });
+        accounts.insert(
+            sender(),
+            AccountState {
+                nonce: 0,
+                balance: 5,
+            },
+        );
         let validator = BasicValidator::new(accounts);
 
         // Cost = compute + memory + io + bandwidth = 100 + 1 + 1 + 1 = 103 > 5
-        let tx = make_tx(0, vec![], Resources { compute: 100, memory: 1, io: 1, bandwidth: 1 });
+        let tx = make_tx(
+            0,
+            vec![],
+            Resources {
+                compute: 100,
+                memory: 1,
+                io: 1,
+                bandwidth: 1,
+            },
+        );
         let result = validator.validate(tx, simple_context());
         assert_eq!(result, Err(TransactionError::InsufficientResources));
     }
@@ -436,7 +468,12 @@ mod tests {
             sender: Address([1u8; 32]),
             nonce: 0,
             access_list: Vec::new(),
-            resource_limit: Resources { compute: 1, memory: 1, io: 1, bandwidth: 1 },
+            resource_limit: Resources {
+                compute: 1,
+                memory: 1,
+                io: 1,
+                bandwidth: 1,
+            },
             payload: vec![1, 2, 3],
             signature: [0xFF; 64],
         };
@@ -445,7 +482,12 @@ mod tests {
             sender: Address([2u8; 32]),
             nonce: 0,
             access_list: Vec::new(),
-            resource_limit: Resources { compute: 1, memory: 1, io: 1, bandwidth: 1 },
+            resource_limit: Resources {
+                compute: 1,
+                memory: 1,
+                io: 1,
+                bandwidth: 1,
+            },
             payload: vec![1, 2, 3],
             signature: [0xFF; 64],
         };
@@ -463,7 +505,11 @@ mod tests {
         assert!(!TransactionError::WrongChain.to_string().is_empty());
         assert!(!TransactionError::Expired.to_string().is_empty());
         assert!(!TransactionError::InvalidNonce.to_string().is_empty());
-        assert!(!TransactionError::InsufficientResources.to_string().is_empty());
+        assert!(
+            !TransactionError::InsufficientResources
+                .to_string()
+                .is_empty()
+        );
         assert!(!TransactionError::InvalidSignature.to_string().is_empty());
         assert!(!TransactionError::UnsupportedPayload.to_string().is_empty());
     }
@@ -477,7 +523,12 @@ mod tests {
             sender: Address([0; 32]),
             nonce: 0,
             access_list: vec![StateKey(vec![1, 2, 3])],
-            resource_limit: Resources { compute: 1, memory: 2, io: 3, bandwidth: 4 },
+            resource_limit: Resources {
+                compute: 1,
+                memory: 2,
+                io: 3,
+                bandwidth: 4,
+            },
             payload: vec![0; 10],
             signature: [0; 64],
         };

@@ -46,13 +46,17 @@ impl StateLease {
     /// Returns `true` if the lease contains the given key in the required mode.
     #[must_use]
     pub fn covers(&self, key: &StateKey, mode: AccessMode) -> bool {
-        self.requests.iter().any(|req| req.key == *key && req.mode == mode)
+        self.requests
+            .iter()
+            .any(|req| req.key == *key && req.mode == mode)
     }
 
     /// Returns `true` if the lease has any write access.
     #[must_use]
     pub fn has_writes(&self) -> bool {
-        self.requests.iter().any(|req| req.mode == AccessMode::Write)
+        self.requests
+            .iter()
+            .any(|req| req.mode == AccessMode::Write)
     }
 
     /// Returns the set of keys with write access.
@@ -399,9 +403,18 @@ mod tests {
     fn lease_write_keys() {
         let lease = StateLease {
             requests: vec![
-                AccessRequest { key: key(1), mode: AccessMode::Read },
-                AccessRequest { key: key(2), mode: AccessMode::Write },
-                AccessRequest { key: key(3), mode: AccessMode::Write },
+                AccessRequest {
+                    key: key(1),
+                    mode: AccessMode::Read,
+                },
+                AccessRequest {
+                    key: key(2),
+                    mode: AccessMode::Write,
+                },
+                AccessRequest {
+                    key: key(3),
+                    mode: AccessMode::Write,
+                },
             ],
         };
         let writes = lease.write_keys();
@@ -508,7 +521,10 @@ mod tests {
         let bad_root = Hash256([0xFF; 32]);
 
         let diff = StateDiff::new();
-        assert_eq!(state.commit(bad_root, &[diff]), Err(StateError::StaleSnapshot));
+        assert_eq!(
+            state.commit(bad_root, &[diff]),
+            Err(StateError::StaleSnapshot)
+        );
     }
 
     #[test]

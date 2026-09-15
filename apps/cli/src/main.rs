@@ -5,7 +5,8 @@
 
 #![forbid(unsafe_code)]
 
-const HELP: &str = "AstroLune command-line interface (engineering baseline)\n\nUsage: cli [--help | --version]\n";
+const HELP: &str =
+    "AstroLune command-line interface (engineering baseline)\n\nUsage: cli [--help | --version]\n";
 
 fn main() {
     match std::env::args().nth(1).as_deref() {

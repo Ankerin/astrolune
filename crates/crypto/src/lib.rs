@@ -66,7 +66,12 @@ impl CryptoProvider for MockCryptoProvider {
         Hash256(h)
     }
 
-    fn verify_signature(&self, _signer: ValidatorId, _message: &[u8], signature: &[u8; 64]) -> bool {
+    fn verify_signature(
+        &self,
+        _signer: ValidatorId,
+        _message: &[u8],
+        signature: &[u8; 64],
+    ) -> bool {
         *signature != [0u8; 64]
     }
 
@@ -81,9 +86,7 @@ impl CryptoProvider for MockCryptoProvider {
 /// yields `Hash256::ZERO`.
 #[must_use]
 pub fn compute_receipts_root(commitments: &[Hash256]) -> Hash256 {
-    commitments
-        .iter()
-        .fold(Hash256::ZERO, |acc, c| acc.xor(*c))
+    commitments.iter().fold(Hash256::ZERO, |acc, c| acc.xor(*c))
 }
 
 /// Computes a transactions root from a slice of transaction IDs.
@@ -92,9 +95,7 @@ pub fn compute_receipts_root(commitments: &[Hash256]) -> Hash256 {
 /// yields `Hash256::ZERO`.
 #[must_use]
 pub fn compute_transactions_root(tx_hashes: &[Hash256]) -> Hash256 {
-    tx_hashes
-        .iter()
-        .fold(Hash256::ZERO, |acc, h| acc.xor(*h))
+    tx_hashes.iter().fold(Hash256::ZERO, |acc, h| acc.xor(*h))
 }
 
 #[cfg(test)]
@@ -161,7 +162,12 @@ mod tests {
         let receipt = types::ExecutionReceipt {
             transaction: Hash256([1u8; 32]),
             succeeded: true,
-            resources: types::Resources { compute: 10, memory: 0, io: 0, bandwidth: 0 },
+            resources: types::Resources {
+                compute: 10,
+                memory: 0,
+                io: 0,
+                bandwidth: 0,
+            },
             output_root: Hash256([2u8; 32]),
         };
         let root = compute_receipts_root(&[receipt.commitment()]);

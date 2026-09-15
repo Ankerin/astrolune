@@ -7,7 +7,7 @@
 
 use std::collections::BTreeMap;
 
-    use types::{Address, Hash256, Resources, Transaction};
+use types::{Address, Hash256, Resources, Transaction};
 
 /// Local transaction metadata used for deterministic selection.
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -91,13 +91,15 @@ impl Mempool {
     #[must_use]
     pub fn select(&self, max_transactions: usize, capacity: Resources) -> Vec<&PoolEntry> {
         let mut candidates: Vec<_> = self.entries.values().collect();
-        candidates.sort_by_key(|entry| (core::cmp::Reverse(entry.priority), entry.sequence, entry.id));
+        candidates
+            .sort_by_key(|entry| (core::cmp::Reverse(entry.priority), entry.sequence, entry.id));
 
         let mut used = Resources::default();
         candidates
             .into_iter()
             .filter(|entry| {
-                let Some(next) = checked_add_resources(used, entry.transaction.resource_limit) else {
+                let Some(next) = checked_add_resources(used, entry.transaction.resource_limit)
+                else {
                     return false;
                 };
                 if next.compute > capacity.compute
@@ -152,7 +154,7 @@ pub enum MempoolError {
 #[cfg(test)]
 mod tests {
     use super::{Mempool, PoolEntry, PoolLimits};
-use types::{Address, Hash256, Resources, Transaction};
+    use types::{Address, Hash256, Resources, Transaction};
 
     fn entry(sender: u8, nonce: u64, id: u8, priority: u64, sequence: u64) -> PoolEntry {
         PoolEntry {

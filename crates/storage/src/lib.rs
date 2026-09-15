@@ -308,7 +308,12 @@ mod tests {
                 state_root,
                 receipts_root: Hash256::ZERO,
                 committee_root: Hash256::ZERO,
-                capacity: Resources { compute: 100, memory: 100, io: 100, bandwidth: 100 },
+                capacity: Resources {
+                    compute: 100,
+                    memory: 100,
+                    io: 100,
+                    bandwidth: 100,
+                },
             },
             transactions: Vec::new(),
         }
@@ -358,7 +363,10 @@ mod tests {
     fn commit_rejects_wrong_state_root() {
         let mut storage = InMemoryStorage::new();
         let batch = make_batch(0, Hash256::ZERO, Hash256([0xFF; 32]));
-        assert_eq!(storage.commit(&batch), Err(StorageError::VerificationFailed));
+        assert_eq!(
+            storage.commit(&batch),
+            Err(StorageError::VerificationFailed)
+        );
     }
 
     #[test]
@@ -391,7 +399,9 @@ mod tests {
         storage.snapshots.insert((0, 0), vec![1, 2, 3]);
 
         let mut exported = Vec::new();
-        storage.export_snapshot(cp, &mut VecSink(&mut exported)).unwrap();
+        storage
+            .export_snapshot(cp, &mut VecSink(&mut exported))
+            .unwrap();
         assert_eq!(exported.len(), 1);
         assert_eq!(exported[0], vec![1, 2, 3]);
     }
