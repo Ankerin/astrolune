@@ -1,0 +1,11 @@
+# Copyright (c) 2026 Astrolune contributors
+# SPDX-License-Identifier: MIT
+
+* text=auto eol=lf
+*.bat text eol=crlf
+*.ps1 text eol=crlf
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary

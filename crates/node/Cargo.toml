@@ -1,0 +1,22 @@
+# Copyright (c) 2026 Astrolune contributors
+# SPDX-License-Identifier: MIT
+
+[package]
+name = "node"
+description = "AstroLune node pipeline coordination"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+
+[dependencies]
+consensus = { path = "../consensus" }
+execution = { path = "../execution" }
+p2p = { path = "../p2p" }
+state = { path = "../state" }
+types = { path = "../types" }
+
+[lints]
+workspace = true

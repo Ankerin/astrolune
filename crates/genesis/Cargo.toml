@@ -1,0 +1,18 @@
+# Copyright (c) 2026 Astrolune contributors
+# SPDX-License-Identifier: MIT
+
+[package]
+name = "genesis"
+description = "Validated genesis configuration for AstroLune chains"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+
+[dependencies]
+types = { path = "../types" }
+
+[lints]
+workspace = true

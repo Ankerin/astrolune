@@ -1,0 +1,12 @@
+# Copyright (c) 2026 Astrolune contributors
+# SPDX-License-Identifier: MIT
+
+/target/
+*.log
+.env
+.env.*
+!.env.example
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db

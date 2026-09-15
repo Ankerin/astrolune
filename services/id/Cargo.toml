@@ -1,0 +1,19 @@
+# Copyright (c) 2026 Astrolune contributors
+# SPDX-License-Identifier: MIT
+
+[package]
+name = "id"
+description = "Wallet authorization protocol for AstroLune applications"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+
+[dependencies]
+crypto = { path = "../../crates/crypto" }
+types = { path = "../../crates/types" }
+
+[lints]
+workspace = true

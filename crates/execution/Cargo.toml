@@ -1,0 +1,20 @@
+# Copyright (c) 2026 Astrolune contributors
+# SPDX-License-Identifier: MIT
+
+[package]
+name = "execution"
+description = "Deterministic parallel execution interfaces for AstroLune"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+
+[dependencies]
+state = { path = "../state" }
+transaction = { path = "../transaction" }
+types = { path = "../types" }
+
+[lints]
+workspace = true

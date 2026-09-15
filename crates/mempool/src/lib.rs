@@ -1,0 +1,202 @@
+// Copyright (c) 2026 Astrolune contributors
+// SPDX-License-Identifier: MIT
+
+//! Bounded transaction admission and deterministic proposal selection.
+
+#![forbid(unsafe_code)]
+
+use std::collections::BTreeMap;
+
+    use types::{Address, Hash256, Resources, Transaction};
+
+/// Local transaction metadata used for deterministic selection.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct PoolEntry {
+    /// Canonical transaction identifier.
+    pub id: Hash256,
+    /// Canonical transaction.
+    pub transaction: Transaction,
+    /// Fee priority fixed at admission.
+    pub priority: u64,
+    /// Local monotonic admission sequence used only as a stable tie-breaker.
+    pub sequence: u64,
+}
+
+/// Item and byte bounds for local admission.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct PoolLimits {
+    /// Maximum resident transactions.
+    pub max_transactions: usize,
+    /// Maximum sum of canonical transaction bytes.
+    pub max_bytes: usize,
+}
+
+/// Deterministic in-memory reference pool.
+#[derive(Debug)]
+pub struct Mempool {
+    limits: PoolLimits,
+    entries: BTreeMap<(Address, u64), PoolEntry>,
+    bytes: usize,
+}
+
+impl Mempool {
+    /// Creates an empty bounded pool.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`MempoolError::InvalidLimits`] when either bound is zero.
+    pub fn new(limits: PoolLimits) -> Result<Self, MempoolError> {
+        if limits.max_transactions == 0 || limits.max_bytes == 0 {
+            return Err(MempoolError::InvalidLimits);
+        }
+        Ok(Self {
+            limits,
+            entries: BTreeMap::new(),
+            bytes: 0,
+        })
+    }
+
+    /// Inserts an entry under a unique sender and nonce.
+    ///
+    /// `encoded_len` must be the already validated canonical byte length.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`MempoolError`] for duplicates, conflicting sender nonces, or
+    /// configured item and byte capacity exhaustion.
+    pub fn insert(&mut self, entry: PoolEntry, encoded_len: usize) -> Result<(), MempoolError> {
+        if encoded_len > self.limits.max_bytes {
+            return Err(MempoolError::CapacityExceeded);
+        }
+        let key = (entry.transaction.sender, entry.transaction.nonce);
+        if self.entries.values().any(|current| current.id == entry.id) {
+            return Err(MempoolError::Duplicate);
+        }
+        if self.entries.contains_key(&key) {
+            return Err(MempoolError::ConflictingNonce);
+        }
+        if self.entries.len() == self.limits.max_transactions
+            || self.bytes.saturating_add(encoded_len) > self.limits.max_bytes
+        {
+            return Err(MempoolError::CapacityExceeded);
+        }
+        self.bytes += encoded_len;
+        self.entries.insert(key, entry);
+        Ok(())
+    }
+
+    /// Selects entries by descending priority and stable admission sequence.
+    ///
+    /// This is a reference local policy. Consensus commits the resulting order.
+    #[must_use]
+    pub fn select(&self, max_transactions: usize, capacity: Resources) -> Vec<&PoolEntry> {
+        let mut candidates: Vec<_> = self.entries.values().collect();
+        candidates.sort_by_key(|entry| (core::cmp::Reverse(entry.priority), entry.sequence, entry.id));
+
+        let mut used = Resources::default();
+        candidates
+            .into_iter()
+            .filter(|entry| {
+                let Some(next) = checked_add_resources(used, entry.transaction.resource_limit) else {
+                    return false;
+                };
+                if next.compute > capacity.compute
+                    || next.memory > capacity.memory
+                    || next.io > capacity.io
+                    || next.bandwidth > capacity.bandwidth
+                {
+                    return false;
+                }
+                used = next;
+                true
+            })
+            .take(max_transactions)
+            .collect()
+    }
+
+    /// Returns the resident transaction count.
+    #[must_use]
+    pub fn len(&self) -> usize {
+        self.entries.len()
+    }
+
+    /// Returns whether no transactions are resident.
+    #[must_use]
+    pub fn is_empty(&self) -> bool {
+        self.entries.is_empty()
+    }
+}
+
+fn checked_add_resources(left: Resources, right: Resources) -> Option<Resources> {
+    Some(Resources {
+        compute: left.compute.checked_add(right.compute)?,
+        memory: left.memory.checked_add(right.memory)?,
+        io: left.io.checked_add(right.io)?,
+        bandwidth: left.bandwidth.checked_add(right.bandwidth)?,
+    })
+}
+
+/// Local pool admission failures.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum MempoolError {
+    /// One or more configured bounds are zero.
+    InvalidLimits,
+    /// Transaction identifier already exists.
+    Duplicate,
+    /// The same sender and nonce already identify another transaction.
+    ConflictingNonce,
+    /// An item or byte bound would be exceeded.
+    CapacityExceeded,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{Mempool, PoolEntry, PoolLimits};
+use types::{Address, Hash256, Resources, Transaction};
+
+    fn entry(sender: u8, nonce: u64, id: u8, priority: u64, sequence: u64) -> PoolEntry {
+        PoolEntry {
+            id: Hash256([id; 32]),
+            transaction: Transaction {
+                chain_id: 1,
+                sender: Address([sender; 32]),
+                nonce,
+                access_list: Vec::new(),
+                resource_limit: Resources {
+                    compute: 1,
+                    memory: 1,
+                    io: 1,
+                    bandwidth: 1,
+                },
+                payload: Vec::new(),
+                signature: [0; 64],
+            },
+            priority,
+            sequence,
+        }
+    }
+
+    #[test]
+    fn selection_is_priority_then_sequence() {
+        let mut pool = Mempool::new(PoolLimits {
+            max_transactions: 3,
+            max_bytes: 30,
+        })
+        .expect("valid limits");
+        pool.insert(entry(1, 0, 1, 3, 2), 10).expect("insert");
+        pool.insert(entry(2, 0, 2, 5, 1), 10).expect("insert");
+        pool.insert(entry(3, 0, 3, 5, 0), 10).expect("insert");
+
+        let selected = pool.select(
+            3,
+            Resources {
+                compute: 3,
+                memory: 3,
+                io: 3,
+                bandwidth: 3,
+            },
+        );
+        let ids: Vec<_> = selected.iter().map(|entry| entry.id.0[0]).collect();
+        assert_eq!(ids, [3, 2, 1]);
+    }
+}

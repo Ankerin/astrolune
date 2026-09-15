@@ -1,0 +1,25 @@
+# Copyright (c) 2026 Astrolune contributors
+# SPDX-License-Identifier: MIT
+
+[package]
+name = "integration"
+description = "Workspace-level conformance tests for AstroLune"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+publish = false
+
+[dependencies]
+codec = { path = "../../crates/codec" }
+config = { path = "../../crates/config" }
+consensus = { path = "../../crates/consensus" }
+genesis = { path = "../../crates/genesis" }
+mempool = { path = "../../crates/mempool" }
+testkit = { path = "../../crates/testkit" }
+types = { path = "../../crates/types" }
+
+[lints]
+workspace = true

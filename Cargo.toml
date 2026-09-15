@@ -1,0 +1,51 @@
+# Copyright (c) 2026 Astrolune contributors
+# SPDX-License-Identifier: MIT
+
+[workspace]
+resolver = "3"
+members = [
+    "apps/cli",
+    "apps/daemon",
+    "crates/codec",
+    "crates/config",
+    "crates/consensus",
+    "crates/contract-sdk",
+    "crates/crypto",
+    "crates/execution",
+    "crates/genesis",
+    "crates/keystore",
+    "crates/mempool",
+    "crates/node",
+    "crates/p2p",
+    "crates/rpc",
+    "crates/runtime",
+    "crates/state",
+    "crates/storage",
+    "crates/sync",
+    "crates/telemetry",
+    "crates/testkit",
+    "crates/transaction",
+    "crates/types",
+    "services/dns",
+    "services/id",
+    "services/pages",
+    "services/proxy",
+    "tests/integration",
+    "tools/cargo-contract",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.93"
+license = "MIT"
+authors = ["Astrolune contributors"]
+repository = "https://github.com/astrolune-network/astrolune"
+
+[workspace.lints.rust]
+unsafe_code = "forbid"
+missing_docs = "warn"
+
+[workspace.lints.clippy]
+all = "warn"
+pedantic = "warn"
