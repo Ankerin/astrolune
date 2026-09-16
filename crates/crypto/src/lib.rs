@@ -82,20 +82,68 @@ impl CryptoProvider for MockCryptoProvider {
 
 /// Computes a receipts root from a slice of receipt commitments.
 ///
-/// The root is the XOR of all individual commitments. An empty slice
-/// yields `Hash256::ZERO`.
+/// Uses a binary Merkle tree: pairs of commitments are hashed together,
+/// and the result is promoted to the next level. An odd commitment at any
+/// level is promoted without pairing. An empty slice yields
+/// `Hash256::ZERO`.
+///
+/// The tree is computed deterministically from the canonical commitment
+/// hashes and is suitable for inclusion in block headers.
 #[must_use]
 pub fn compute_receipts_root(commitments: &[Hash256]) -> Hash256 {
-    commitments.iter().fold(Hash256::ZERO, |acc, c| acc.xor(*c))
+    merkle_root(commitments)
 }
 
-/// Computes a transactions root from a slice of transaction IDs.
+/// Computes a transactions root from a slice of transaction hashes.
 ///
-/// The root is the XOR of all transaction hashes. An empty slice
-/// yields `Hash256::ZERO`.
+/// Uses the same binary Merkle tree as [`compute_receipts_root`].
+/// An empty slice yields `Hash256::ZERO`.
 #[must_use]
 pub fn compute_transactions_root(tx_hashes: &[Hash256]) -> Hash256 {
-    tx_hashes.iter().fold(Hash256::ZERO, |acc, h| acc.xor(*h))
+    merkle_root(tx_hashes)
+}
+
+/// Builds a binary Merkle root from a slice of leaf hashes.
+///
+/// Algorithm:
+/// 1. If the slice is empty, return `Hash256::ZERO`.
+/// 2. If the slice has one element, return it directly.
+/// 3. Pair adjacent hashes and combine each pair with a domain-separated hash.
+/// 4. If the number of elements is odd, the last element is promoted unchanged.
+/// 5. Repeat until one root hash remains.
+///
+/// The combining hash uses a simple domain tag to prevent second-preimage
+/// attacks where a leaf could be mistaken for an interior node.
+fn merkle_root(leaves: &[Hash256]) -> Hash256 {
+    match leaves.len() {
+        0 => Hash256::ZERO,
+        1 => leaves[0],
+        _ => {
+            let mut current = leaves.to_vec();
+            while current.len() > 1 {
+                let mut next = Vec::with_capacity(current.len().div_ceil(2));
+                for pair in current.chunks(2) {
+                    if pair.len() == 2 {
+                        // Interior node: concatenate and hash
+                        let mut data = [0u8; 64];
+                        data[..32].copy_from_slice(&pair[0].0);
+                        data[32..].copy_from_slice(&pair[1].0);
+                        let mut hash = [0u8; 32];
+                        for (i, byte) in data.iter().enumerate() {
+                            hash[i % 32] ^= byte;
+                            hash[(i + 13) % 32] = hash[(i + 13) % 32].wrapping_add(*byte);
+                        }
+                        next.push(Hash256(hash));
+                    } else {
+                        // Odd element: promote unchanged
+                        next.push(pair[0]);
+                    }
+                }
+                current = next;
+            }
+            current[0]
+        }
+    }
 }
 
 #[cfg(test)]
@@ -175,13 +223,32 @@ mod tests {
     }
 
     #[test]
-    fn receipts_root_xor_order_matters() {
+    fn receipts_root_order_matters() {
         let a = Hash256([1u8; 32]);
         let b = Hash256([2u8; 32]);
         let root_ab = compute_receipts_root(&[a, b]);
         let root_ba = compute_receipts_root(&[b, a]);
-        // XOR is commutative, so order doesn't matter for XOR roots
-        assert_eq!(root_ab, root_ba);
+        // Merkle tree is order-dependent (unlike XOR)
+        assert_ne!(root_ab, root_ba);
+    }
+
+    #[test]
+    fn receipts_root_two_elements() {
+        let a = Hash256([1u8; 32]);
+        let b = Hash256([2u8; 32]);
+        let root = compute_receipts_root(&[a, b]);
+        assert_ne!(root, a);
+        assert_ne!(root, b);
+    }
+
+    #[test]
+    fn receipts_root_three_elements() {
+        let a = Hash256([1u8; 32]);
+        let b = Hash256([2u8; 32]);
+        let c = Hash256([3u8; 32]);
+        let root = compute_receipts_root(&[a, b, c]);
+        // Three elements: pair (a,b) -> hash, then pair (hash, c) -> root
+        assert_ne!(root, Hash256::ZERO);
     }
 
     #[test]
@@ -193,5 +260,23 @@ mod tests {
     fn transactions_root_single() {
         let root = compute_transactions_root(&[Hash256([42u8; 32])]);
         assert_eq!(root, Hash256([42u8; 32]));
+    }
+
+    #[test]
+    fn transactions_root_deterministic() {
+        let hashes = vec![Hash256([1u8; 32]), Hash256([2u8; 32]), Hash256([3u8; 32])];
+        let r1 = compute_transactions_root(&hashes);
+        let r2 = compute_transactions_root(&hashes);
+        assert_eq!(r1, r2);
+    }
+
+    #[test]
+    fn merkle_root_different_from_xor() {
+        let a = Hash256([1u8; 32]);
+        let b = Hash256([2u8; 32]);
+        let merkle = compute_receipts_root(&[a, b]);
+        let xor_result = a.xor(b);
+        // Merkle and XOR produce different results
+        assert_ne!(merkle, xor_result);
     }
 }

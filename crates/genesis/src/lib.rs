@@ -4,7 +4,10 @@
 //! Validated chain genesis parameters.
 
 #![forbid(unsafe_code)]
+#![allow(clippy::missing_errors_doc)]
 
+use codec::CanonicalEncode;
+use crypto::CryptoProvider;
 use types::{Address, Hash256, Resources, ValidatorId};
 
 /// Initial account allocation.
@@ -96,7 +99,7 @@ impl Genesis {
 /// Hashing boundary for canonical genesis bytes.
 pub trait GenesisCommitment {
     /// Returns the chain-binding genesis hash.
-    fn hash(&self, genesis: &Genesis) -> Hash256;
+    fn genesis_hash(&self, genesis: &Genesis) -> Hash256;
 }
 
 /// Genesis validation failures.
@@ -112,4 +115,194 @@ pub enum GenesisError {
     InvalidValidators,
     /// Allocations contain duplicate or unsorted addresses.
     InvalidAllocations,
+}
+
+// -- Canonical encoding for deterministic hashing --
+
+impl CanonicalEncode for Allocation {
+    fn encode(&self, output: &mut Vec<u8>) {
+        self.address.encode(output);
+        self.amount.encode(output);
+    }
+}
+
+impl CanonicalEncode for GenesisValidator {
+    #[allow(clippy::cast_possible_truncation)]
+    fn encode(&self, output: &mut Vec<u8>) {
+        self.id.encode(output);
+        // Encode u128 weight as two LE u64 parts for canonical representation
+        let low = self.weight as u64;
+        let high = (self.weight >> 64) as u64;
+        low.encode(output);
+        high.encode(output);
+    }
+}
+
+impl CanonicalEncode for Genesis {
+    fn encode(&self, output: &mut Vec<u8>) {
+        self.version.encode(output);
+        self.chain_id.encode(output);
+        self.capacity.encode(output);
+        // Encode usize fields as u64 for deterministic cross-platform encoding
+        (self.committee_size as u64).encode(output);
+        (self.rotation_count as u64).encode(output);
+        self.runtime_version.encode(output);
+
+        // Validators: length-prefixed canonically ordered list
+        (self.validators.len() as u64).encode(output);
+        for v in &self.validators {
+            v.encode(output);
+        }
+
+        // Allocations: length-prefixed canonically ordered list
+        (self.allocations.len() as u64).encode(output);
+        for a in &self.allocations {
+            a.encode(output);
+        }
+    }
+}
+
+/// Implementation of `GenesisCommitment` for any `CryptoProvider`.
+///
+/// Produces a domain-separated deterministic hash of the genesis configuration
+/// suitable for chain-binding and genesis validation.
+impl<C: CryptoProvider> GenesisCommitment for C {
+    fn genesis_hash(&self, genesis: &Genesis) -> Hash256 {
+        let encoded = genesis.to_bytes();
+        self.hash(types::domain::GENESIS, &encoded)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crypto::MockCryptoProvider;
+
+    fn valid_genesis() -> Genesis {
+        Genesis {
+            version: 1,
+            chain_id: 7,
+            capacity: Resources {
+                compute: 100,
+                memory: 100,
+                io: 100,
+                bandwidth: 100,
+            },
+            committee_size: 2,
+            rotation_count: 1,
+            runtime_version: 1,
+            validators: vec![
+                GenesisValidator {
+                    id: ValidatorId::from_bytes([1u8; 32]),
+                    weight: 100,
+                },
+                GenesisValidator {
+                    id: ValidatorId::from_bytes([2u8; 32]),
+                    weight: 200,
+                },
+            ],
+            allocations: vec![
+                Allocation {
+                    address: Address::from_bytes([0xAA; 32]),
+                    amount: 1000,
+                },
+                Allocation {
+                    address: Address::from_bytes([0xBB; 32]),
+                    amount: 2000,
+                },
+            ],
+        }
+    }
+
+    #[test]
+    fn genesis_validate_passes() {
+        let genesis = valid_genesis();
+        assert!(genesis.validate().is_ok());
+    }
+
+    // -- Canonical encoding tests --
+
+    #[test]
+    fn genesis_encoding_deterministic() {
+        let genesis = valid_genesis();
+        let e1 = genesis.to_bytes();
+        let e2 = genesis.to_bytes();
+        assert_eq!(e1, e2);
+    }
+
+    #[test]
+    fn genesis_encoding_differs_by_version() {
+        let mut g1 = valid_genesis();
+        g1.version = 1;
+        let mut g2 = valid_genesis();
+        g2.version = 2;
+        assert_ne!(g1.to_bytes(), g2.to_bytes());
+    }
+
+    #[test]
+    fn genesis_encoding_differs_by_chain_id() {
+        let mut g1 = valid_genesis();
+        g1.chain_id = 7;
+        let mut g2 = valid_genesis();
+        g2.chain_id = 8;
+        assert_ne!(g1.to_bytes(), g2.to_bytes());
+    }
+
+    #[test]
+    fn genesis_encoding_differs_by_validators() {
+        let mut g1 = valid_genesis();
+        g1.validators[0].weight = 100;
+        let mut g2 = valid_genesis();
+        g2.validators[0].weight = 200;
+        assert_ne!(g1.to_bytes(), g2.to_bytes());
+    }
+
+    #[test]
+    fn genesis_encoding_empty_allocations() {
+        let mut genesis = valid_genesis();
+        genesis.allocations.clear();
+        let encoded = genesis.to_bytes();
+        // Verify it can be roundtripped (no decoding impl yet, but encoding should succeed)
+        assert!(!encoded.is_empty());
+    }
+
+    #[test]
+    fn genesis_encoding_empty_validators_fails_validation() {
+        let mut genesis = valid_genesis();
+        genesis.validators.clear();
+        assert!(genesis.validate().is_err());
+    }
+
+    // -- GenesisCommitment tests --
+
+    #[test]
+    fn genesis_commitment_deterministic() {
+        let provider = MockCryptoProvider::new();
+        let genesis = valid_genesis();
+        let h1 = provider.genesis_hash(&genesis);
+        let h2 = provider.genesis_hash(&genesis);
+        assert_eq!(h1, h2);
+    }
+
+    #[test]
+    fn genesis_commitment_differs_by_chain_id() {
+        let _provider = MockCryptoProvider::new();
+        let mut g1 = valid_genesis();
+        g1.chain_id = 7;
+        let mut g2 = valid_genesis();
+        g2.chain_id = 8;
+        // Different chain IDs produce different canonical encodings
+        let e1 = g1.to_bytes();
+        let e2 = g2.to_bytes();
+        assert_ne!(e1, e2);
+    }
+
+    #[test]
+    fn genesis_commitment_non_zero() {
+        let provider = MockCryptoProvider::new();
+        let genesis = valid_genesis();
+        let hash = provider.genesis_hash(&genesis);
+        // With MockCryptoProvider, the hash of non-empty data is non-zero
+        assert!(!hash.is_zero());
+    }
 }

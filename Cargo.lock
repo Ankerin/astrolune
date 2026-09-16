@@ -70,6 +70,8 @@ dependencies = [
 name = "genesis"
 version = "0.1.0"
 dependencies = [
+ "codec",
+ "crypto",
  "types",
 ]
 

@@ -1,0 +1,26 @@
+# Copyright (c) 2026 Astrolune contributors
+# SPDX-License-Identifier: MIT
+
+[package]
+name = "codec-fuzz"
+version = "0.0.0"
+publish = false
+edition = "2021"
+
+[dependencies]
+libfuzzer-sys = "0.4"
+
+[dependencies.codec]
+path = ".."
+
+[[bin]]
+name = "decode_transaction"
+path = "fuzz_targets/decode_transaction.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "decode_block_header"
+path = "fuzz_targets/decode_block_header.rs"
+test = false
+doc = false

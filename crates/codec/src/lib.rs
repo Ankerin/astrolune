@@ -856,4 +856,362 @@ mod tests {
         let encoded = r.to_bytes();
         assert_eq!(encoded, [0u8; 32]);
     }
+
+    // -- Golden vectors: known Transaction encoding --
+
+    #[test]
+    fn golden_transaction_minimal() {
+        let tx = Transaction {
+            chain_id: 1,
+            sender: Address([0xAA; 32]),
+            nonce: 0,
+            access_list: Vec::new(),
+            resource_limit: Resources::ZERO,
+            payload: Vec::new(),
+            signature: [0xBB; 64],
+        };
+        let encoded = tx.to_bytes();
+        // Verify length: 4 (chain_id) + 32 (sender) + 8 (nonce) + 1 (list len)
+        //   + 32 (resource_limit) + 1 (payload len) + 64 (signature) = 142
+        assert_eq!(encoded.len(), 142);
+        // Verify roundtrip
+        let decoded = Transaction::decode(&encoded).unwrap();
+        assert_eq!(tx, decoded);
+    }
+
+    #[test]
+    fn golden_transaction_with_access_list() {
+        let tx = Transaction {
+            chain_id: 42,
+            sender: Address([0x11; 32]),
+            nonce: 99,
+            access_list: vec![StateKey(vec![1, 2, 3]), StateKey(vec![4, 5])],
+            resource_limit: Resources {
+                compute: 100,
+                memory: 200,
+                io: 300,
+                bandwidth: 400,
+            },
+            payload: vec![0xDE, 0xAD, 0xBE, 0xEF],
+            signature: [0xCC; 64],
+        };
+        let encoded = tx.to_bytes();
+        let decoded = Transaction::decode(&encoded).unwrap();
+        assert_eq!(tx, decoded);
+        // Verify access list encoding: 2 entries, each with length prefix + key bytes
+        // First key: 1 byte len (3 < 128) + 3 bytes = 4
+        // Second key: 1 byte len (2 < 128) + 2 bytes = 3
+        // List prefix: 1 byte (2 < 128)
+        // Total access list: 1 + 4 + 3 = 8
+        assert!(encoded.len() > 142);
+    }
+
+    #[test]
+    fn golden_block_header_all_zeros() {
+        let header = BlockHeader {
+            height: 0,
+            parent: Hash256::ZERO,
+            transactions_root: Hash256::ZERO,
+            state_root: Hash256::ZERO,
+            receipts_root: Hash256::ZERO,
+            committee_root: Hash256::ZERO,
+            capacity: Resources::ZERO,
+        };
+        let encoded = header.to_bytes();
+        assert_eq!(encoded, [0u8; 200]);
+        let decoded = BlockHeader::decode(&encoded).unwrap();
+        assert_eq!(header, decoded);
+    }
+
+    // -- Boundary: decoder rejects every error variant --
+
+    #[test]
+    fn decode_error_variants_are_distinct() {
+        let errors = [
+            DecodeError::Truncated,
+            DecodeError::LengthOverflow,
+            DecodeError::LimitExceeded,
+            DecodeError::NonCanonical,
+            DecodeError::Unsupported,
+            DecodeError::TrailingBytes,
+        ];
+        for (i, a) in errors.iter().enumerate() {
+            for (j, b) in errors.iter().enumerate() {
+                if i != j {
+                    assert_ne!(a, b);
+                }
+            }
+        }
+    }
+
+    // -- Exhaustive roundtrip: u8 all 256 values --
+
+    #[test]
+    fn u8_exhaustive_roundtrip() {
+        for v in 0u8..=255 {
+            let encoded = v.to_bytes();
+            assert_eq!(encoded.len(), 1);
+            let decoded = u8::decode(&encoded).unwrap();
+            assert_eq!(v, decoded);
+        }
+    }
+
+    // -- u16 boundary values --
+
+    #[test]
+    fn u16_boundary_values() {
+        let values = [0, 1, 127, 128, 255, 256, 1023, 1024, 32767, 32768, u16::MAX];
+        for v in values {
+            let encoded = v.to_bytes();
+            assert_eq!(encoded.len(), 2);
+            assert_eq!(u16::decode(&encoded).unwrap(), v);
+        }
+    }
+
+    // -- u32 boundary values --
+
+    #[test]
+    fn u32_boundary_values() {
+        let values = [0u32, 1, 255, 256, 65535, 65536, u32::MAX];
+        for v in values {
+            let encoded = v.to_bytes();
+            assert_eq!(encoded.len(), 4);
+            assert_eq!(u32::decode(&encoded).unwrap(), v);
+        }
+    }
+
+    // -- u64 boundary values --
+
+    #[test]
+    fn u64_boundary_values() {
+        let values: [u64; 8] = [0, 1, 255, 256, 65535, 65536, u64::from(u32::MAX), u64::MAX];
+        for v in values {
+            let encoded = v.to_bytes();
+            assert_eq!(encoded.len(), 8);
+            assert_eq!(u64::decode(&encoded).unwrap(), v);
+        }
+    }
+
+    // -- bool only valid values are 0 and 1 --
+
+    #[test]
+    fn bool_only_canonical_values_accepted() {
+        assert!(bool::decode(&[0]).unwrap());
+        assert!(!bool::decode(&[1]).unwrap()); // false is 0, true is 1
+        for v in 2..=255 {
+            assert_eq!(bool::decode(&[v]), Err(DecodeError::NonCanonical));
+        }
+    }
+
+    // -- Fixed-size array roundtrips --
+
+    #[test]
+    fn fixed_array_roundtrips() {
+        let arr1: [u8; 1] = [42];
+        assert_eq!(<[u8; 1]>::decode(&arr1.to_bytes()).unwrap(), arr1);
+
+        let arr4: [u8; 4] = [1, 2, 3, 4];
+        assert_eq!(<[u8; 4]>::decode(&arr4.to_bytes()).unwrap(), arr4);
+
+        let arr32: [u8; 32] = [0xAB; 32];
+        assert_eq!(<[u8; 32]>::decode(&arr32.to_bytes()).unwrap(), arr32);
+    }
+
+    // -- StateKey length boundary --
+
+    #[test]
+    fn state_key_length_boundary() {
+        // Exactly at max length (256) — should succeed
+        let max_key = StateKey::new(vec![0xAA; 256]).unwrap();
+        let encoded = max_key.to_bytes();
+        let decoded = StateKey::decode(&encoded).unwrap();
+        assert_eq!(max_key, decoded);
+
+        // Over max length — should fail during decode
+        let over_max = StateKey(vec![0xBB; 257]);
+        let encoded = over_max.to_bytes();
+        assert_eq!(StateKey::decode(&encoded), Err(DecodeError::LimitExceeded));
+    }
+
+    // -- Length prefix edge cases --
+
+    #[test]
+    fn length_prefix_exactly_127() {
+        // Length 127: fits in 7 bits, encoded as single byte
+        let data = vec![0xAA; 127];
+        let mut encoded = vec![127u8];
+        encoded.extend_from_slice(&data);
+        let mut decoder = Decoder::new(&encoded);
+        let len = decode_length(&mut decoder).unwrap();
+        assert_eq!(len, 127);
+        let result = decoder.read_exact(127).unwrap();
+        assert_eq!(result, &[0xAA; 127]);
+    }
+
+    #[test]
+    fn length_prefix_exactly_128() {
+        // Length 128: needs 5-byte encoding
+        let data = vec![0xBB; 128];
+        let mut encoded = vec![0x80u8];
+        encoded.extend_from_slice(&128u32.to_le_bytes());
+        encoded.extend_from_slice(&data);
+        let mut decoder = Decoder::new(&encoded);
+        let len = decode_length(&mut decoder).unwrap();
+        assert_eq!(len, 128);
+        let result = decoder.read_exact(128).unwrap();
+        assert_eq!(result, &[0xBB; 128]);
+    }
+
+    #[test]
+    fn length_prefix_zero() {
+        let mut decoder = Decoder::new(&[0u8]);
+        let len = decode_length(&mut decoder).unwrap();
+        assert_eq!(len, 0);
+        assert!(decoder.finish().is_ok());
+    }
+
+    // -- Decoder position tracking --
+
+    #[test]
+    fn decoder_tracks_position() {
+        let data = [1u8, 2, 3, 4, 5, 6, 7, 8];
+        let mut decoder = Decoder::new(&data);
+        assert_eq!(decoder.remaining(), 8);
+        let _ = decoder.read_u8();
+        assert_eq!(decoder.remaining(), 7);
+        let _ = decoder.read_u32();
+        assert_eq!(decoder.remaining(), 3);
+        let _ = decoder.read_exact(3).unwrap();
+        assert_eq!(decoder.remaining(), 0);
+    }
+
+    // -- Transaction with maximum access list --
+
+    #[test]
+    fn transaction_roundtrip_many_access_list_entries() {
+        let access_list: Vec<StateKey> = (0u8..100).map(|i| StateKey(vec![i; 10])).collect();
+        let tx = Transaction {
+            chain_id: u32::MAX,
+            sender: Address([0xFF; 32]),
+            nonce: u64::MAX,
+            access_list,
+            resource_limit: Resources {
+                compute: u64::MAX,
+                memory: u64::MAX,
+                io: u64::MAX,
+                bandwidth: u64::MAX,
+            },
+            payload: vec![0xDE; 512],
+            signature: [0xAD; 64],
+        };
+        let encoded = tx.to_bytes();
+        let decoded = Transaction::decode(&encoded).unwrap();
+        assert_eq!(tx, decoded);
+    }
+
+    // -- BlockHeader all-max values --
+
+    #[test]
+    fn block_header_roundtrip_all_max() {
+        let header = BlockHeader {
+            height: u64::MAX,
+            parent: Hash256([0xFF; 32]),
+            transactions_root: Hash256([0xFF; 32]),
+            state_root: Hash256([0xFF; 32]),
+            receipts_root: Hash256([0xFF; 32]),
+            committee_root: Hash256([0xFF; 32]),
+            capacity: Resources {
+                compute: u64::MAX,
+                memory: u64::MAX,
+                io: u64::MAX,
+                bandwidth: u64::MAX,
+            },
+        };
+        let encoded = header.to_bytes();
+        let decoded = BlockHeader::decode(&encoded).unwrap();
+        assert_eq!(header, decoded);
+    }
+
+    // -- Encoding is deterministic (same input -> same output) --
+
+    #[test]
+    fn encoding_determinism() {
+        for v in [0u64, 1, 42, u64::MAX / 2, u64::MAX] {
+            let e1 = v.to_bytes();
+            let e2 = v.to_bytes();
+            assert_eq!(e1, e2);
+        }
+    }
+
+    // -- Trailing byte rejection for all types --
+
+    #[test]
+    fn trailing_byte_rejection_all_types() {
+        // u8 with trailing byte
+        assert_eq!(u8::decode(&[0, 0xFF]), Err(DecodeError::TrailingBytes));
+        // u16 with trailing byte
+        assert_eq!(u16::decode(&[0, 0, 0xFF]), Err(DecodeError::TrailingBytes));
+        // u32 with trailing byte
+        assert_eq!(
+            u32::decode(&[0, 0, 0, 0, 0xFF]),
+            Err(DecodeError::TrailingBytes)
+        );
+        // u64 with trailing byte
+        assert_eq!(u64::decode(&[0; 9]), Err(DecodeError::TrailingBytes));
+        // bool with trailing byte
+        assert_eq!(bool::decode(&[0, 0xFF]), Err(DecodeError::TrailingBytes));
+        // Hash256 with trailing byte
+        let data = vec![0u8; 33];
+        assert_eq!(Hash256::decode(&data), Err(DecodeError::TrailingBytes));
+    }
+
+    // -- Truncation rejection for all types --
+
+    #[test]
+    fn truncation_rejection_all_types() {
+        // Each type requires exactly N bytes; fewer bytes must fail
+        assert!(u16::decode(&[0]).is_err());
+        assert!(u32::decode(&[0, 0]).is_err());
+        assert!(u64::decode(&[0; 7]).is_err());
+        assert!(Hash256::decode(&[0; 31]).is_err());
+        assert!(Address::decode(&[0; 31]).is_err());
+        assert!(ValidatorId::decode(&[0; 31]).is_err());
+    }
+
+    // -- Resources non-zero roundtrip --
+
+    #[test]
+    fn resources_nonzero_roundtrip() {
+        let r = Resources {
+            compute: 18_446_744_073_709_551_615,
+            memory: 123_456_789,
+            io: 987_654_321,
+            bandwidth: 42,
+        };
+        let encoded = r.to_bytes();
+        assert_eq!(encoded.len(), 32);
+        let decoded = Resources::decode(&encoded).unwrap();
+        assert_eq!(r, decoded);
+    }
+
+    // -- Mixed type sequence encoding --
+
+    #[test]
+    fn mixed_sequence_encoding() {
+        let mut output = Vec::new();
+        42u32.encode(&mut output);
+        Address([0x42; 32]).encode(&mut output);
+        true.encode(&mut output);
+        255u8.encode(&mut output);
+
+        let mut decoder = Decoder::new(&output);
+        assert_eq!(decoder.read_u32().unwrap(), 42);
+        let addr_bytes = decoder.read_fixed::<32>().unwrap();
+        assert_eq!(addr_bytes, [0x42; 32]);
+        let b = decoder.read_u8().unwrap();
+        assert_eq!(b, 1); // true = 1
+        let last = decoder.read_u8().unwrap();
+        assert_eq!(last, 255);
+        assert!(decoder.finish().is_ok());
+    }
 }

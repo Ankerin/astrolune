@@ -822,4 +822,433 @@ mod tests {
 
         assert!(!bad_child.validate_parent(&genesis));
     }
+
+    // -- Property-style comprehensive tests --
+
+    // Hash256 XOR properties
+
+    #[test]
+    fn hash256_xor_commutative() {
+        let a = Hash256([
+            1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24,
+            25, 26, 27, 28, 29, 30, 31, 32,
+        ]);
+        let b = Hash256([
+            32, 31, 30, 29, 28, 27, 26, 25, 24, 23, 22, 21, 20, 19, 18, 17, 16, 15, 14, 13, 12, 11,
+            10, 9, 8, 7, 6, 5, 4, 3, 2, 1,
+        ]);
+        assert_eq!(a.xor(b), b.xor(a));
+    }
+
+    #[test]
+    fn hash256_xor_self_yields_zero() {
+        let a = Hash256([42; 32]);
+        assert_eq!(a.xor(a), Hash256::ZERO);
+    }
+
+    #[test]
+    fn hash256_xor_zero_identity() {
+        for byte in 0u8..=255 {
+            let h = Hash256([byte; 32]);
+            assert_eq!(h.xor(Hash256::ZERO), h);
+            assert_eq!(Hash256::ZERO.xor(h), h);
+        }
+    }
+
+    // Hash256 display
+
+    #[test]
+    fn hash256_display_all_64_hex_chars() {
+        for byte in 0u8..=255 {
+            let hash = Hash256([byte; 32]);
+            let display = format!("{hash}");
+            assert_eq!(display.len(), 64);
+            assert!(display.chars().all(|c| c.is_ascii_hexdigit()));
+            assert!(display.chars().all(|c| !c.is_uppercase()));
+        }
+    }
+
+    // Address display
+
+    #[test]
+    fn address_display_all_start_with_0x() {
+        for byte in 0u8..=10 {
+            let addr = Address([byte; 32]);
+            let display = format!("{addr}");
+            assert!(display.starts_with("0x"));
+            assert_eq!(display.len(), 66);
+        }
+    }
+
+    // ValidatorId ordering
+
+    #[test]
+    fn validator_id_ordering_transitive() {
+        let a = ValidatorId([1; 32]);
+        let b = ValidatorId([2; 32]);
+        let c = ValidatorId([3; 32]);
+        assert!(a < b);
+        assert!(b < c);
+        assert!(a < c);
+    }
+
+    #[test]
+    fn validator_id_ordering_antisymmetric() {
+        let a = ValidatorId([5; 32]);
+        let b = ValidatorId([10; 32]);
+        assert!(a < b);
+        assert!(b >= a);
+    }
+
+    // Resources properties
+
+    #[test]
+    fn resources_fits_in_reflexive() {
+        let r = Resources {
+            compute: 100,
+            memory: 200,
+            io: 300,
+            bandwidth: 400,
+        };
+        assert!(r.fits_in(r));
+    }
+
+    #[test]
+    fn resources_fits_in_transitive() {
+        let a = Resources {
+            compute: 1,
+            memory: 2,
+            io: 3,
+            bandwidth: 4,
+        };
+        let b = Resources {
+            compute: 5,
+            memory: 6,
+            io: 7,
+            bandwidth: 8,
+        };
+        let c = Resources {
+            compute: 9,
+            memory: 10,
+            io: 11,
+            bandwidth: 12,
+        };
+        assert!(a.fits_in(b));
+        assert!(b.fits_in(c));
+        assert!(a.fits_in(c));
+    }
+
+    #[test]
+    fn resources_checked_add_none_on_overflow() {
+        let max = Resources {
+            compute: u64::MAX,
+            memory: 0,
+            io: 0,
+            bandwidth: 0,
+        };
+        let one = Resources {
+            compute: 1,
+            memory: 0,
+            io: 0,
+            bandwidth: 0,
+        };
+        assert!(max.checked_add(one).is_none());
+
+        let a = Resources {
+            compute: u64::MAX,
+            memory: u64::MAX,
+            io: 0,
+            bandwidth: 0,
+        };
+        let b = Resources {
+            compute: 0,
+            memory: 0,
+            io: 1,
+            bandwidth: 0,
+        };
+        assert!(a.checked_add(b).is_some()); // different classes don't overflow
+    }
+
+    #[test]
+    fn resources_checked_add_sum_correct() {
+        let values: &[(u64, u64)] = &[(0, 0), (1, 2), (100, 200), (u64::MAX - 1, 1)];
+        for &(a, b) in values {
+            let ra = Resources {
+                compute: a,
+                memory: 0,
+                io: 0,
+                bandwidth: 0,
+            };
+            let rb = Resources {
+                compute: b,
+                memory: 0,
+                io: 0,
+                bandwidth: 0,
+            };
+            if let Some(sum) = ra.checked_add(rb) {
+                assert_eq!(sum.compute, a.wrapping_add(b));
+            }
+        }
+    }
+
+    #[test]
+    fn resources_checked_mul_none_on_overflow() {
+        let big = Resources {
+            compute: u64::MAX,
+            memory: 0,
+            io: 0,
+            bandwidth: 0,
+        };
+        assert!(big.checked_mul(2).is_none());
+        assert!(big.checked_mul(1).is_some());
+        assert!(big.checked_mul(0).is_some());
+    }
+
+    #[test]
+    fn resources_saturating_add_never_exceeds_max() {
+        let a = Resources {
+            compute: u64::MAX,
+            memory: 0,
+            io: 0,
+            bandwidth: 0,
+        };
+        let b = Resources {
+            compute: 1,
+            memory: 0,
+            io: 0,
+            bandwidth: 0,
+        };
+        let sum = a.saturating_add(b);
+        assert_eq!(sum.compute, u64::MAX);
+    }
+
+    #[test]
+    fn resources_count_correct() {
+        assert_eq!(Resources::ZERO.count(), 0);
+        assert_eq!(
+            Resources {
+                compute: 1,
+                memory: 0,
+                io: 0,
+                bandwidth: 0
+            }
+            .count(),
+            1
+        );
+        assert_eq!(
+            Resources {
+                compute: 1,
+                memory: 1,
+                io: 0,
+                bandwidth: 0
+            }
+            .count(),
+            2
+        );
+        assert_eq!(
+            Resources {
+                compute: 1,
+                memory: 1,
+                io: 1,
+                bandwidth: 0
+            }
+            .count(),
+            3
+        );
+        assert_eq!(
+            Resources {
+                compute: 1,
+                memory: 1,
+                io: 1,
+                bandwidth: 1
+            }
+            .count(),
+            4
+        );
+    }
+
+    // BlockHeader hash determinism
+
+    #[test]
+    fn block_header_hash_deterministic_across_many_values() {
+        for h in [0, 1, 42, 1000, u64::MAX] {
+            let header = BlockHeader {
+                height: h,
+                parent: Hash256([0xAA; 32]),
+                transactions_root: Hash256([1u8; 32]),
+                state_root: Hash256([2u8; 32]),
+                receipts_root: Hash256([3u8; 32]),
+                committee_root: Hash256([4u8; 32]),
+                capacity: Resources {
+                    compute: 100,
+                    memory: 200,
+                    io: 300,
+                    bandwidth: 400,
+                },
+            };
+            let h1 = header.compute_hash();
+            let h2 = header.compute_hash();
+            assert_eq!(h1, h2);
+        }
+    }
+
+    #[test]
+    fn block_header_hash_differs_by_height() {
+        let make = |height| BlockHeader {
+            height,
+            parent: Hash256::ZERO,
+            transactions_root: Hash256::ZERO,
+            state_root: Hash256::ZERO,
+            receipts_root: Hash256::ZERO,
+            committee_root: Hash256::ZERO,
+            capacity: Resources::ZERO,
+        };
+        assert_ne!(make(0).compute_hash(), make(1).compute_hash());
+    }
+
+    #[test]
+    fn block_header_hash_differs_by_parent() {
+        let make = |parent| BlockHeader {
+            height: 1,
+            parent,
+            transactions_root: Hash256::ZERO,
+            state_root: Hash256::ZERO,
+            receipts_root: Hash256::ZERO,
+            committee_root: Hash256::ZERO,
+            capacity: Resources::ZERO,
+        };
+        assert_ne!(
+            make(Hash256([0; 32])).compute_hash(),
+            make(Hash256([1; 32])).compute_hash()
+        );
+    }
+
+    // ExecutionReceipt commitment determinism
+
+    #[test]
+    fn receipt_commitment_deterministic_across_variations() {
+        for succeeded in [true, false] {
+            for compute in [0, 1, u64::MAX] {
+                let receipt = ExecutionReceipt {
+                    transaction: Hash256([1u8; 32]),
+                    succeeded,
+                    resources: Resources {
+                        compute,
+                        memory: 0,
+                        io: 0,
+                        bandwidth: 0,
+                    },
+                    output_root: Hash256::ZERO,
+                };
+                let c1 = receipt.commitment();
+                let c2 = receipt.commitment();
+                assert_eq!(c1, c2);
+            }
+        }
+    }
+
+    #[test]
+    fn receipt_commitment_differs_on_success_flag() {
+        let r1 = ExecutionReceipt {
+            transaction: Hash256([1u8; 32]),
+            succeeded: true,
+            resources: Resources::ZERO,
+            output_root: Hash256::ZERO,
+        };
+        let mut r2 = r1.clone();
+        r2.succeeded = false;
+        assert_ne!(r1.commitment(), r2.commitment());
+    }
+
+    #[test]
+    fn receipt_commitment_differs_on_transaction() {
+        let r1 = ExecutionReceipt {
+            transaction: Hash256([1u8; 32]),
+            succeeded: true,
+            resources: Resources::ZERO,
+            output_root: Hash256::ZERO,
+        };
+        let mut r2 = r1.clone();
+        r2.transaction = Hash256([2u8; 32]);
+        assert_ne!(r1.commitment(), r2.commitment());
+    }
+
+    #[test]
+    fn receipt_commitment_differs_on_output_root() {
+        let r1 = ExecutionReceipt {
+            transaction: Hash256([1u8; 32]),
+            succeeded: true,
+            resources: Resources::ZERO,
+            output_root: Hash256::ZERO,
+        };
+        let mut r2 = r1.clone();
+        r2.output_root = Hash256([0xFF; 32]);
+        assert_ne!(r1.commitment(), r2.commitment());
+    }
+
+    // Domain tag exhaustive uniqueness
+
+    #[test]
+    fn domain_tags_pairwise_unique() {
+        let tags: &[&[u8]] = &[
+            domain::TRANSACTION,
+            domain::BLOCK_HEADER,
+            domain::POTB_WEIGHT,
+            domain::COMMITTEE,
+            domain::FINALITY,
+            domain::VRF_COMMITTEE,
+            domain::VRF_PRODUCER,
+            domain::GENESIS,
+            domain::STATE_ROOT,
+            domain::RECEIPT,
+        ];
+        for (i, a) in tags.iter().enumerate() {
+            for (j, b) in tags.iter().enumerate() {
+                if i != j {
+                    assert_ne!(a, b, "tags at {i} and {j} collide");
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn domain_tags_are_non_empty() {
+        let tags: &[&[u8]] = &[
+            domain::TRANSACTION,
+            domain::BLOCK_HEADER,
+            domain::POTB_WEIGHT,
+            domain::COMMITTEE,
+            domain::FINALITY,
+            domain::VRF_COMMITTEE,
+            domain::VRF_PRODUCER,
+            domain::GENESIS,
+            domain::STATE_ROOT,
+            domain::RECEIPT,
+        ];
+        for tag in tags {
+            assert!(!tag.is_empty());
+        }
+    }
+
+    #[test]
+    fn domain_tags_start_with_protocol_name() {
+        let tags: &[&[u8]] = &[
+            domain::TRANSACTION,
+            domain::BLOCK_HEADER,
+            domain::POTB_WEIGHT,
+            domain::COMMITTEE,
+            domain::FINALITY,
+            domain::VRF_COMMITTEE,
+            domain::VRF_PRODUCER,
+            domain::GENESIS,
+            domain::STATE_ROOT,
+            domain::RECEIPT,
+        ];
+        for tag in tags {
+            assert!(
+                tag.starts_with(b"astrolune."),
+                "tag doesn't start with 'astrolune.': {tag:?}"
+            );
+        }
+    }
 }
