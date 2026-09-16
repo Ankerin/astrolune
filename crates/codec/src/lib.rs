@@ -996,8 +996,8 @@ mod tests {
 
     #[test]
     fn bool_only_canonical_values_accepted() {
-        assert!(bool::decode(&[0]).unwrap());
-        assert!(!bool::decode(&[1]).unwrap()); // false is 0, true is 1
+        assert!(!bool::decode(&[0]).unwrap()); // 0 = false
+        assert!(bool::decode(&[1]).unwrap()); // 1 = true
         for v in 2..=255 {
             assert_eq!(bool::decode(&[v]), Err(DecodeError::NonCanonical));
         }
