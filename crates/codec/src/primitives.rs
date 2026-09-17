@@ -272,10 +272,7 @@ mod tests {
         assert_eq!(u64::decode(&[0; 9]), Err(DecodeError::TrailingBytes));
         assert_eq!(bool::decode(&[0, 0xFF]), Err(DecodeError::TrailingBytes));
         let data = vec![0u8; 33];
-        assert_eq!(
-            <[u8; 32]>::decode(&data),
-            Err(DecodeError::TrailingBytes)
-        );
+        assert_eq!(<[u8; 32]>::decode(&data), Err(DecodeError::TrailingBytes));
     }
 
     #[test]

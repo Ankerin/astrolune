@@ -8,7 +8,7 @@ use std::collections::BTreeMap;
 use crate::committee::Committee;
 use crate::error::ConsensusError;
 use crate::vote::{Vote, VotePhase};
-use crate::weight::{quorum_power, PotbWeight};
+use crate::weight::{PotbWeight, quorum_power};
 use types::{Hash256, ValidatorId};
 
 /// Fast-finality state machine boundary.

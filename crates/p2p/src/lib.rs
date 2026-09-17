@@ -11,7 +11,9 @@ pub mod frame;
 pub mod message;
 
 pub use error::NetworkError;
-pub use frame::{BoundedFrameDecoder, Frame, FrameDecoder, FrameEncoder, FRAME_HEADER_SIZE, MAX_FRAME_SIZE};
+pub use frame::{
+    BoundedFrameDecoder, FRAME_HEADER_SIZE, Frame, FrameDecoder, FrameEncoder, MAX_FRAME_SIZE,
+};
 pub use message::{CompactBlock, MessageKind, Reconstruction};
 
 #[cfg(test)]

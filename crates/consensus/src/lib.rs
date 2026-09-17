@@ -18,7 +18,7 @@ pub use error::ConsensusError;
 pub use finality::{BftFinalityEngine, FinalityEngine};
 pub use sampler::WeightedSampler;
 pub use vote::{Vote, VotePhase};
-pub use weight::{quorum_power, PotbWeight};
+pub use weight::{PotbWeight, quorum_power};
 
 #[cfg(test)]
 mod tests {

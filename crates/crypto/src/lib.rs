@@ -349,11 +349,7 @@ mod tests {
 
     #[test]
     fn merkle_root_deterministic() {
-        let leaves = vec![
-            Hash256([1u8; 32]),
-            Hash256([2u8; 32]),
-            Hash256([3u8; 32]),
-        ];
+        let leaves = vec![Hash256([1u8; 32]), Hash256([2u8; 32]), Hash256([3u8; 32])];
         let r1 = compute_receipts_root(&leaves);
         let r2 = compute_receipts_root(&leaves);
         assert_eq!(r1, r2);
@@ -371,11 +367,7 @@ mod tests {
 
     #[test]
     fn transactions_root_deterministic() {
-        let hashes = vec![
-            Hash256([1u8; 32]),
-            Hash256([2u8; 32]),
-            Hash256([3u8; 32]),
-        ];
+        let hashes = vec![Hash256([1u8; 32]), Hash256([2u8; 32]), Hash256([3u8; 32])];
         let r1 = compute_transactions_root(&hashes);
         let r2 = compute_transactions_root(&hashes);
         assert_eq!(r1, r2);

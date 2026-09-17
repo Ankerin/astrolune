@@ -109,7 +109,11 @@ impl StateDatabase for InMemoryState {
         Ok(())
     }
 
-    fn commit(&mut self, parent: Hash256, diffs: &[crate::diff::StateDiff]) -> Result<Hash256, StateError> {
+    fn commit(
+        &mut self,
+        parent: Hash256,
+        diffs: &[crate::diff::StateDiff],
+    ) -> Result<Hash256, StateError> {
         if self.root != parent {
             return Err(StateError::StaleSnapshot);
         }

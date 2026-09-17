@@ -10,7 +10,9 @@
 use crate::decoder::Decoder;
 use crate::error::DecodeError;
 use crate::traits::{CanonicalDecode, CanonicalEncode, DecodeAt, DecoderExt};
-use types::{Address, BlockHeader, ExecutionReceipt, Hash256, Resources, StateKey, Transaction, ValidatorId};
+use types::{
+    Address, BlockHeader, ExecutionReceipt, Hash256, Resources, StateKey, Transaction, ValidatorId,
+};
 
 impl CanonicalEncode for Hash256 {
     fn encode(&self, output: &mut Vec<u8>) {
@@ -514,10 +516,7 @@ mod tests {
 
         let over_max = StateKey(vec![0xBB; 257]);
         let encoded = over_max.to_bytes();
-        assert_eq!(
-            StateKey::decode(&encoded),
-            Err(DecodeError::LimitExceeded)
-        );
+        assert_eq!(StateKey::decode(&encoded), Err(DecodeError::LimitExceeded));
     }
 
     #[test]
@@ -526,10 +525,7 @@ mod tests {
         let data = vec![0u8; 33];
         assert_eq!(Hash256::decode(&data), Err(DecodeError::TrailingBytes));
         // Address with trailing byte
-        assert_eq!(
-            Address::decode(&[0u8; 33]),
-            Err(DecodeError::TrailingBytes)
-        );
+        assert_eq!(Address::decode(&[0u8; 33]), Err(DecodeError::TrailingBytes));
         // ValidatorId with trailing byte
         assert_eq!(
             ValidatorId::decode(&[0u8; 33]),
@@ -538,10 +534,7 @@ mod tests {
         // Resources with trailing byte
         let mut r_enc = vec![0u8; 32];
         r_enc.push(0xFF);
-        assert_eq!(
-            Resources::decode(&r_enc),
-            Err(DecodeError::TrailingBytes)
-        );
+        assert_eq!(Resources::decode(&r_enc), Err(DecodeError::TrailingBytes));
     }
 
     #[test]
@@ -770,8 +763,14 @@ mod tests {
             bandwidth: 0x3132333435363738,
         };
         let encoded = r.to_bytes();
-        assert_eq!(&encoded[0..8], &[0x08, 0x07, 0x06, 0x05, 0x04, 0x03, 0x02, 0x01]);
-        assert_eq!(&encoded[8..16], &[0x18, 0x17, 0x16, 0x15, 0x14, 0x13, 0x12, 0x11]);
+        assert_eq!(
+            &encoded[0..8],
+            &[0x08, 0x07, 0x06, 0x05, 0x04, 0x03, 0x02, 0x01]
+        );
+        assert_eq!(
+            &encoded[8..16],
+            &[0x18, 0x17, 0x16, 0x15, 0x14, 0x13, 0x12, 0x11]
+        );
     }
 
     #[test]

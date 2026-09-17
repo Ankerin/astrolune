@@ -5,7 +5,7 @@
 //! invariants before code enters the runtime.
 
 use crate::error::RuntimeError;
-use crate::version::{ContractModule, RuntimeVersion, DEFAULT_VERSION};
+use crate::version::{ContractModule, DEFAULT_VERSION, RuntimeVersion};
 use types::Hash256;
 
 /// Validates a canonical contract module before deployment.

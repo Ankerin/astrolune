@@ -197,14 +197,14 @@ mod tests {
     #[test]
     fn well_formed_envelope() {
         let env = make_envelope(0);
-        assert!(env.is_well-formed());
+        assert!(env.is_well - formed());
     }
 
     #[test]
     fn rejects_zero_signature() {
         let mut env = make_envelope(0);
         env.signature = [0u8; 64];
-        assert!(!env.is_well-formed());
+        assert!(!env.is_well - formed());
     }
 
     #[test]
