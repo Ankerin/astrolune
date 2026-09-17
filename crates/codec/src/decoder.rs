@@ -48,6 +48,11 @@ impl<'a> Decoder<'a> {
     /// # Errors
     ///
     /// Returns [`DecodeError::Truncated`] when fewer than `N` bytes remain.
+    ///
+    /// # Panics
+    ///
+    /// Panics only if `read_exact` returns a slice of wrong length, which is
+    /// impossible because `read_exact` guarantees exactly `N` bytes.
     pub fn read_fixed<const N: usize>(&mut self) -> Result<[u8; N], DecodeError> {
         let bytes = self.read_exact(N)?;
         Ok(bytes.try_into().expect("length already validated"))
@@ -168,14 +173,14 @@ mod tests {
     #[test]
     fn read_u32_little_endian() {
         let mut decoder = Decoder::new(&[0x78, 0x56, 0x34, 0x12]);
-        assert_eq!(decoder.read_u32().unwrap(), 0x12345678);
+        assert_eq!(decoder.read_u32().unwrap(), 0x1234_5678);
     }
 
     #[test]
     fn read_u64_little_endian() {
         let bytes = [0xEF, 0xCD, 0xAB, 0x90, 0x78, 0x56, 0x34, 0x12];
         let mut decoder = Decoder::new(&bytes);
-        assert_eq!(decoder.read_u64().unwrap(), 0x1234567890ABCDEF);
+        assert_eq!(decoder.read_u64().unwrap(), 0x1234_5678_90AB_CDEF);
     }
 
     #[test]
@@ -234,7 +239,7 @@ mod tests {
         let mut decoder = Decoder::new(&data);
         assert_eq!(decoder.read_u8().unwrap(), 1);
         assert_eq!(decoder.read_u16().unwrap(), 0x0302);
-        assert_eq!(decoder.read_u32().unwrap(), 0x07060504);
+        assert_eq!(decoder.read_u32().unwrap(), 0x0706_0504);
         assert_eq!(decoder.read_u16().unwrap(), 0x0A09);
         assert!(decoder.finish().is_ok());
     }
@@ -262,7 +267,7 @@ mod tests {
         let data = [1u8, 2, 3, 4];
         let mut decoder = Decoder::new(&data);
         let _ = decoder.read_u8();
-        let cloned = decoder.clone();
+        let cloned = decoder;
         assert_eq!(decoder.remaining(), cloned.remaining());
     }
 

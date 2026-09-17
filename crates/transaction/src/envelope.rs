@@ -75,31 +75,31 @@ impl Envelope {
         let chain_bytes = self.transaction.chain_id.to_le_bytes();
         let nonce_bytes = self.transaction.nonce.to_le_bytes();
         let mut idx = 0usize;
-        for &byte in chain_bytes.iter() {
+        for &byte in &chain_bytes {
             hash[idx % 32] ^= byte;
             let wrap = (idx + 7) % 32;
             hash[wrap] = hash[wrap].wrapping_add(byte);
             idx += 1;
         }
-        for &byte in self.transaction.sender.0.iter() {
+        for &byte in &self.transaction.sender.0 {
             hash[idx % 32] ^= byte;
             let wrap = (idx + 7) % 32;
             hash[wrap] = hash[wrap].wrapping_add(byte);
             idx += 1;
         }
-        for &byte in nonce_bytes.iter() {
+        for &byte in &nonce_bytes {
             hash[idx % 32] ^= byte;
             let wrap = (idx + 7) % 32;
             hash[wrap] = hash[wrap].wrapping_add(byte);
             idx += 1;
         }
-        for &byte in self.transaction.payload.iter() {
+        for &byte in &self.transaction.payload {
             hash[idx % 32] ^= byte;
             let wrap = (idx + 7) % 32;
             hash[wrap] = hash[wrap].wrapping_add(byte);
             idx += 1;
         }
-        for &byte in self.signature.iter() {
+        for &byte in &self.signature {
             hash[idx % 32] ^= byte;
             let wrap = (idx + 7) % 32;
             hash[wrap] = hash[wrap].wrapping_add(byte);
@@ -197,14 +197,14 @@ mod tests {
     #[test]
     fn well_formed_envelope() {
         let env = make_envelope(0);
-        assert!(env.is_well - formed());
+        assert!(env.is_well_formed());
     }
 
     #[test]
     fn rejects_zero_signature() {
         let mut env = make_envelope(0);
         env.signature = [0u8; 64];
-        assert!(!env.is_well - formed());
+        assert!(!env.is_well_formed());
     }
 
     #[test]

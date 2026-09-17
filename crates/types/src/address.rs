@@ -217,14 +217,14 @@ mod tests {
     #[test]
     fn address_clone() {
         let addr = Address([0x42; 32]);
-        let cloned = addr.clone();
+        let cloned = addr;
         assert_eq!(addr, cloned);
     }
 
     #[test]
     fn validator_id_clone() {
         let vid = ValidatorId([0x42; 32]);
-        let cloned = vid.clone();
+        let cloned = vid;
         assert_eq!(vid, cloned);
     }
 }

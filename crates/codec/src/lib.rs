@@ -39,6 +39,10 @@ pub const MAX_STATE_KEY_LEN: usize = 256;
 pub const PROTOCOL_VERSION: u16 = 1;
 
 /// Encodes a length as a compact prefix.
+///
+/// # Panics
+///
+/// Panics if `len > u32::MAX`.
 pub fn encode_length(len: usize, output: &mut Vec<u8>) {
     if len < 128 {
         output.push(u8::try_from(len).expect("length < 128 fits in u8"));

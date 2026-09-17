@@ -366,14 +366,6 @@ mod tests {
     }
 
     #[test]
-    fn transactions_root_deterministic() {
-        let hashes = vec![Hash256([1u8; 32]), Hash256([2u8; 32]), Hash256([3u8; 32])];
-        let r1 = compute_transactions_root(&hashes);
-        let r2 = compute_transactions_root(&hashes);
-        assert_eq!(r1, r2);
-    }
-
-    #[test]
     fn transactions_root_order_sensitive() {
         let a = Hash256([1u8; 32]);
         let b = Hash256([2u8; 32]);

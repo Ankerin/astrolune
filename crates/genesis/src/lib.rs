@@ -208,11 +208,14 @@ impl CanonicalDecode for Genesis {
             io: dec.read_u64()?,
             bandwidth: dec.read_u64()?,
         };
-        let committee_size = dec.read_u64()? as usize;
-        let rotation_count = dec.read_u64()? as usize;
+        let committee_size =
+            usize::try_from(dec.read_u64()?).map_err(|_| DecodeError::TrailingBytes)?;
+        let rotation_count =
+            usize::try_from(dec.read_u64()?).map_err(|_| DecodeError::TrailingBytes)?;
         let runtime_version = dec.read_u32()?;
 
-        let validator_len = dec.read_u64()? as usize;
+        let validator_len =
+            usize::try_from(dec.read_u64()?).map_err(|_| DecodeError::TrailingBytes)?;
         let mut validators = Vec::with_capacity(validator_len);
         for _ in 0..validator_len {
             let id = ValidatorId(dec.read_fixed::<32>()?);
@@ -224,7 +227,8 @@ impl CanonicalDecode for Genesis {
             });
         }
 
-        let allocation_len = dec.read_u64()? as usize;
+        let allocation_len =
+            usize::try_from(dec.read_u64()?).map_err(|_| DecodeError::TrailingBytes)?;
         let mut allocations = Vec::with_capacity(allocation_len);
         for _ in 0..allocation_len {
             let address = Address(dec.read_fixed::<32>()?);

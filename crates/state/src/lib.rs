@@ -22,6 +22,7 @@ pub use memory::InMemoryState;
 #[cfg(test)]
 mod tests {
     use super::*;
+    use codec::CanonicalEncode;
     use std::collections::BTreeMap;
     use types::{Hash256, StateKey};
 

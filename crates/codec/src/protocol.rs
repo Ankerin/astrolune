@@ -1,7 +1,7 @@
 // Copyright (c) 2026 Astrolune contributors
 // SPDX-License-Identifier: MIT
 
-//! Canonical encoding and decoding for AstroLune protocol types.
+//! Canonical encoding and decoding for `AstroLune` protocol types.
 //!
 //! Each protocol type has a single, unambiguous byte representation. All
 //! multi-byte integers are little-endian. Length-prefixed sequences use the
@@ -757,10 +757,10 @@ mod tests {
     #[test]
     fn canonical_encoding_little_endian() {
         let r = Resources {
-            compute: 0x0102030405060708,
-            memory: 0x1112131415161718,
-            io: 0x2122232425262728,
-            bandwidth: 0x3132333435363738,
+            compute: 0x0102_0304_0506_0708,
+            memory: 0x1112_1314_1516_1718,
+            io: 0x2122_2324_2526_2728,
+            bandwidth: 0x3132_3334_3536_3738,
         };
         let encoded = r.to_bytes();
         assert_eq!(
@@ -784,21 +784,21 @@ mod tests {
 
     #[test]
     fn transaction_decode_truncated_chain_id() {
-        let mut bytes = vec![0u8; 100];
+        let mut bytes = [0u8; 100];
         bytes[0] = 1;
         assert!(Transaction::decode(&bytes[..2]).is_err());
     }
 
     #[test]
     fn transaction_decode_truncated_sender() {
-        let mut bytes = vec![0u8; 100];
+        let mut bytes = [0u8; 100];
         bytes[0] = 1;
         assert!(Transaction::decode(&bytes[..5]).is_err());
     }
 
     #[test]
     fn transaction_decode_truncated_nonce() {
-        let mut bytes = vec![0u8; 100];
+        let mut bytes = [0u8; 100];
         bytes[0] = 1;
         assert!(Transaction::decode(&bytes[..36]).is_err());
     }
