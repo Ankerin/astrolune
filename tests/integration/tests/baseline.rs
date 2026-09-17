@@ -634,7 +634,7 @@ fn end_to_end_block_production() {
     let commit_batch = CommitBatch {
         block: Block {
             header: BlockHeader {
-                height: 1,
+                height: 0,
                 parent: parent_hash,
                 transactions_root: hash(99),
                 state_root: new_root,
@@ -648,7 +648,7 @@ fn end_to_end_block_production() {
         state_diffs: outputs.into_iter().map(|o| o.diff).collect(),
     };
     let cp = storage.commit(&commit_batch).expect("storage commit");
-    assert_eq!(cp.height, 1);
+    assert_eq!(cp.height, 0);
     assert_eq!(cp.state_root, new_root);
 
     let recovered = storage.recover().expect("recovers");
