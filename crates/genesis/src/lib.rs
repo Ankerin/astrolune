@@ -372,7 +372,93 @@ mod tests {
         let provider = MockCryptoProvider::new();
         let genesis = valid_genesis();
         let hash = provider.genesis_hash(&genesis);
-        // With MockCryptoProvider, the hash of non-empty data is non-zero
         assert!(!hash.is_zero());
+    }
+
+    #[test]
+    fn allocation_roundtrip() {
+        let alloc = Allocation {
+            address: Address::from_bytes([0xAA; 32]),
+            amount: 42,
+        };
+        let encoded = alloc.to_bytes();
+        let decoded = Allocation::decode(&encoded).unwrap();
+        assert_eq!(alloc, decoded);
+    }
+
+    #[test]
+    fn genesis_validator_roundtrip() {
+        let gv = GenesisValidator {
+            id: ValidatorId::from_bytes([0x55; 32]),
+            weight: u128::MAX,
+        };
+        let encoded = gv.to_bytes();
+        let decoded = GenesisValidator::decode(&encoded).unwrap();
+        assert_eq!(gv, decoded);
+    }
+
+    #[test]
+    fn genesis_validator_weight_zero_roundtrip() {
+        let gv = GenesisValidator {
+            id: ValidatorId::from_bytes([0x55; 32]),
+            weight: 0,
+        };
+        let encoded = gv.to_bytes();
+        let decoded = GenesisValidator::decode(&encoded).unwrap();
+        assert_eq!(gv, decoded);
+    }
+
+    #[test]
+    fn genesis_roundtrip() {
+        let genesis = valid_genesis();
+        let encoded = genesis.to_bytes();
+        let decoded = Genesis::decode(&encoded).unwrap();
+        assert_eq!(genesis, decoded);
+    }
+
+    #[test]
+    fn genesis_roundtrip_empty_lists() {
+        let mut genesis = valid_genesis();
+        genesis.validators.clear();
+        genesis.allocations.clear();
+        let encoded = genesis.to_bytes();
+        let decoded = Genesis::decode(&encoded).unwrap();
+        assert_eq!(genesis, decoded);
+    }
+
+    #[test]
+    fn genesis_roundtrip_single_validator() {
+        let mut genesis = valid_genesis();
+        genesis.validators.truncate(1);
+        let encoded = genesis.to_bytes();
+        let decoded = Genesis::decode(&encoded).unwrap();
+        assert_eq!(genesis, decoded);
+    }
+
+    #[test]
+    fn genesis_encoding_empty_allocations_comment_updated() {
+        let mut genesis = valid_genesis();
+        genesis.allocations.clear();
+        let encoded = genesis.to_bytes();
+        let decoded = Genesis::decode(&encoded).unwrap();
+        assert_eq!(genesis, decoded);
+    }
+
+    #[test]
+    fn allocation_encoding_deterministic() {
+        let alloc = Allocation {
+            address: Address::from_bytes([0xCC; 32]),
+            amount: 999,
+        };
+        assert_eq!(alloc.to_bytes(), alloc.to_bytes());
+    }
+
+    #[test]
+    fn genesis_encoding_differs_by_allocations() {
+        let mut g1 = valid_genesis();
+        g1.allocations[0].amount = 100;
+        let mut g2 = valid_genesis();
+        g2.allocations[0].amount = 200;
+        assert_ne!(g1.to_bytes(), g2.to_bytes());
     }
 }

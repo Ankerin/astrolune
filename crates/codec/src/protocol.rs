@@ -982,4 +982,131 @@ mod tests {
         assert!(ValidatorId::decode(&[0u8; 32]).is_ok());
         assert!(ValidatorId::decode(&[0u8; 33]).is_err());
     }
+
+    #[test]
+    fn execution_receipt_roundtrip() {
+        let receipt = ExecutionReceipt {
+            transaction: Hash256([0x01; 32]),
+            succeeded: true,
+            resources: Resources {
+                compute: 100,
+                memory: 200,
+                io: 300,
+                bandwidth: 400,
+            },
+            output_root: Hash256([0x02; 32]),
+        };
+        let encoded = receipt.to_bytes();
+        let decoded = ExecutionReceipt::decode(&encoded).unwrap();
+        assert_eq!(receipt, decoded);
+    }
+
+    #[test]
+    fn execution_receipt_roundtrip_all_zeros() {
+        let receipt = ExecutionReceipt {
+            transaction: Hash256::ZERO,
+            succeeded: false,
+            resources: Resources::ZERO,
+            output_root: Hash256::ZERO,
+        };
+        let encoded = receipt.to_bytes();
+        let decoded = ExecutionReceipt::decode(&encoded).unwrap();
+        assert_eq!(receipt, decoded);
+    }
+
+    #[test]
+    fn execution_receipt_roundtrip_all_max() {
+        let receipt = ExecutionReceipt {
+            transaction: Hash256([0xFF; 32]),
+            succeeded: true,
+            resources: Resources {
+                compute: u64::MAX,
+                memory: u64::MAX,
+                io: u64::MAX,
+                bandwidth: u64::MAX,
+            },
+            output_root: Hash256([0xFF; 32]),
+        };
+        let encoded = receipt.to_bytes();
+        let decoded = ExecutionReceipt::decode(&encoded).unwrap();
+        assert_eq!(receipt, decoded);
+    }
+
+    #[test]
+    fn execution_receipt_encoding_deterministic() {
+        let receipt = ExecutionReceipt {
+            transaction: Hash256([0xAA; 32]),
+            succeeded: true,
+            resources: Resources {
+                compute: 42,
+                memory: 43,
+                io: 44,
+                bandwidth: 45,
+            },
+            output_root: Hash256([0xBB; 32]),
+        };
+        assert_eq!(receipt.to_bytes(), receipt.to_bytes());
+    }
+
+    #[test]
+    fn execution_receipt_differs_by_succeeded() {
+        let r1 = ExecutionReceipt {
+            transaction: Hash256([1u8; 32]),
+            succeeded: true,
+            resources: Resources::ZERO,
+            output_root: Hash256::ZERO,
+        };
+        let r2 = ExecutionReceipt {
+            transaction: Hash256([1u8; 32]),
+            succeeded: false,
+            resources: Resources::ZERO,
+            output_root: Hash256::ZERO,
+        };
+        assert_ne!(r1.to_bytes(), r2.to_bytes());
+    }
+
+    #[test]
+    fn execution_receipt_differs_by_transaction() {
+        let r1 = ExecutionReceipt {
+            transaction: Hash256([1u8; 32]),
+            succeeded: true,
+            resources: Resources::ZERO,
+            output_root: Hash256::ZERO,
+        };
+        let r2 = ExecutionReceipt {
+            transaction: Hash256([2u8; 32]),
+            succeeded: true,
+            resources: Resources::ZERO,
+            output_root: Hash256::ZERO,
+        };
+        assert_ne!(r1.to_bytes(), r2.to_bytes());
+    }
+
+    #[test]
+    fn execution_receipt_truncation_rejection() {
+        let receipt = ExecutionReceipt {
+            transaction: Hash256([1u8; 32]),
+            succeeded: true,
+            resources: Resources::ZERO,
+            output_root: Hash256::ZERO,
+        };
+        let encoded = receipt.to_bytes();
+        assert!(ExecutionReceipt::decode(&encoded[..encoded.len() - 1]).is_err());
+    }
+
+    #[test]
+    fn execution_receipt_trailing_bytes_rejection() {
+        let receipt = ExecutionReceipt {
+            transaction: Hash256([1u8; 32]),
+            succeeded: true,
+            resources: Resources::ZERO,
+            output_root: Hash256::ZERO,
+        };
+        let mut encoded = receipt.to_bytes();
+        encoded.push(0xFF);
+        assert_eq!(
+            ExecutionReceipt::decode(&encoded),
+            Err(DecodeError::TrailingBytes)
+        );
+    }
 }

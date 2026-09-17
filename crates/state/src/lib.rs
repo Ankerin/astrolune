@@ -270,4 +270,46 @@ mod tests {
         let del = StateChange::Delete(key(2));
         assert_eq!(del.key(), &key(2));
     }
+
+    #[test]
+    fn state_diff_encode_empty() {
+        let diff = StateDiff::new();
+        let encoded = diff.to_bytes();
+        assert!(!encoded.is_empty());
+    }
+
+    #[test]
+    fn state_diff_encode_put() {
+        let mut diff = StateDiff::new();
+        diff.put(key(1), val(10));
+        let encoded = diff.to_bytes();
+        assert!(!encoded.is_empty());
+    }
+
+    #[test]
+    fn state_diff_encode_delete() {
+        let mut diff = StateDiff::new();
+        diff.delete(key(1));
+        let encoded = diff.to_bytes();
+        assert!(!encoded.is_empty());
+    }
+
+    #[test]
+    fn state_diff_encode_deterministic() {
+        let mut diff = StateDiff::new();
+        diff.put(key(1), val(10));
+        diff.put(key(2), val(20));
+        assert_eq!(diff.to_bytes(), diff.to_bytes());
+    }
+
+    #[test]
+    fn state_diff_encode_sorted_canonical() {
+        let mut diff = StateDiff::new();
+        diff.put(key(3), val(30));
+        diff.put(key(1), val(10));
+        diff.put(key(2), val(20));
+        diff.sort_canonical();
+        let encoded = diff.to_bytes();
+        assert!(!encoded.is_empty());
+    }
 }
