@@ -151,4 +151,125 @@ mod tests {
         let _ = decoder.read_exact(3).unwrap();
         assert_eq!(decoder.remaining(), 0);
     }
+
+    #[test]
+    fn read_u8_exact_one_byte() {
+        let mut decoder = Decoder::new(&[0x42]);
+        assert_eq!(decoder.read_u8().unwrap(), 0x42);
+        assert_eq!(decoder.remaining(), 0);
+    }
+
+    #[test]
+    fn read_u16_little_endian() {
+        let mut decoder = Decoder::new(&[0x34, 0x12]);
+        assert_eq!(decoder.read_u16().unwrap(), 0x1234);
+    }
+
+    #[test]
+    fn read_u32_little_endian() {
+        let mut decoder = Decoder::new(&[0x78, 0x56, 0x34, 0x12]);
+        assert_eq!(decoder.read_u32().unwrap(), 0x12345678);
+    }
+
+    #[test]
+    fn read_u64_little_endian() {
+        let bytes = [0xEF, 0xCD, 0xAB, 0x90, 0x78, 0x56, 0x34, 0x12];
+        let mut decoder = Decoder::new(&bytes);
+        assert_eq!(decoder.read_u64().unwrap(), 0x1234567890ABCDEF);
+    }
+
+    #[test]
+    fn read_exact_zero_length() {
+        let mut decoder = Decoder::new(&[1, 2, 3]);
+        let result = decoder.read_exact(0).unwrap();
+        assert_eq!(result, &[]);
+        assert_eq!(decoder.remaining(), 3);
+    }
+
+    #[test]
+    fn read_exact_full_length() {
+        let mut decoder = Decoder::new(&[1, 2, 3]);
+        let result = decoder.read_exact(3).unwrap();
+        assert_eq!(result, &[1, 2, 3]);
+        assert_eq!(decoder.remaining(), 0);
+    }
+
+    #[test]
+    fn read_exact_returns_error_on_truncation() {
+        let mut decoder = Decoder::new(&[1, 2]);
+        assert_eq!(decoder.read_exact(3), Err(DecodeError::Truncated));
+    }
+
+    #[test]
+    fn read_fixed_32_bytes() {
+        let data = [0xAB; 32];
+        let mut decoder = Decoder::new(&data);
+        let result = decoder.read_fixed::<32>().unwrap();
+        assert_eq!(result, [0xAB; 32]);
+        assert_eq!(decoder.remaining(), 0);
+    }
+
+    #[test]
+    fn read_fixed_returns_error_on_truncation() {
+        let data = [0xAB; 31];
+        let mut decoder = Decoder::new(&data);
+        assert_eq!(decoder.read_fixed::<32>(), Err(DecodeError::Truncated));
+    }
+
+    #[test]
+    fn finish_succeeds_on_empty() {
+        let decoder = Decoder::new(&[]);
+        assert!(decoder.finish().is_ok());
+    }
+
+    #[test]
+    fn finish_fails_on_remaining() {
+        let decoder = Decoder::new(&[1, 2, 3]);
+        assert_eq!(decoder.finish(), Err(DecodeError::TrailingBytes));
+    }
+
+    #[test]
+    fn sequential_reads() {
+        let data = [1u8, 2, 3, 4, 5, 6, 7, 8, 9, 10];
+        let mut decoder = Decoder::new(&data);
+        assert_eq!(decoder.read_u8().unwrap(), 1);
+        assert_eq!(decoder.read_u16().unwrap(), 0x0302);
+        assert_eq!(decoder.read_u32().unwrap(), 0x07060504);
+        assert_eq!(decoder.read_u16().unwrap(), 0x0A09);
+        assert!(decoder.finish().is_ok());
+    }
+
+    #[test]
+    fn read_u16_insufficient_bytes() {
+        let mut decoder = Decoder::new(&[0x01]);
+        assert_eq!(decoder.read_u16(), Err(DecodeError::Truncated));
+    }
+
+    #[test]
+    fn read_u32_insufficient_bytes() {
+        let mut decoder = Decoder::new(&[0x01, 0x02, 0x03]);
+        assert_eq!(decoder.read_u32(), Err(DecodeError::Truncated));
+    }
+
+    #[test]
+    fn read_u64_insufficient_bytes() {
+        let mut decoder = Decoder::new(&[0x01; 7]);
+        assert_eq!(decoder.read_u64(), Err(DecodeError::Truncated));
+    }
+
+    #[test]
+    fn clone_decoder() {
+        let data = [1u8, 2, 3, 4];
+        let mut decoder = Decoder::new(&data);
+        let _ = decoder.read_u8();
+        let cloned = decoder.clone();
+        assert_eq!(decoder.remaining(), cloned.remaining());
+    }
+
+    #[test]
+    fn debug_decoder() {
+        let decoder = Decoder::new(&[1, 2, 3]);
+        let debug = format!("{decoder:?}");
+        assert!(debug.contains("Decoder"));
+    }
 }

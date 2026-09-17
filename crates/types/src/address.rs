@@ -133,4 +133,98 @@ mod tests {
         assert!(a < b);
         assert!(b >= a);
     }
+
+    #[test]
+    fn address_from_bytes_roundtrips() {
+        let bytes = [0xAB; 32];
+        let addr = Address::from_bytes(bytes);
+        assert_eq!(addr.0, bytes);
+        assert_eq!(*addr.as_bytes(), bytes);
+    }
+
+    #[test]
+    fn validator_id_from_bytes_roundtrips() {
+        let bytes = [0xCD; 32];
+        let vid = ValidatorId::from_bytes(bytes);
+        assert_eq!(vid.0, bytes);
+        assert_eq!(*vid.as_bytes(), bytes);
+    }
+
+    #[test]
+    fn address_not_zero() {
+        let addr = Address([0xFF; 32]);
+        assert!(!addr.is_zero());
+    }
+
+    #[test]
+    fn validator_id_not_zero() {
+        let vid = ValidatorId([0xFF; 32]);
+        assert!(!vid.is_zero());
+    }
+
+    #[test]
+    fn address_display_hex_lowercase() {
+        let mut bytes = [0u8; 32];
+        bytes[0] = 0x0A;
+        bytes[1] = 0xFB;
+        bytes[2] = 0x00;
+        let addr = Address(bytes);
+        let display = format!("{addr}");
+        assert!(display.starts_with("0x0afb00"));
+        assert!(display.chars().all(|c| c.is_ascii_hexdigit() || c == 'x'));
+    }
+
+    #[test]
+    fn validator_id_display_hex_lowercase() {
+        let mut bytes = [0u8; 32];
+        bytes[0] = 0x0A;
+        bytes[1] = 0xFB;
+        bytes[2] = 0x00;
+        let vid = ValidatorId(bytes);
+        let display = format!("{vid}");
+        assert!(display.starts_with("0x0afb00"));
+        assert!(display.chars().all(|c| c.is_ascii_hexdigit() || c == 'x'));
+    }
+
+    #[test]
+    fn address_eq_reflexive() {
+        let addr = Address([0x42; 32]);
+        assert_eq!(addr, addr);
+    }
+
+    #[test]
+    fn address_eq_symmetric() {
+        let a = Address([0x42; 32]);
+        let b = Address([0x42; 32]);
+        assert_eq!(a, b);
+        assert_eq!(b, a);
+    }
+
+    #[test]
+    fn validator_id_eq_reflexive() {
+        let vid = ValidatorId([0x42; 32]);
+        assert_eq!(vid, vid);
+    }
+
+    #[test]
+    fn validator_id_eq_symmetric() {
+        let a = ValidatorId([0x42; 32]);
+        let b = ValidatorId([0x42; 32]);
+        assert_eq!(a, b);
+        assert_eq!(b, a);
+    }
+
+    #[test]
+    fn address_clone() {
+        let addr = Address([0x42; 32]);
+        let cloned = addr.clone();
+        assert_eq!(addr, cloned);
+    }
+
+    #[test]
+    fn validator_id_clone() {
+        let vid = ValidatorId([0x42; 32]);
+        let cloned = vid.clone();
+        assert_eq!(vid, cloned);
+    }
 }

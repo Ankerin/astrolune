@@ -276,7 +276,117 @@ mod tests {
         let b = Hash256([2u8; 32]);
         let merkle = compute_receipts_root(&[a, b]);
         let xor_result = a.xor(b);
-        // Merkle and XOR produce different results
         assert_ne!(merkle, xor_result);
+    }
+
+    #[test]
+    fn mock_hash_empty_domain() {
+        let provider = MockCryptoProvider::new();
+        let h1 = provider.hash(b"", b"message");
+        let h2 = provider.hash(b"", b"message");
+        assert_eq!(h1, h2);
+    }
+
+    #[test]
+    fn mock_hash_empty_message() {
+        let provider = MockCryptoProvider::new();
+        let h1 = provider.hash(b"domain", b"");
+        let h2 = provider.hash(b"domain", b"");
+        assert_eq!(h1, h2);
+    }
+
+    #[test]
+    fn mock_hash_empty_both() {
+        let provider = MockCryptoProvider::new();
+        let h1 = provider.hash(b"", b"");
+        let h2 = provider.hash(b"", b"");
+        assert_eq!(h1, h2);
+    }
+
+    #[test]
+    fn mock_signature_rejects_all_zero() {
+        let provider = MockCryptoProvider::new();
+        let signer = ValidatorId::from_bytes([1u8; 32]);
+        assert!(!provider.verify_signature(signer, b"test", &[0u8; 64]));
+    }
+
+    #[test]
+    fn mock_signature_accepts_nonzero() {
+        let provider = MockCryptoProvider::new();
+        let signer = ValidatorId::from_bytes([1u8; 32]);
+        let mut sig = [0u8; 64];
+        sig[0] = 1;
+        assert!(provider.verify_signature(signer, b"test", &sig));
+    }
+
+    #[test]
+    fn merkle_root_single_element() {
+        let a = Hash256([42u8; 32]);
+        let root = compute_receipts_root(&[a]);
+        assert_eq!(root, a);
+    }
+
+    #[test]
+    fn merkle_root_two_elements() {
+        let a = Hash256([1u8; 32]);
+        let b = Hash256([2u8; 32]);
+        let root = compute_receipts_root(&[a, b]);
+        assert_ne!(root, a);
+        assert_ne!(root, b);
+    }
+
+    #[test]
+    fn merkle_root_four_elements() {
+        let leaves = vec![
+            Hash256([1u8; 32]),
+            Hash256([2u8; 32]),
+            Hash256([3u8; 32]),
+            Hash256([4u8; 32]),
+        ];
+        let root = compute_receipts_root(&leaves);
+        assert_ne!(root, Hash256::ZERO);
+    }
+
+    #[test]
+    fn merkle_root_deterministic() {
+        let leaves = vec![
+            Hash256([1u8; 32]),
+            Hash256([2u8; 32]),
+            Hash256([3u8; 32]),
+        ];
+        let r1 = compute_receipts_root(&leaves);
+        let r2 = compute_receipts_root(&leaves);
+        assert_eq!(r1, r2);
+    }
+
+    #[test]
+    fn merkle_root_order_sensitive() {
+        let a = Hash256([1u8; 32]);
+        let b = Hash256([2u8; 32]);
+        let c = Hash256([3u8; 32]);
+        let abc = compute_receipts_root(&[a, b, c]);
+        let acb = compute_receipts_root(&[a, c, b]);
+        assert_ne!(abc, acb);
+    }
+
+    #[test]
+    fn transactions_root_deterministic() {
+        let hashes = vec![
+            Hash256([1u8; 32]),
+            Hash256([2u8; 32]),
+            Hash256([3u8; 32]),
+        ];
+        let r1 = compute_transactions_root(&hashes);
+        let r2 = compute_transactions_root(&hashes);
+        assert_eq!(r1, r2);
+    }
+
+    #[test]
+    fn transactions_root_order_sensitive() {
+        let a = Hash256([1u8; 32]);
+        let b = Hash256([2u8; 32]);
+        let r1 = compute_transactions_root(&[a, b]);
+        let r2 = compute_transactions_root(&[b, a]);
+        assert_ne!(r1, r2);
     }
 }

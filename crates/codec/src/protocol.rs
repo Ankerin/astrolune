@@ -756,4 +756,204 @@ mod tests {
         assert_eq!(hash.to_bytes(), addr.to_bytes());
         assert_eq!(addr.to_bytes(), vid.to_bytes());
     }
+
+    #[test]
+    fn transaction_decode_truncated_chain_id() {
+        let mut bytes = vec![0u8; 100];
+        bytes[0] = 1;
+        assert!(Transaction::decode(&bytes[..2]).is_err());
+    }
+
+    #[test]
+    fn transaction_decode_truncated_sender() {
+        let mut bytes = vec![0u8; 100];
+        bytes[0] = 1;
+        assert!(Transaction::decode(&bytes[..5]).is_err());
+    }
+
+    #[test]
+    fn transaction_decode_truncated_nonce() {
+        let mut bytes = vec![0u8; 100];
+        bytes[0] = 1;
+        assert!(Transaction::decode(&bytes[..36]).is_err());
+    }
+
+    #[test]
+    fn transaction_decode_truncated_signature() {
+        let tx = Transaction {
+            chain_id: 1,
+            sender: Address([0xAA; 32]),
+            nonce: 0,
+            access_list: Vec::new(),
+            resource_limit: Resources::ZERO,
+            payload: Vec::new(),
+            signature: [0xBB; 64],
+        };
+        let mut encoded = tx.to_bytes();
+        encoded.truncate(encoded.len() - 1);
+        assert!(Transaction::decode(&encoded).is_err());
+    }
+
+    #[test]
+    fn block_header_decode_truncated_height() {
+        let header = BlockHeader {
+            height: 1,
+            parent: Hash256([0xAA; 32]),
+            transactions_root: Hash256([0xBB; 32]),
+            state_root: Hash256([0xCC; 32]),
+            receipts_root: Hash256([0xDD; 32]),
+            committee_root: Hash256([0xEE; 32]),
+            capacity: Resources {
+                compute: 1,
+                memory: 2,
+                io: 3,
+                bandwidth: 4,
+            },
+        };
+        let encoded = header.to_bytes();
+        assert!(BlockHeader::decode(&encoded[..7]).is_err());
+    }
+
+    #[test]
+    fn block_header_decode_truncated_parent() {
+        let header = BlockHeader {
+            height: 1,
+            parent: Hash256([0xAA; 32]),
+            transactions_root: Hash256([0xBB; 32]),
+            state_root: Hash256([0xCC; 32]),
+            receipts_root: Hash256([0xDD; 32]),
+            committee_root: Hash256([0xEE; 32]),
+            capacity: Resources {
+                compute: 1,
+                memory: 2,
+                io: 3,
+                bandwidth: 4,
+            },
+        };
+        let encoded = header.to_bytes();
+        assert!(BlockHeader::decode(&encoded[..10]).is_err());
+    }
+
+    #[test]
+    fn state_key_decode_empty() {
+        let key = StateKey(Vec::new());
+        let encoded = key.to_bytes();
+        let decoded = StateKey::decode(&encoded).unwrap();
+        assert!(decoded.0.is_empty());
+    }
+
+    #[test]
+    fn state_key_decode_truncated() {
+        let mut encoded = vec![0x80];
+        encoded.extend_from_slice(&256u32.to_le_bytes());
+        encoded.extend_from_slice(&[0xAA; 200]);
+        assert!(StateKey::decode(&encoded).is_err());
+    }
+
+    #[test]
+    fn resources_decode_all_zero() {
+        let encoded = [0u8; 32];
+        let decoded = Resources::decode(&encoded).unwrap();
+        assert_eq!(decoded, Resources::ZERO);
+    }
+
+    #[test]
+    fn resources_decode_little_endian_order() {
+        let r = Resources {
+            compute: 0x01,
+            memory: 0x02,
+            io: 0x03,
+            bandwidth: 0x04,
+        };
+        let encoded = r.to_bytes();
+        assert_eq!(encoded[0], 0x01);
+        assert_eq!(encoded[8], 0x02);
+        assert_eq!(encoded[16], 0x03);
+        assert_eq!(encoded[24], 0x04);
+    }
+
+    #[test]
+    fn transaction_roundtrip_with_large_payload() {
+        let tx = Transaction {
+            chain_id: 1,
+            sender: Address([0xAA; 32]),
+            nonce: 100,
+            access_list: Vec::new(),
+            resource_limit: Resources {
+                compute: 1000,
+                memory: 2000,
+                io: 3000,
+                bandwidth: 4000,
+            },
+            payload: vec![0xBB; 1024],
+            signature: [0xCC; 64],
+        };
+        let encoded = tx.to_bytes();
+        let decoded = Transaction::decode(&encoded).unwrap();
+        assert_eq!(tx, decoded);
+    }
+
+    #[test]
+    fn transaction_roundtrip_with_multiple_access_list_entries() {
+        let access_list: Vec<StateKey> = (0..10).map(|i| StateKey(vec![i; 5])).collect();
+        let tx = Transaction {
+            chain_id: 42,
+            sender: Address([0x11; 32]),
+            nonce: 99,
+            access_list,
+            resource_limit: Resources {
+                compute: 100,
+                memory: 200,
+                io: 300,
+                bandwidth: 400,
+            },
+            payload: vec![0xDE, 0xAD, 0xBE, 0xEF],
+            signature: [0xCC; 64],
+        };
+        let encoded = tx.to_bytes();
+        let decoded = Transaction::decode(&encoded).unwrap();
+        assert_eq!(tx, decoded);
+    }
+
+    #[test]
+    fn block_header_roundtrip_with_large_capacity() {
+        let header = BlockHeader {
+            height: 1000,
+            parent: Hash256([0xAA; 32]),
+            transactions_root: Hash256([0xBB; 32]),
+            state_root: Hash256([0xCC; 32]),
+            receipts_root: Hash256([0xDD; 32]),
+            committee_root: Hash256([0xEE; 32]),
+            capacity: Resources {
+                compute: u64::MAX - 1,
+                memory: u64::MAX - 2,
+                io: u64::MAX - 3,
+                bandwidth: u64::MAX - 4,
+            },
+        };
+        let encoded = header.to_bytes();
+        let decoded = BlockHeader::decode(&encoded).unwrap();
+        assert_eq!(header, decoded);
+    }
+
+    #[test]
+    fn hash256_decode_various_lengths() {
+        assert!(Hash256::decode(&[0u8; 31]).is_err());
+        assert!(Hash256::decode(&[0u8; 32]).is_ok());
+        assert!(Hash256::decode(&[0u8; 33]).is_err());
+    }
+
+    #[test]
+    fn address_decode_various_lengths() {
+        assert!(Address::decode(&[0u8; 31]).is_err());
+        assert!(Address::decode(&[0u8; 32]).is_ok());
+        assert!(Address::decode(&[0u8; 33]).is_err());
+    }
+
+    #[test]
+    fn validator_id_decode_various_lengths() {
+        assert!(ValidatorId::decode(&[0u8; 31]).is_err());
+        assert!(ValidatorId::decode(&[0u8; 32]).is_ok());
+        assert!(ValidatorId::decode(&[0u8; 33]).is_err());
+    }
 }

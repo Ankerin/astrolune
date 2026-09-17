@@ -61,4 +61,96 @@ mod tests {
         assert!(key.is_empty());
         assert_eq!(key.len(), 0);
     }
+
+    #[test]
+    fn new_returns_some_for_valid_length() {
+        assert!(StateKey::new(vec![0u8; 0]).is_some());
+        assert!(StateKey::new(vec![0u8; 1]).is_some());
+        assert!(StateKey::new(vec![0u8; 128]).is_some());
+        assert!(StateKey::new(vec![0u8; 255]).is_some());
+        assert!(StateKey::new(vec![0u8; 256]).is_some());
+    }
+
+    #[test]
+    fn new_returns_none_for_excess_length() {
+        assert!(StateKey::new(vec![0u8; 257]).is_none());
+        assert!(StateKey::new(vec![0u8; 258]).is_none());
+        assert!(StateKey::new(vec![0u8; 1024]).is_none());
+    }
+
+    #[test]
+    fn as_bytes_returns_slice() {
+        let key = StateKey(vec![1, 2, 3, 4, 5]);
+        assert_eq!(key.as_bytes(), &[1, 2, 3, 4, 5]);
+    }
+
+    #[test]
+    fn len_returns_correct_length() {
+        let key = StateKey(vec![0u8; 42]);
+        assert_eq!(key.len(), 42);
+    }
+
+    #[test]
+    fn is_empty_correct() {
+        let empty = StateKey(Vec::new());
+        assert!(empty.is_empty());
+
+        let non_empty = StateKey(vec![0u8; 1]);
+        assert!(!non_empty.is_empty());
+    }
+
+    #[test]
+    fn state_key_clone() {
+        let key = StateKey(vec![1, 2, 3]);
+        let cloned = key.clone();
+        assert_eq!(key, cloned);
+    }
+
+    #[test]
+    fn state_key_eq_reflexive() {
+        let key = StateKey(vec![1, 2, 3]);
+        assert_eq!(key, key);
+    }
+
+    #[test]
+    fn state_key_eq_symmetric() {
+        let a = StateKey(vec![1, 2, 3]);
+        let b = StateKey(vec![1, 2, 3]);
+        assert_eq!(a, b);
+        assert_eq!(b, a);
+    }
+
+    #[test]
+    fn state_key_ord() {
+        let a = StateKey(vec![1, 2, 3]);
+        let b = StateKey(vec![1, 2, 4]);
+        assert!(a < b);
+    }
+
+    #[test]
+    fn state_key_ord_equal() {
+        let a = StateKey(vec![1, 2, 3]);
+        let b = StateKey(vec![1, 2, 3]);
+        assert!(a <= b);
+        assert!(a >= b);
+    }
+
+    #[test]
+    fn state_key_max_len_boundary() {
+        let max = StateKey::new(vec![0xAA; 256]);
+        assert!(max.is_some());
+        assert_eq!(max.unwrap().len(), 256);
+
+        let over = StateKey::new(vec![0xBB; 257]);
+        assert!(over.is_none());
+    }
+
+    #[test]
+    fn state_key_various_lengths() {
+        for len in [0, 1, 32, 64, 128, 256] {
+            let key = StateKey::new(vec![0u8; len]);
+            assert!(key.is_some());
+            assert_eq!(key.unwrap().len(), len);
+        }
+    }
 }
