@@ -381,13 +381,12 @@ mod tests {
 
         let block = CompactBlock {
             header: sample_header(),
-            short_ids: vec![100, 200, 300],
+            short_ids: vec![100, 300],
             prefilled: vec![(1, tx1.clone())],
         };
 
         let mut known = BTreeMap::new();
         known.insert(100, tx0.clone());
-        known.insert(200, tx1.clone());
         known.insert(300, tx2.clone());
 
         let result = block.reconstruct(&known);
