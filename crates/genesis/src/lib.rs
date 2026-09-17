@@ -117,8 +117,6 @@ pub enum GenesisError {
     InvalidAllocations,
 }
 
-// -- Canonical encoding for deterministic hashing --
-
 impl CanonicalEncode for Allocation {
     fn encode(&self, output: &mut Vec<u8>) {
         self.address.encode(output);
@@ -220,8 +218,6 @@ mod tests {
         assert!(genesis.validate().is_ok());
     }
 
-    // -- Canonical encoding tests --
-
     #[test]
     fn genesis_encoding_deterministic() {
         let genesis = valid_genesis();
@@ -272,8 +268,6 @@ mod tests {
         genesis.validators.clear();
         assert!(genesis.validate().is_err());
     }
-
-    // -- GenesisCommitment tests --
 
     #[test]
     fn genesis_commitment_deterministic() {

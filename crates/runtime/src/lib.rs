@@ -5,256 +5,20 @@
 
 #![forbid(unsafe_code)]
 
-use std::fmt;
+mod backend;
+mod error;
+mod validator;
+mod version;
 
-use types::{Hash256, Resources};
-
-/// Maximum allowed module code size in bytes (1 MiB).
-pub const MAX_MODULE_SIZE: usize = 1024 * 1024;
-
-/// Maximum allowed call input size in bytes (256 KiB).
-pub const MAX_INPUT_SIZE: usize = 256 * 1024;
-
-/// Maximum allowed call output size in bytes (256 KiB).
-pub const MAX_OUTPUT_SIZE: usize = 256 * 1024;
-
-/// Default runtime version used when no explicit version is provided.
-pub const DEFAULT_VERSION: RuntimeVersion = RuntimeVersion {
-    abi: 1,
-    metering: 1,
-};
-
-/// Consensus-controlled runtime identity.
-#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
-pub struct RuntimeVersion {
-    /// Contract semantics and host `ABI` version.
-    pub abi: u32,
-    /// Resource instrumentation schedule version.
-    pub metering: u32,
-}
-
-/// Canonical deployable module.
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub struct ContractModule {
-    /// Hash of validated canonical bytes.
-    pub code_hash: Hash256,
-    /// Required runtime version.
-    pub version: RuntimeVersion,
-    /// Canonical target bytes, never native machine code.
-    pub code: Vec<u8>,
-}
-
-/// Native artifact cache identity.
-#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
-pub struct ArtifactKey {
-    /// Canonical contract code.
-    pub code_hash: Hash256,
-    /// Runtime semantics and metering.
-    pub version: RuntimeVersion,
-    /// Deterministic compiler backend identity.
-    pub compiler: Hash256,
-    /// Target and enabled CPU feature identity.
-    pub target: Hash256,
-}
-
-/// Validates a canonical contract module before deployment.
-pub trait ModuleValidator {
-    /// Validates target features, imports, control flow, memory, and metering.
-    ///
-    /// # Errors
-    ///
-    /// Returns [`RuntimeError`] when the module is malformed, unsupported, or
-    /// exceeds configured limits.
-    fn validate(
-        &self,
-        bytes: &[u8],
-        version: RuntimeVersion,
-    ) -> Result<ContractModule, RuntimeError>;
-}
-
-/// Local execution backend class.
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub enum BackendKind {
-    /// Portable reference semantics.
-    Interpreter,
-    /// Ahead-of-time native compilation.
-    Aot,
-    /// Optional just-in-time native compilation.
-    Jit,
-}
-
-/// Output returned by a local runtime backend.
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub struct RuntimeOutput {
-    /// Canonical return bytes.
-    pub return_data: Vec<u8>,
-    /// Actual resource usage by class.
-    pub resources: Resources,
-}
-
-/// Executes canonical modules under deterministic host semantics.
-pub trait RuntimeBackend: Send + Sync {
-    /// Identifies the local backend class.
-    fn kind(&self) -> BackendKind;
-
-    /// Executes one call. Optimized backends must match the interpreter.
-    ///
-    /// # Errors
-    ///
-    /// Returns [`RuntimeError`] for deterministic traps and resource exhaustion.
-    fn execute(&self, module: &ContractModule, input: &[u8])
-    -> Result<RuntimeOutput, RuntimeError>;
-}
-
-/// Contract validation and execution failures.
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub enum RuntimeError {
-    /// Canonical module bytes are malformed.
-    InvalidModule,
-    /// Module requests an unsupported feature or version.
-    Unsupported,
-    /// Module or call exceeds a configured bound.
-    LimitExceeded,
-    /// Deterministic contract execution trapped.
-    Trap,
-}
-
-impl fmt::Display for RuntimeError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::InvalidModule => write!(f, "invalid module"),
-            Self::Unsupported => write!(f, "unsupported feature or version"),
-            Self::LimitExceeded => write!(f, "limit exceeded"),
-            Self::Trap => write!(f, "deterministic trap"),
-        }
-    }
-}
-
-impl std::error::Error for RuntimeError {}
-
-/// Simple module validator that enforces size limits and version matching.
-pub struct BasicModuleValidator {
-    /// Maximum allowed module code size in bytes.
-    max_size: usize,
-}
-
-impl BasicModuleValidator {
-    /// Creates a new validator with the given maximum module size.
-    #[must_use]
-    pub fn new(max_size: usize) -> Self {
-        Self { max_size }
-    }
-}
-
-impl ModuleValidator for BasicModuleValidator {
-    fn validate(
-        &self,
-        bytes: &[u8],
-        version: RuntimeVersion,
-    ) -> Result<ContractModule, RuntimeError> {
-        if version != DEFAULT_VERSION {
-            return Err(RuntimeError::Unsupported);
-        }
-        if bytes.is_empty() {
-            return Err(RuntimeError::InvalidModule);
-        }
-        if bytes.len() > self.max_size {
-            return Err(RuntimeError::LimitExceeded);
-        }
-        let code_hash = compute_hash(bytes);
-        Ok(ContractModule {
-            code_hash,
-            version,
-            code: bytes.to_vec(),
-        })
-    }
-}
-
-/// Interpreter backend that performs a simple deterministic byte transformation.
-pub struct InterpreterBackend {
-    /// Maximum allowed input size in bytes.
-    max_input: usize,
-    /// Maximum allowed output size in bytes.
-    max_output: usize,
-}
-
-impl InterpreterBackend {
-    /// Creates a new interpreter backend with the given size limits.
-    #[must_use]
-    pub fn new(max_input: usize, max_output: usize) -> Self {
-        Self {
-            max_input,
-            max_output,
-        }
-    }
-}
-
-impl RuntimeBackend for InterpreterBackend {
-    fn kind(&self) -> BackendKind {
-        BackendKind::Interpreter
-    }
-
-    fn execute(
-        &self,
-        module: &ContractModule,
-        input: &[u8],
-    ) -> Result<RuntimeOutput, RuntimeError> {
-        if input.len() > self.max_input {
-            return Err(RuntimeError::LimitExceeded);
-        }
-
-        let code_len = module.code.len();
-        if code_len == 0 {
-            return Err(RuntimeError::Trap);
-        }
-
-        let mut output = Vec::with_capacity(input.len());
-        for (i, &byte) in input.iter().enumerate() {
-            let key = module.code[i % code_len];
-            output.push(byte ^ key);
-        }
-
-        if output.len() > self.max_output {
-            return Err(RuntimeError::LimitExceeded);
-        }
-
-        let input_len = input.len() as u64;
-        let resources = Resources {
-            compute: input_len.saturating_mul(10),
-            memory: input_len,
-            io: input_len.saturating_mul(2),
-            bandwidth: input_len,
-        };
-
-        Ok(RuntimeOutput {
-            return_data: output,
-            resources,
-        })
-    }
-}
-
-/// Computes a deterministic 32-byte hash from input bytes.
-fn compute_hash(data: &[u8]) -> Hash256 {
-    let mut state = [0x6a09_e667_u32; 8];
-    for (i, &byte) in data.iter().enumerate() {
-        let word_idx = i % 8;
-        #[allow(clippy::cast_possible_truncation)] // index is bounded by data length
-        let idx = i as u32;
-        state[word_idx] = state[word_idx]
-            .wrapping_mul(0x9e37_79b9)
-            .wrapping_add(u32::from(byte))
-            .wrapping_add(idx);
-    }
-    let mut result = [0u8; 32];
-    for (i, word) in state.iter().enumerate() {
-        result[i * 4..i * 4 + 4].copy_from_slice(&word.to_le_bytes());
-    }
-    Hash256(result)
-}
+pub use backend::*;
+pub use error::*;
+pub use validator::*;
+pub use version::*;
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use types::{Hash256, Resources};
 
     fn test_module() -> Vec<u8> {
         vec![0xAA, 0xBB, 0xCC, 0xDD]
@@ -263,8 +27,6 @@ mod tests {
     fn test_version() -> RuntimeVersion {
         DEFAULT_VERSION
     }
-
-    // -- Display and Error --
 
     #[test]
     fn runtime_error_display() {
@@ -283,8 +45,6 @@ mod tests {
         assert!(err.source().is_none());
     }
 
-    // -- Constants --
-
     #[test]
     fn constants_are_correct() {
         assert_eq!(MAX_MODULE_SIZE, 1024 * 1024);
@@ -293,8 +53,6 @@ mod tests {
         assert_eq!(DEFAULT_VERSION.abi, 1);
         assert_eq!(DEFAULT_VERSION.metering, 1);
     }
-
-    // -- BasicModuleValidator --
 
     #[test]
     fn valid_module_accepted() {
@@ -374,8 +132,6 @@ mod tests {
         );
     }
 
-    // -- InterpreterBackend --
-
     #[test]
     fn interpreter_kind() {
         let backend = InterpreterBackend::new(MAX_INPUT_SIZE, MAX_OUTPUT_SIZE);
@@ -404,7 +160,6 @@ mod tests {
             .unwrap();
         let input = [0x01, 0x02, 0x03];
         let output = backend.execute(&module, &input).unwrap();
-        // All bytes XOR with the single code byte 0xFF
         assert_eq!(
             output.return_data,
             vec![0x01 ^ 0xFF, 0x02 ^ 0xFF, 0x03 ^ 0xFF]
@@ -463,9 +218,9 @@ mod tests {
             .unwrap();
         let input = vec![0x01; 10];
         let output = backend.execute(&module, &input).unwrap();
-        assert_eq!(output.resources.compute, 100); // 10 * 10
+        assert_eq!(output.resources.compute, 100);
         assert_eq!(output.resources.memory, 10);
-        assert_eq!(output.resources.io, 20); // 10 * 2
+        assert_eq!(output.resources.io, 20);
         assert_eq!(output.resources.bandwidth, 10);
     }
 
@@ -479,8 +234,6 @@ mod tests {
         assert_eq!(output.resources, Resources::ZERO);
     }
 
-    // -- Integration: validator + interpreter --
-
     #[test]
     fn roundtrip_validate_and_execute() {
         let validator = BasicModuleValidator::new(MAX_MODULE_SIZE);
@@ -491,7 +244,6 @@ mod tests {
         let input = vec![0x10, 0x20, 0x30];
         let output = backend.execute(&module, &input).unwrap();
 
-        // XOR with same bytes gives zeros
         assert_eq!(output.return_data, vec![0x00, 0x00, 0x00]);
     }
 

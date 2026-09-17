@@ -266,8 +266,6 @@ mod tests {
         ChainVerifier::new(genesis().compute_hash(), 1, 1)
     }
 
-    // -- SyncError display and error trait --
-
     #[test]
     fn sync_error_display_matches_variant() {
         let cases: &[(SyncError, &str)] = &[
@@ -288,8 +286,6 @@ mod tests {
         assert!(!err.to_string().is_empty());
     }
 
-    // -- ChainVerifier construction --
-
     #[test]
     fn chain_verifier_stores_config() {
         let v = ChainVerifier::new(Hash256([0xAA; 32]), 42, 7);
@@ -297,8 +293,6 @@ mod tests {
         assert_eq!(v.chain_id(), 42);
         assert_eq!(v.protocol_version(), 7);
     }
-
-    // -- verify_headers tests --
 
     #[test]
     fn valid_header_chain() {
@@ -366,8 +360,6 @@ mod tests {
         assert!(v.verify_headers(&headers).is_ok());
     }
 
-    // -- verify_block tests --
-
     #[test]
     fn valid_block_verification() {
         let g = genesis();
@@ -399,8 +391,6 @@ mod tests {
         let v = verifier();
         assert_eq!(v.verify_block(&block), Err(SyncError::CommitmentMismatch));
     }
-
-    // -- verify_snapshot tests --
 
     #[test]
     fn valid_snapshot_verification() {

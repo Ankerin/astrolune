@@ -1,0 +1,759 @@
+// Copyright (c) 2026 Astrolune contributors
+// SPDX-License-Identifier: MIT
+
+//! Canonical encoding and decoding for AstroLune protocol types.
+//!
+//! Each protocol type has a single, unambiguous byte representation. All
+//! multi-byte integers are little-endian. Length-prefixed sequences use the
+//! compact 1-byte / 5-byte encoding defined in the parent module.
+
+use crate::decoder::Decoder;
+use crate::error::DecodeError;
+use crate::traits::{CanonicalDecode, CanonicalEncode, DecodeAt, DecoderExt};
+use types::{Address, BlockHeader, Hash256, Resources, StateKey, Transaction, ValidatorId};
+
+impl CanonicalEncode for Hash256 {
+    fn encode(&self, output: &mut Vec<u8>) {
+        output.extend_from_slice(&self.0);
+    }
+}
+
+impl CanonicalDecode for Hash256 {
+    fn decode(bytes: &[u8]) -> Result<Self, DecodeError> {
+        let mut decoder = Decoder::new(bytes);
+        let value = decoder.read_fixed::<32>()?;
+        decoder.finish()?;
+        Ok(Self(value))
+    }
+}
+
+impl CanonicalEncode for Address {
+    fn encode(&self, output: &mut Vec<u8>) {
+        output.extend_from_slice(&self.0);
+    }
+}
+
+impl CanonicalDecode for Address {
+    fn decode(bytes: &[u8]) -> Result<Self, DecodeError> {
+        let mut decoder = Decoder::new(bytes);
+        let value = decoder.read_fixed::<32>()?;
+        decoder.finish()?;
+        Ok(Self(value))
+    }
+}
+
+impl CanonicalEncode for ValidatorId {
+    fn encode(&self, output: &mut Vec<u8>) {
+        output.extend_from_slice(&self.0);
+    }
+}
+
+impl CanonicalDecode for ValidatorId {
+    fn decode(bytes: &[u8]) -> Result<Self, DecodeError> {
+        let mut decoder = Decoder::new(bytes);
+        let value = decoder.read_fixed::<32>()?;
+        decoder.finish()?;
+        Ok(Self(value))
+    }
+}
+
+impl CanonicalEncode for StateKey {
+    fn encode(&self, output: &mut Vec<u8>) {
+        super::encode_bytes(&self.0, output);
+    }
+}
+
+impl CanonicalDecode for StateKey {
+    fn decode(bytes: &[u8]) -> Result<Self, DecodeError> {
+        let mut decoder = Decoder::new(bytes);
+        let key = super::decode_bytes(&mut decoder)?;
+        if key.len() > super::MAX_STATE_KEY_LEN {
+            return Err(DecodeError::LimitExceeded);
+        }
+        decoder.finish()?;
+        Ok(Self(key.to_vec()))
+    }
+}
+
+impl CanonicalEncode for Resources {
+    fn encode(&self, output: &mut Vec<u8>) {
+        self.compute.encode(output);
+        self.memory.encode(output);
+        self.io.encode(output);
+        self.bandwidth.encode(output);
+    }
+}
+
+impl CanonicalDecode for Resources {
+    fn decode(bytes: &[u8]) -> Result<Self, DecodeError> {
+        let mut decoder = Decoder::new(bytes);
+        let compute = decoder.read_u64()?;
+        let memory = decoder.read_u64()?;
+        let io = decoder.read_u64()?;
+        let bandwidth = decoder.read_u64()?;
+        decoder.finish()?;
+        Ok(Self {
+            compute,
+            memory,
+            io,
+            bandwidth,
+        })
+    }
+}
+
+impl CanonicalEncode for Transaction {
+    fn encode(&self, output: &mut Vec<u8>) {
+        self.chain_id.encode(output);
+        self.sender.encode(output);
+        self.nonce.encode(output);
+
+        // Access list: length-prefixed list of state keys
+        super::encode_length(self.access_list.len(), output);
+        for key in &self.access_list {
+            key.encode(output);
+        }
+
+        self.resource_limit.encode(output);
+        super::encode_bytes(&self.payload, output);
+        output.extend_from_slice(&self.signature);
+    }
+}
+
+impl CanonicalDecode for Transaction {
+    fn decode(bytes: &[u8]) -> Result<Self, DecodeError> {
+        let mut decoder = Decoder::new(bytes);
+
+        let chain_id = decoder.read_u32()?;
+
+        let sender_bytes = decoder.read_fixed::<32>()?;
+        let sender = Address(sender_bytes);
+
+        let nonce = decoder.read_u64()?;
+
+        let list_len = super::decode_length(&mut decoder)?;
+        if list_len > super::MAX_LIST_LEN {
+            return Err(DecodeError::LimitExceeded);
+        }
+        let mut access_list = Vec::with_capacity(list_len.min(super::MAX_LIST_LEN));
+        for _ in 0..list_len {
+            access_list.push(StateKey::decode_at(&mut decoder)?);
+        }
+
+        let resource_limit = Resources::decode_at(&mut decoder)?;
+
+        let payload_len = super::decode_length(&mut decoder)?;
+        if payload_len > super::MAX_PAYLOAD {
+            return Err(DecodeError::LimitExceeded);
+        }
+        let payload = decoder.read_exact(payload_len)?.to_vec();
+
+        let signature: [u8; 64] = decoder.read_fixed::<64>()?;
+
+        decoder.finish()?;
+
+        Ok(Self {
+            chain_id,
+            sender,
+            nonce,
+            access_list,
+            resource_limit,
+            payload,
+            signature,
+        })
+    }
+}
+
+impl CanonicalEncode for BlockHeader {
+    fn encode(&self, output: &mut Vec<u8>) {
+        self.height.encode(output);
+        self.parent.encode(output);
+        self.transactions_root.encode(output);
+        self.state_root.encode(output);
+        self.receipts_root.encode(output);
+        self.committee_root.encode(output);
+        self.capacity.encode(output);
+    }
+}
+
+impl CanonicalDecode for BlockHeader {
+    fn decode(bytes: &[u8]) -> Result<Self, DecodeError> {
+        let mut decoder = Decoder::new(bytes);
+
+        let height = decoder.read_u64()?;
+        let parent = Hash256(decoder.read_fixed::<32>()?);
+        let transactions_root = Hash256(decoder.read_fixed::<32>()?);
+        let state_root = Hash256(decoder.read_fixed::<32>()?);
+        let receipts_root = Hash256(decoder.read_fixed::<32>()?);
+        let committee_root = Hash256(decoder.read_fixed::<32>()?);
+        let capacity = Resources::decode_at(&mut decoder)?;
+
+        decoder.finish()?;
+
+        Ok(Self {
+            height,
+            parent,
+            transactions_root,
+            state_root,
+            receipts_root,
+            committee_root,
+            capacity,
+        })
+    }
+}
+
+impl<'a> DecoderExt<'a> for Decoder<'a> {
+    fn read_state_key(&mut self) -> Result<StateKey, DecodeError> {
+        let key = super::decode_bytes(self)?;
+        if key.len() > super::MAX_STATE_KEY_LEN {
+            return Err(DecodeError::LimitExceeded);
+        }
+        Ok(StateKey(key.to_vec()))
+    }
+
+    fn read_resources(&mut self) -> Result<Resources, DecodeError> {
+        let compute = self.read_u64()?;
+        let memory = self.read_u64()?;
+        let io = self.read_u64()?;
+        let bandwidth = self.read_u64()?;
+        Ok(Resources {
+            compute,
+            memory,
+            io,
+            bandwidth,
+        })
+    }
+}
+
+impl DecodeAt for StateKey {
+    fn decode_at(decoder: &mut Decoder<'_>) -> Result<Self, DecodeError> {
+        decoder.read_state_key()
+    }
+}
+
+impl DecodeAt for Resources {
+    fn decode_at(decoder: &mut Decoder<'_>) -> Result<Self, DecodeError> {
+        decoder.read_resources()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::traits::CanonicalEncode;
+
+    #[test]
+    fn hash256_roundtrip() {
+        let hash = Hash256([0xAB; 32]);
+        let encoded = hash.to_bytes();
+        assert_eq!(encoded.len(), 32);
+        let decoded = Hash256::decode(&encoded).unwrap();
+        assert_eq!(hash, decoded);
+    }
+
+    #[test]
+    fn address_roundtrip() {
+        let addr = Address([0x42; 32]);
+        let encoded = addr.to_bytes();
+        assert_eq!(encoded.len(), 32);
+        let decoded = Address::decode(&encoded).unwrap();
+        assert_eq!(addr, decoded);
+    }
+
+    #[test]
+    fn validator_id_roundtrip() {
+        let vid = ValidatorId([0x99; 32]);
+        let encoded = vid.to_bytes();
+        assert_eq!(encoded.len(), 32);
+        let decoded = ValidatorId::decode(&encoded).unwrap();
+        assert_eq!(vid, decoded);
+    }
+
+    #[test]
+    fn state_key_roundtrip() {
+        let key = StateKey(vec![1, 2, 3, 4, 5]);
+        let encoded = key.to_bytes();
+        let decoded = StateKey::decode(&encoded).unwrap();
+        assert_eq!(key, decoded);
+    }
+
+    #[test]
+    fn state_key_empty_roundtrip() {
+        let key = StateKey(Vec::new());
+        let encoded = key.to_bytes();
+        let decoded = StateKey::decode(&encoded).unwrap();
+        assert_eq!(key, decoded);
+    }
+
+    #[test]
+    fn resources_roundtrip() {
+        let r = Resources {
+            compute: 100,
+            memory: 200,
+            io: 300,
+            bandwidth: 400,
+        };
+        let encoded = r.to_bytes();
+        assert_eq!(encoded.len(), 32);
+        let decoded = Resources::decode(&encoded).unwrap();
+        assert_eq!(r, decoded);
+    }
+
+    #[test]
+    fn resources_nonzero_roundtrip() {
+        let r = Resources {
+            compute: 18_446_744_073_709_551_615,
+            memory: 123_456_789,
+            io: 987_654_321,
+            bandwidth: 42,
+        };
+        let encoded = r.to_bytes();
+        assert_eq!(encoded.len(), 32);
+        let decoded = Resources::decode(&encoded).unwrap();
+        assert_eq!(r, decoded);
+    }
+
+    #[test]
+    fn transaction_roundtrip() {
+        let tx = Transaction {
+            chain_id: 7,
+            sender: Address([1u8; 32]),
+            nonce: 42,
+            access_list: vec![StateKey(vec![10, 20])],
+            resource_limit: Resources {
+                compute: 100,
+                memory: 200,
+                io: 300,
+                bandwidth: 400,
+            },
+            payload: vec![0xDE, 0xAD],
+            signature: [0xBE; 64],
+        };
+        let encoded = tx.to_bytes();
+        let decoded = Transaction::decode(&encoded).unwrap();
+        assert_eq!(tx, decoded);
+    }
+
+    #[test]
+    fn transaction_empty_access_list() {
+        let tx = Transaction {
+            chain_id: 1,
+            sender: Address::ZERO,
+            nonce: 0,
+            access_list: Vec::new(),
+            resource_limit: Resources::ZERO,
+            payload: Vec::new(),
+            signature: [0; 64],
+        };
+        let encoded = tx.to_bytes();
+        let decoded = Transaction::decode(&encoded).unwrap();
+        assert_eq!(tx, decoded);
+    }
+
+    #[test]
+    fn transaction_roundtrip_many_access_list_entries() {
+        let access_list: Vec<StateKey> = (0u8..100).map(|i| StateKey(vec![i; 10])).collect();
+        let tx = Transaction {
+            chain_id: u32::MAX,
+            sender: Address([0xFF; 32]),
+            nonce: u64::MAX,
+            access_list,
+            resource_limit: Resources {
+                compute: u64::MAX,
+                memory: u64::MAX,
+                io: u64::MAX,
+                bandwidth: u64::MAX,
+            },
+            payload: vec![0xDE; 512],
+            signature: [0xAD; 64],
+        };
+        let encoded = tx.to_bytes();
+        let decoded = Transaction::decode(&encoded).unwrap();
+        assert_eq!(tx, decoded);
+    }
+
+    #[test]
+    fn block_header_roundtrip() {
+        let header = BlockHeader {
+            height: 100,
+            parent: Hash256([1u8; 32]),
+            transactions_root: Hash256([2u8; 32]),
+            state_root: Hash256([3u8; 32]),
+            receipts_root: Hash256([4u8; 32]),
+            committee_root: Hash256([5u8; 32]),
+            capacity: Resources {
+                compute: 10,
+                memory: 20,
+                io: 30,
+                bandwidth: 40,
+            },
+        };
+        let encoded = header.to_bytes();
+        let decoded = BlockHeader::decode(&encoded).unwrap();
+        assert_eq!(header, decoded);
+    }
+
+    #[test]
+    fn block_header_roundtrip_all_max() {
+        let header = BlockHeader {
+            height: u64::MAX,
+            parent: Hash256([0xFF; 32]),
+            transactions_root: Hash256([0xFF; 32]),
+            state_root: Hash256([0xFF; 32]),
+            receipts_root: Hash256([0xFF; 32]),
+            committee_root: Hash256([0xFF; 32]),
+            capacity: Resources {
+                compute: u64::MAX,
+                memory: u64::MAX,
+                io: u64::MAX,
+                bandwidth: u64::MAX,
+            },
+        };
+        let encoded = header.to_bytes();
+        let decoded = BlockHeader::decode(&encoded).unwrap();
+        assert_eq!(header, decoded);
+    }
+
+    #[test]
+    fn golden_resources_zero() {
+        let r = Resources::ZERO;
+        let encoded = r.to_bytes();
+        assert_eq!(encoded, [0u8; 32]);
+    }
+
+    #[test]
+    fn golden_transaction_minimal() {
+        let tx = Transaction {
+            chain_id: 1,
+            sender: Address([0xAA; 32]),
+            nonce: 0,
+            access_list: Vec::new(),
+            resource_limit: Resources::ZERO,
+            payload: Vec::new(),
+            signature: [0xBB; 64],
+        };
+        let encoded = tx.to_bytes();
+        // 4 (chain_id) + 32 (sender) + 8 (nonce) + 1 (list len)
+        //   + 32 (resource_limit) + 1 (payload len) + 64 (signature) = 142
+        assert_eq!(encoded.len(), 142);
+        let decoded = Transaction::decode(&encoded).unwrap();
+        assert_eq!(tx, decoded);
+    }
+
+    #[test]
+    fn golden_transaction_with_access_list() {
+        let tx = Transaction {
+            chain_id: 42,
+            sender: Address([0x11; 32]),
+            nonce: 99,
+            access_list: vec![StateKey(vec![1, 2, 3]), StateKey(vec![4, 5])],
+            resource_limit: Resources {
+                compute: 100,
+                memory: 200,
+                io: 300,
+                bandwidth: 400,
+            },
+            payload: vec![0xDE, 0xAD, 0xBE, 0xEF],
+            signature: [0xCC; 64],
+        };
+        let encoded = tx.to_bytes();
+        let decoded = Transaction::decode(&encoded).unwrap();
+        assert_eq!(tx, decoded);
+        // Access list: list prefix (1) + key1 (1+3) + key2 (1+2) = 8
+        assert!(encoded.len() > 142);
+    }
+
+    #[test]
+    fn golden_block_header_all_zeros() {
+        let header = BlockHeader {
+            height: 0,
+            parent: Hash256::ZERO,
+            transactions_root: Hash256::ZERO,
+            state_root: Hash256::ZERO,
+            receipts_root: Hash256::ZERO,
+            committee_root: Hash256::ZERO,
+            capacity: Resources::ZERO,
+        };
+        let encoded = header.to_bytes();
+        assert_eq!(encoded, [0u8; 200]);
+        let decoded = BlockHeader::decode(&encoded).unwrap();
+        assert_eq!(header, decoded);
+    }
+
+    #[test]
+    fn state_key_length_boundary() {
+        let max_key = StateKey::new(vec![0xAA; 256]).unwrap();
+        let encoded = max_key.to_bytes();
+        let decoded = StateKey::decode(&encoded).unwrap();
+        assert_eq!(max_key, decoded);
+
+        let over_max = StateKey(vec![0xBB; 257]);
+        let encoded = over_max.to_bytes();
+        assert_eq!(
+            StateKey::decode(&encoded),
+            Err(DecodeError::LimitExceeded)
+        );
+    }
+
+    #[test]
+    fn trailing_byte_rejection_protocol_types() {
+        // Hash256 with trailing byte
+        let data = vec![0u8; 33];
+        assert_eq!(Hash256::decode(&data), Err(DecodeError::TrailingBytes));
+        // Address with trailing byte
+        assert_eq!(
+            Address::decode(&[0u8; 33]),
+            Err(DecodeError::TrailingBytes)
+        );
+        // ValidatorId with trailing byte
+        assert_eq!(
+            ValidatorId::decode(&[0u8; 33]),
+            Err(DecodeError::TrailingBytes)
+        );
+        // Resources with trailing byte
+        let mut r_enc = vec![0u8; 32];
+        r_enc.push(0xFF);
+        assert_eq!(
+            Resources::decode(&r_enc),
+            Err(DecodeError::TrailingBytes)
+        );
+    }
+
+    #[test]
+    fn truncation_rejection_protocol_types() {
+        assert!(Hash256::decode(&[0u8; 31]).is_err());
+        assert!(Address::decode(&[0u8; 31]).is_err());
+        assert!(ValidatorId::decode(&[0u8; 31]).is_err());
+        // Resources needs exactly 32 bytes
+        assert!(Resources::decode(&[0u8; 31]).is_err());
+        assert!(Resources::decode(&[0u8; 33]).is_err());
+    }
+
+    #[test]
+    fn block_header_truncation() {
+        // BlockHeader is 200 bytes; fewer bytes must fail
+        assert!(BlockHeader::decode(&[0u8; 199]).is_err());
+        assert!(BlockHeader::decode(&[0u8; 201]).is_err());
+    }
+
+    #[test]
+    fn encoding_determinism_protocol_types() {
+        let hash = Hash256([0x42; 32]);
+        assert_eq!(hash.to_bytes(), hash.to_bytes());
+
+        let addr = Address([0x42; 32]);
+        assert_eq!(addr.to_bytes(), addr.to_bytes());
+
+        let r = Resources {
+            compute: 1,
+            memory: 2,
+            io: 3,
+            bandwidth: 4,
+        };
+        assert_eq!(r.to_bytes(), r.to_bytes());
+    }
+
+    #[test]
+    fn golden_hash256_zero() {
+        let hash = Hash256::ZERO;
+        let encoded = hash.to_bytes();
+        assert_eq!(encoded.len(), 32);
+        assert_eq!(encoded, [0u8; 32]);
+    }
+
+    #[test]
+    fn golden_hash256_one() {
+        let hash = Hash256([0x01; 32]);
+        let encoded = hash.to_bytes();
+        assert_eq!(encoded, [0x01; 32]);
+    }
+
+    #[test]
+    fn golden_hash256_max() {
+        let hash = Hash256([0xFF; 32]);
+        let encoded = hash.to_bytes();
+        assert_eq!(encoded, [0xFF; 32]);
+    }
+
+    #[test]
+    fn golden_address_zero() {
+        let addr = Address::ZERO;
+        let encoded = addr.to_bytes();
+        assert_eq!(encoded.len(), 32);
+        assert_eq!(encoded, [0u8; 32]);
+    }
+
+    #[test]
+    fn golden_address_one() {
+        let addr = Address([0x01; 32]);
+        let encoded = addr.to_bytes();
+        assert_eq!(encoded, [0x01; 32]);
+    }
+
+    #[test]
+    fn golden_validator_id_zero() {
+        let vid = ValidatorId([0u8; 32]);
+        let encoded = vid.to_bytes();
+        assert_eq!(encoded.len(), 32);
+        assert_eq!(encoded, [0u8; 32]);
+    }
+
+    #[test]
+    fn golden_validator_id_one() {
+        let vid = ValidatorId([0x01; 32]);
+        let encoded = vid.to_bytes();
+        assert_eq!(encoded, [0x01; 32]);
+    }
+
+    #[test]
+    fn golden_resources_all_ones() {
+        let r = Resources {
+            compute: 1,
+            memory: 1,
+            io: 1,
+            bandwidth: 1,
+        };
+        let encoded = r.to_bytes();
+        assert_eq!(encoded.len(), 32);
+        let decoded = Resources::decode(&encoded).unwrap();
+        assert_eq!(r, decoded);
+    }
+
+    #[test]
+    fn golden_resources_max_values() {
+        let r = Resources {
+            compute: u64::MAX,
+            memory: u64::MAX,
+            io: u64::MAX,
+            bandwidth: u64::MAX,
+        };
+        let encoded = r.to_bytes();
+        assert_eq!(encoded.len(), 32);
+        let decoded = Resources::decode(&encoded).unwrap();
+        assert_eq!(r, decoded);
+    }
+
+    #[test]
+    fn golden_state_key_empty() {
+        let key = StateKey(Vec::new());
+        let encoded = key.to_bytes();
+        let decoded = StateKey::decode(&encoded).unwrap();
+        assert_eq!(key, decoded);
+        assert_eq!(encoded.len(), 1); // length prefix only
+    }
+
+    #[test]
+    fn golden_state_key_one_byte() {
+        let key = StateKey(vec![0xAB]);
+        let encoded = key.to_bytes();
+        let decoded = StateKey::decode(&encoded).unwrap();
+        assert_eq!(key, decoded);
+        assert_eq!(encoded.len(), 2); // length prefix + 1 byte
+    }
+
+    #[test]
+    fn golden_state_key_max_length() {
+        let key = StateKey(vec![0xCD; 256]);
+        let encoded = key.to_bytes();
+        let decoded = StateKey::decode(&encoded).unwrap();
+        assert_eq!(key, decoded);
+        // 5 bytes (long length prefix) + 256 bytes
+        assert_eq!(encoded.len(), 261);
+    }
+
+    #[test]
+    fn golden_transaction_zero_nonce() {
+        let tx = Transaction {
+            chain_id: 0,
+            sender: Address::ZERO,
+            nonce: 0,
+            access_list: Vec::new(),
+            resource_limit: Resources::ZERO,
+            payload: Vec::new(),
+            signature: [0; 64],
+        };
+        let encoded = tx.to_bytes();
+        let decoded = Transaction::decode(&encoded).unwrap();
+        assert_eq!(tx, decoded);
+    }
+
+    #[test]
+    fn golden_transaction_max_nonce() {
+        let tx = Transaction {
+            chain_id: u32::MAX,
+            sender: Address([0xFF; 32]),
+            nonce: u64::MAX,
+            access_list: Vec::new(),
+            resource_limit: Resources::ZERO,
+            payload: Vec::new(),
+            signature: [0xFF; 64],
+        };
+        let encoded = tx.to_bytes();
+        let decoded = Transaction::decode(&encoded).unwrap();
+        assert_eq!(tx, decoded);
+    }
+
+    #[test]
+    fn golden_block_header_height_one() {
+        let header = BlockHeader {
+            height: 1,
+            parent: Hash256([0xAA; 32]),
+            transactions_root: Hash256([0xBB; 32]),
+            state_root: Hash256([0xCC; 32]),
+            receipts_root: Hash256([0xDD; 32]),
+            committee_root: Hash256([0xEE; 32]),
+            capacity: Resources {
+                compute: 1,
+                memory: 2,
+                io: 3,
+                bandwidth: 4,
+            },
+        };
+        let encoded = header.to_bytes();
+        let decoded = BlockHeader::decode(&encoded).unwrap();
+        assert_eq!(header, decoded);
+        assert_eq!(encoded.len(), 200);
+    }
+
+    #[test]
+    fn golden_block_header_max_height() {
+        let header = BlockHeader {
+            height: u64::MAX,
+            parent: Hash256([0xFF; 32]),
+            transactions_root: Hash256([0xFF; 32]),
+            state_root: Hash256([0xFF; 32]),
+            receipts_root: Hash256([0xFF; 32]),
+            committee_root: Hash256([0xFF; 32]),
+            capacity: Resources {
+                compute: u64::MAX,
+                memory: u64::MAX,
+                io: u64::MAX,
+                bandwidth: u64::MAX,
+            },
+        };
+        let encoded = header.to_bytes();
+        let decoded = BlockHeader::decode(&encoded).unwrap();
+        assert_eq!(header, decoded);
+    }
+
+    #[test]
+    fn canonical_encoding_little_endian() {
+        let r = Resources {
+            compute: 0x0102030405060708,
+            memory: 0x1112131415161718,
+            io: 0x2122232425262728,
+            bandwidth: 0x3132333435363738,
+        };
+        let encoded = r.to_bytes();
+        assert_eq!(&encoded[0..8], &[0x08, 0x07, 0x06, 0x05, 0x04, 0x03, 0x02, 0x01]);
+        assert_eq!(&encoded[8..16], &[0x18, 0x17, 0x16, 0x15, 0x14, 0x13, 0x12, 0x11]);
+    }
+
+    #[test]
+    fn canonical_encoding_no_inter_type_confusion() {
+        let hash = Hash256([0x42; 32]);
+        let addr = Address([0x42; 32]);
+        let vid = ValidatorId([0x42; 32]);
+        assert_eq!(hash.to_bytes(), addr.to_bytes());
+        assert_eq!(addr.to_bytes(), vid.to_bytes());
+    }
+}

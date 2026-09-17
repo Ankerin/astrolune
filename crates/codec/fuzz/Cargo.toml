@@ -24,3 +24,33 @@ name = "decode_block_header"
 path = "fuzz_targets/decode_block_header.rs"
 test = false
 doc = false
+
+[[bin]]
+name = "decode_hash256"
+path = "fuzz_targets/decode_hash256.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "decode_address"
+path = "fuzz_targets/decode_address.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "decode_resources"
+path = "fuzz_targets/decode_resources.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "decode_state_key"
+path = "fuzz_targets/decode_state_key.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "decode_validator_id"
+path = "fuzz_targets/decode_validator_id.rs"
+test = false
+doc = false
