@@ -13,7 +13,9 @@ repository.workspace = true
 publish = false
 
 [dependencies]
+config = { path = "../../crates/config" }
 node = { path = "../../crates/node" }
+types = { path = "../../crates/types" }
 
 [lints]
 workspace = true

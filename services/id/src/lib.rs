@@ -10,7 +10,13 @@
 #![forbid(unsafe_code)]
 #![allow(clippy::missing_errors_doc)]
 
-use types::Address;
+use std::collections::BTreeSet;
+
+use crypto::CryptoProvider;
+use types::{Address, ValidatorId};
+
+/// Domain tag for ID signature hashing.
+const ID_DOMAIN: &[u8] = b"astrolune.id.v1";
 
 /// One application capability requested from a wallet.
 #[derive(Clone, Debug, Eq, Ord, PartialEq, PartialOrd)]
@@ -70,4 +76,345 @@ pub enum IdError {
     Replay,
     /// Wallet signature is invalid.
     InvalidSignature,
+}
+
+impl std::fmt::Display for IdError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::InvalidChallenge => write!(f, "invalid challenge"),
+            Self::Expired => write!(f, "challenge expired"),
+            Self::Replay => write!(f, "nonce already consumed"),
+            Self::InvalidSignature => write!(f, "invalid signature"),
+        }
+    }
+}
+
+impl std::error::Error for IdError {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        None
+    }
+}
+
+impl AuthorizationChallenge {
+    /// Creates a new challenge with a deterministic nonce derived from the
+    /// field values via XOR-folding.
+    #[must_use]
+    pub fn new(
+        chain_id: u32,
+        origin: &str,
+        audience: &str,
+        scopes: &[Scope],
+        issued_at: u64,
+        expires_at: u64,
+    ) -> Self {
+        let mut nonce = [0u8; 32];
+        for (i, byte) in chain_id.to_le_bytes().iter().enumerate() {
+            nonce[i] ^= byte;
+        }
+        for (i, byte) in origin.as_bytes().iter().enumerate() {
+            nonce[i % 32] ^= byte;
+            nonce[(i + 7) % 32] = nonce[(i + 7) % 32].wrapping_add(*byte);
+        }
+        for (i, byte) in audience.as_bytes().iter().enumerate() {
+            nonce[i % 32] ^= byte;
+            nonce[(i + 13) % 32] = nonce[(i + 13) % 32].wrapping_add(*byte);
+        }
+        let mut sorted: Vec<&Scope> = scopes.iter().collect();
+        sorted.sort();
+        for scope in &sorted {
+            let tag = match scope {
+                Scope::Address => 0u8,
+                Scope::SignMessage => 1u8,
+                Scope::SubmitTransaction => 2u8,
+            };
+            nonce[0] ^= tag;
+            nonce[1] = nonce[1].wrapping_add(tag);
+        }
+        for (i, byte) in issued_at.to_le_bytes().iter().enumerate() {
+            nonce[(i + 4) % 32] ^= byte;
+        }
+        for (i, byte) in expires_at.to_le_bytes().iter().enumerate() {
+            nonce[(i + 8) % 32] ^= byte;
+        }
+
+        let mut challenge = Self {
+            chain_id,
+            origin: origin.to_owned(),
+            audience: audience.to_owned(),
+            nonce,
+            scopes: scopes.to_vec(),
+            issued_at,
+            expires_at,
+        };
+        // Recompute nonce from the now-owned fields for determinism.
+        challenge.nonce = Self::compute_nonce(
+            challenge.chain_id,
+            &challenge.origin,
+            &challenge.audience,
+            &challenge.scopes,
+            challenge.issued_at,
+            challenge.expires_at,
+        );
+        challenge
+    }
+
+    /// Returns `true` if `current_time` is at or past `expires_at`.
+    #[must_use]
+    pub fn is_expired(&self, current_time: u64) -> bool {
+        current_time >= self.expires_at
+    }
+
+    /// Deterministic canonical encoding for signing.
+    ///
+    /// Layout: `chain_id` LE (4) + `origin` bytes + `audience` bytes +
+    /// `nonce` (32) + sorted scope discriminant bytes + `issued_at` LE (8) +
+    /// `expires_at` LE (8).
+    #[must_use]
+    pub fn canonical_bytes(&self) -> Vec<u8> {
+        let mut out = Vec::new();
+        out.extend_from_slice(&self.chain_id.to_le_bytes());
+        out.extend_from_slice(self.origin.as_bytes());
+        out.extend_from_slice(self.audience.as_bytes());
+        out.extend_from_slice(&self.nonce);
+        let mut sorted: Vec<&Scope> = self.scopes.iter().collect();
+        sorted.sort();
+        for scope in &sorted {
+            let tag = match scope {
+                Scope::Address => 0u8,
+                Scope::SignMessage => 1u8,
+                Scope::SubmitTransaction => 2u8,
+            };
+            out.push(tag);
+        }
+        out.extend_from_slice(&self.issued_at.to_le_bytes());
+        out.extend_from_slice(&self.expires_at.to_le_bytes());
+        out
+    }
+
+    /// Deterministic nonce computation from raw field values.
+    fn compute_nonce(
+        chain_id: u32,
+        origin: &str,
+        audience: &str,
+        scopes: &[Scope],
+        issued_at: u64,
+        expires_at: u64,
+    ) -> [u8; 32] {
+        let mut nonce = [0u8; 32];
+        for (i, byte) in chain_id.to_le_bytes().iter().enumerate() {
+            nonce[i] ^= byte;
+        }
+        for (i, byte) in origin.as_bytes().iter().enumerate() {
+            nonce[i % 32] ^= byte;
+            nonce[(i + 7) % 32] = nonce[(i + 7) % 32].wrapping_add(*byte);
+        }
+        for (i, byte) in audience.as_bytes().iter().enumerate() {
+            nonce[i % 32] ^= byte;
+            nonce[(i + 13) % 32] = nonce[(i + 13) % 32].wrapping_add(*byte);
+        }
+        let mut sorted: Vec<&Scope> = scopes.iter().collect();
+        sorted.sort();
+        for scope in &sorted {
+            let tag = match scope {
+                Scope::Address => 0u8,
+                Scope::SignMessage => 1u8,
+                Scope::SubmitTransaction => 2u8,
+            };
+            nonce[0] ^= tag;
+            nonce[1] = nonce[1].wrapping_add(tag);
+        }
+        for (i, byte) in issued_at.to_le_bytes().iter().enumerate() {
+            nonce[(i + 4) % 32] ^= byte;
+        }
+        for (i, byte) in expires_at.to_le_bytes().iter().enumerate() {
+            nonce[(i + 8) % 32] ^= byte;
+        }
+        nonce
+    }
+}
+
+/// In-memory verifier that tracks consumed nonces and delegates signature
+/// checks to a [`CryptoProvider`].
+pub struct InMemoryVerifier {
+    consumed: BTreeSet<[u8; 32]>,
+    crypto: Box<dyn CryptoProvider>,
+}
+
+impl InMemoryVerifier {
+    /// Creates a new verifier wrapping the given crypto provider.
+    #[must_use]
+    pub fn new(crypto: Box<dyn CryptoProvider>) -> Self {
+        Self {
+            consumed: BTreeSet::new(),
+            crypto,
+        }
+    }
+}
+
+impl AuthorizationVerifier for InMemoryVerifier {
+    fn verify(&mut self, proof: &AuthorizationProof) -> Result<Vec<Scope>, IdError> {
+        if proof.challenge.is_expired(proof.challenge.issued_at) {
+            return Err(IdError::Expired);
+        }
+
+        if !self.consumed.insert(proof.challenge.nonce) {
+            return Err(IdError::Replay);
+        }
+
+        let canonical = proof.challenge.canonical_bytes();
+        let hash = self.crypto.hash(ID_DOMAIN, &canonical);
+        let signer = ValidatorId::from_bytes(*proof.address.as_bytes());
+        if !self
+            .crypto
+            .verify_signature(signer, hash.as_bytes(), &proof.signature)
+        {
+            self.consumed.remove(&proof.challenge.nonce);
+            return Err(IdError::InvalidSignature);
+        }
+
+        Ok(proof.challenge.scopes.clone())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crypto::MockCryptoProvider;
+
+    fn test_challenge() -> AuthorizationChallenge {
+        AuthorizationChallenge::new(
+            1,
+            "https://app.example.com",
+            "backend.example.com",
+            &[Scope::Address, Scope::SignMessage],
+            1_000,
+            1_100,
+        )
+    }
+
+    #[test]
+    fn challenge_creation() {
+        let c = test_challenge();
+        assert_eq!(c.chain_id, 1);
+        assert_eq!(c.origin, "https://app.example.com");
+        assert_eq!(c.audience, "backend.example.com");
+        assert_eq!(c.scopes, vec![Scope::Address, Scope::SignMessage]);
+        assert_eq!(c.issued_at, 1_000);
+        assert_eq!(c.expires_at, 1_100);
+    }
+
+    #[test]
+    fn canonical_bytes_deterministic() {
+        let c = test_challenge();
+        let b1 = c.canonical_bytes();
+        let b2 = c.canonical_bytes();
+        assert_eq!(b1, b2);
+    }
+
+    #[test]
+    fn canonical_bytes_differs_by_chain_id() {
+        let a = AuthorizationChallenge::new(1, "o", "a", &[Scope::Address], 0, 100);
+        let b = AuthorizationChallenge::new(2, "o", "a", &[Scope::Address], 0, 100);
+        assert_ne!(a.canonical_bytes(), b.canonical_bytes());
+    }
+
+    #[test]
+    fn canonical_bytes_differs_by_origin() {
+        let a = AuthorizationChallenge::new(1, "alpha", "a", &[Scope::Address], 0, 100);
+        let b = AuthorizationChallenge::new(1, "bravo", "a", &[Scope::Address], 0, 100);
+        assert_ne!(a.canonical_bytes(), b.canonical_bytes());
+    }
+
+    #[test]
+    fn canonical_bytes_differs_by_nonce() {
+        let mut a = test_challenge();
+        let mut b = test_challenge();
+        a.nonce[0] = 0;
+        b.nonce[0] = 1;
+        assert_ne!(a.canonical_bytes(), b.canonical_bytes());
+    }
+
+    #[test]
+    fn expired_check() {
+        let c = test_challenge();
+        assert!(!c.is_expired(1_000));
+        assert!(!c.is_expired(1_099));
+        assert!(c.is_expired(1_100));
+        assert!(c.is_expired(2_000));
+    }
+
+    #[test]
+    fn verify_happy_path() {
+        let challenge = test_challenge();
+        let signature = [0xAA; 64];
+        let proof = AuthorizationProof {
+            address: Address::from_bytes([1u8; 32]),
+            challenge,
+            signature,
+        };
+
+        let mut verifier = InMemoryVerifier::new(Box::new(MockCryptoProvider::new()));
+        let scopes = verifier.verify(&proof).unwrap();
+        assert_eq!(scopes, vec![Scope::Address, Scope::SignMessage]);
+    }
+
+    #[test]
+    fn verify_expired_rejected() {
+        let mut challenge = test_challenge();
+        challenge.expires_at = 500; // expires before issued_at
+        let proof = AuthorizationProof {
+            address: Address::from_bytes([1u8; 32]),
+            challenge,
+            signature: [0xAA; 64],
+        };
+
+        let mut verifier = InMemoryVerifier::new(Box::new(MockCryptoProvider::new()));
+        assert_eq!(verifier.verify(&proof), Err(IdError::Expired));
+    }
+
+    #[test]
+    fn verify_replay_rejected() {
+        let challenge = test_challenge();
+        let proof = AuthorizationProof {
+            address: Address::from_bytes([1u8; 32]),
+            challenge,
+            signature: [0xAA; 64],
+        };
+
+        let mut verifier = InMemoryVerifier::new(Box::new(MockCryptoProvider::new()));
+        let _scopes = verifier.verify(&proof).unwrap();
+
+        // Reusing the same nonce must fail.
+        let proof2 = AuthorizationProof {
+            address: Address::from_bytes([1u8; 32]),
+            challenge: test_challenge(), // same fields, same nonce
+            signature: [0xAA; 64],
+        };
+        assert_eq!(verifier.verify(&proof2), Err(IdError::Replay));
+    }
+
+    #[test]
+    fn verify_invalid_signature_rejected() {
+        let proof = AuthorizationProof {
+            address: Address::from_bytes([1u8; 32]),
+            challenge: test_challenge(),
+            signature: [0u8; 64], // all zeros is invalid under MockCryptoProvider
+        };
+
+        let mut verifier = InMemoryVerifier::new(Box::new(MockCryptoProvider::new()));
+        assert_eq!(verifier.verify(&proof), Err(IdError::InvalidSignature));
+    }
+
+    #[test]
+    fn verify_address_mismatch_rejected() {
+        let challenge = test_challenge();
+        let proof = AuthorizationProof {
+            address: Address::from_bytes([0xFF; 32]), // wrong address
+            challenge,
+            signature: [0xAA; 64],
+        };
+
+        let mut verifier = InMemoryVerifier::new(Box::new(MockCryptoProvider::new()));
+        assert_eq!(verifier.verify(&proof), Err(IdError::InvalidSignature));
+    }
 }

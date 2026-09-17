@@ -12,5 +12,10 @@ authors.workspace = true
 repository.workspace = true
 publish = false
 
+[dependencies]
+config = { path = "../../crates/config" }
+keystore = { path = "../../crates/keystore" }
+types = { path = "../../crates/types" }
+
 [lints]
 workspace = true
