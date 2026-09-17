@@ -42,7 +42,7 @@ pub fn transaction(sender: u8, nonce: u64) -> Transaction {
     let mut sig = [0u8; 64];
     sig[0] = sender; // non-zero signature for validation
     Transaction {
-        chain_id: 1,
+        chain_id: 7,
         sender: address(sender),
         nonce,
         access_list: Vec::new(),
