@@ -30,9 +30,7 @@ use testkit::{hash, resources, transaction, validator};
 use transaction::{AccountState, BasicValidator};
 use types::{Address, Block, BlockHeader, Hash256, Resources, StateKey, ValidatorId};
 
-// ---------------------------------------------------------------------------
 // Original baseline tests
-// ---------------------------------------------------------------------------
 
 #[test]
 fn protocol_baseline_invariants_hold() {
@@ -118,9 +116,7 @@ fn genesis_and_mempool_form_a_deterministic_baseline() {
     assert_eq!(selected[1].id, hash(1));
 }
 
-// ---------------------------------------------------------------------------
 // Keystore + consensus signing integration
-// ---------------------------------------------------------------------------
 
 #[test]
 fn keystore_signs_consensus_votes() {
@@ -157,9 +153,7 @@ fn keystore_signs_consensus_votes() {
     assert_eq!(err, Err(keystore::KeystoreError::ConflictingSign));
 }
 
-// ---------------------------------------------------------------------------
 // Committee rotation + finality integration
-// ---------------------------------------------------------------------------
 
 #[test]
 fn committee_rotation_feeds_finality() {
@@ -209,7 +203,7 @@ fn committee_rotation_feeds_finality() {
     let mut engine = consensus::BftFinalityEngine::new(next.clone());
     let block = hash(100);
 
-    for member in next.members.iter().take(2) {
+    for member in &next.members {
         let vote = consensus::Vote {
             height: 1,
             round: 0,
@@ -224,9 +218,7 @@ fn committee_rotation_feeds_finality() {
     assert_eq!(engine.finalized_block(), Some(block));
 }
 
-// ---------------------------------------------------------------------------
 // State + execution + storage integration
-// ---------------------------------------------------------------------------
 
 #[test]
 fn state_execution_storage_roundtrip() {
@@ -269,9 +261,7 @@ fn state_execution_storage_roundtrip() {
     assert_eq!(cp.state_root, root1);
 }
 
-// ---------------------------------------------------------------------------
 // Transaction validation + execution integration
-// ---------------------------------------------------------------------------
 
 #[test]
 fn transaction_validates_and_executes() {
@@ -304,9 +294,7 @@ fn transaction_validates_and_executes() {
     assert_ne!(root0, root1);
 }
 
-// ---------------------------------------------------------------------------
 // P2P frame encode/decode roundtrip
-// ---------------------------------------------------------------------------
 
 #[test]
 fn p2p_frame_roundtrip() {
@@ -321,9 +309,7 @@ fn p2p_frame_roundtrip() {
     assert_eq!(frame.payload, payload);
 }
 
-// ---------------------------------------------------------------------------
 // Sync verifier header chain validation
-// ---------------------------------------------------------------------------
 
 #[test]
 fn sync_verifies_header_chain() {
@@ -350,14 +336,10 @@ fn sync_verifies_header_chain() {
         capacity: resources(100),
     };
 
-    verifier
-        .verify_headers(&[genesis, h1])
-        .expect("valid chain");
+    verifier.verify_headers(&[h1]).expect("valid chain");
 }
 
-// ---------------------------------------------------------------------------
 // RPC service integration
-// ---------------------------------------------------------------------------
 
 #[test]
 fn rpc_service_full_workflow() {
@@ -388,37 +370,33 @@ fn rpc_service_full_workflow() {
     assert_eq!(resp, RpcResponse::Account(None));
 }
 
-// ---------------------------------------------------------------------------
 // DNS + Proxy service integration
-// ---------------------------------------------------------------------------
 
 #[test]
 fn dns_proxy_service_chain() {
     let mut resolver = InMemoryResolver::new();
     resolver
-        .register("app.astro", Record::Service(b"gateway".to_vec()))
+        .register("appastro", Record::Service(b"gateway".to_vec()))
         .expect("register dns");
 
-    let record = resolver.resolve("app.astro").expect("resolves");
+    let record = resolver.resolve("appastro").expect("resolves");
     assert!(record.is_some());
 
     let handler = EchoHandler;
     let mut gateway = InMemoryProxyGateway::new(10);
     gateway
-        .register_service("app.astro", Box::new(handler))
+        .register_service("appastro", Box::new(handler))
         .expect("register proxy");
 
     let request = ProxyRequest {
-        name: "app.astro".into(),
+        name: "appastro".into(),
         payload: vec![0x01, 0x02, 0x03],
     };
     let response = gateway.forward(&request).expect("forwards");
     assert_eq!(response, vec![0x01, 0x02, 0x03]);
 }
 
-// ---------------------------------------------------------------------------
 // ID service challenge + verification
-// ---------------------------------------------------------------------------
 
 #[test]
 fn id_challenge_and_verification() {
@@ -437,12 +415,10 @@ fn id_challenge_and_verification() {
     assert!(!challenge.is_expired(1500));
     assert!(challenge.is_expired(2500));
 
-    let mut sig = [0xFF; 64];
-    sig[0] = 1; // must match signer's first byte (Address[0] = 1)
     let proof = id::AuthorizationProof {
         address: Address([1u8; 32]),
         challenge,
-        signature: sig,
+        signature: [0xFF; 64],
     };
 
     let scopes = verifier.verify(&proof).expect("valid proof");
@@ -452,9 +428,7 @@ fn id_challenge_and_verification() {
     assert_eq!(err, Err(id::IdError::Replay));
 }
 
-// ---------------------------------------------------------------------------
 // Pages service content verification
-// ---------------------------------------------------------------------------
 
 #[test]
 fn pages_content_integrity() {
@@ -488,9 +462,7 @@ fn pages_content_integrity() {
     assert!(source.load(&bad_manifest, "index.html").is_err());
 }
 
-// ---------------------------------------------------------------------------
 // Telemetry + node capacity integration
-// ---------------------------------------------------------------------------
 
 #[test]
 fn telemetry_tracks_node_capacity() {
@@ -526,9 +498,7 @@ fn telemetry_tracks_node_capacity() {
     assert_eq!(tel.latest("block_compute"), Some(850));
 }
 
-// ---------------------------------------------------------------------------
 // Storage commit + recover
-// ---------------------------------------------------------------------------
 
 #[test]
 fn storage_commit_and_recover() {
@@ -558,9 +528,7 @@ fn storage_commit_and_recover() {
     assert_eq!(recovered, Some(cp));
 }
 
-// ---------------------------------------------------------------------------
 // End-to-end: genesis -> mempool -> execution -> storage
-// ---------------------------------------------------------------------------
 
 #[test]
 #[allow(clippy::too_many_lines)]

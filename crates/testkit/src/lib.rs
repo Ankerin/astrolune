@@ -39,6 +39,8 @@ pub const fn resources(value: u64) -> Resources {
 /// Creates a minimal unsigned fixture transaction.
 #[must_use]
 pub fn transaction(sender: u8, nonce: u64) -> Transaction {
+    let mut sig = [0u8; 64];
+    sig[0] = sender; // non-zero signature for validation
     Transaction {
         chain_id: 1,
         sender: address(sender),
@@ -46,6 +48,6 @@ pub fn transaction(sender: u8, nonce: u64) -> Transaction {
         access_list: Vec::new(),
         resource_limit: resources(1),
         payload: Vec::new(),
-        signature: [0; 64],
+        signature: sig,
     }
 }
