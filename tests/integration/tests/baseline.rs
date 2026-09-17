@@ -565,7 +565,7 @@ fn end_to_end_block_production() {
     .expect("valid limits");
 
     let tx1 = transaction(1, 0);
-    let tx2 = transaction(2, 1);
+    let tx2 = transaction(2, 0);
 
     pool.insert(
         PoolEntry {
@@ -592,9 +592,17 @@ fn end_to_end_block_production() {
     assert_eq!(selected.len(), 2);
 
     let sender = Address([1u8; 32]);
+    let sender2 = Address([2u8; 32]);
     let mut accounts = BTreeMap::new();
     accounts.insert(
         sender,
+        AccountState {
+            nonce: 0,
+            balance: 100_000,
+        },
+    );
+    accounts.insert(
+        sender2,
         AccountState {
             nonce: 0,
             balance: 100_000,
