@@ -5,6 +5,7 @@
 
 use std::collections::BTreeMap;
 
+use codec::traits::CanonicalEncode;
 use types::StateKey;
 
 /// A single canonical state mutation.
@@ -100,5 +101,30 @@ impl StateDiff {
     /// Later changes for the same key overwrite earlier ones when applied.
     pub fn merge(&mut self, other: Self) {
         self.changes.extend(other.changes);
+    }
+}
+
+impl CanonicalEncode for StateChange {
+    fn encode(&self, output: &mut Vec<u8>) {
+        match self {
+            Self::Put(key, value) => {
+                output.push(0x01);
+                key.encode(output);
+                codec::encode_bytes(value, output);
+            }
+            Self::Delete(key) => {
+                output.push(0x02);
+                key.encode(output);
+            }
+        }
+    }
+}
+
+impl CanonicalEncode for StateDiff {
+    fn encode(&self, output: &mut Vec<u8>) {
+        codec::encode_length(self.changes.len(), output);
+        for change in &self.changes {
+            change.encode(output);
+        }
     }
 }

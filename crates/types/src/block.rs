@@ -106,7 +106,6 @@ impl ExecutionReceipt {
         data[49..57].copy_from_slice(&self.resources.io.to_le_bytes());
         data[57..65].copy_from_slice(&self.resources.bandwidth.to_le_bytes());
         data[65..97].copy_from_slice(&self.output_root.0);
-        // XOR-fold 108 bytes into 32 bytes
         let mut hash = [0u8; 32];
         for (i, byte) in data.iter().enumerate() {
             hash[i % 32] ^= byte;

@@ -6,7 +6,9 @@
 #![forbid(unsafe_code)]
 #![allow(clippy::missing_errors_doc)]
 
-use codec::CanonicalEncode;
+use codec::decoder::Decoder;
+use codec::error::DecodeError;
+use codec::traits::{CanonicalDecode, CanonicalEncode};
 use crypto::CryptoProvider;
 use types::{Address, Hash256, Resources, ValidatorId};
 
@@ -168,6 +170,80 @@ impl<C: CryptoProvider> GenesisCommitment for C {
     fn genesis_hash(&self, genesis: &Genesis) -> Hash256 {
         let encoded = genesis.to_bytes();
         self.hash(types::domain::GENESIS, &encoded)
+    }
+}
+
+impl CanonicalDecode for Allocation {
+    fn decode(bytes: &[u8]) -> Result<Self, DecodeError> {
+        let mut dec = Decoder::new(bytes);
+        let address = Address(dec.read_fixed::<32>()?);
+        let amount = dec.read_u64()?;
+        dec.finish()?;
+        Ok(Self { address, amount })
+    }
+}
+
+impl CanonicalDecode for GenesisValidator {
+    fn decode(bytes: &[u8]) -> Result<Self, DecodeError> {
+        let mut dec = Decoder::new(bytes);
+        let id = ValidatorId(dec.read_fixed::<32>()?);
+        let low = dec.read_u64()?;
+        let high = dec.read_u64()?;
+        dec.finish()?;
+        Ok(Self {
+            id,
+            weight: u128::from(low) | (u128::from(high) << 64),
+        })
+    }
+}
+
+impl CanonicalDecode for Genesis {
+    fn decode(bytes: &[u8]) -> Result<Self, DecodeError> {
+        let mut dec = Decoder::new(bytes);
+        let version = dec.read_u16()?;
+        let chain_id = dec.read_u32()?;
+        let capacity = Resources {
+            compute: dec.read_u64()?,
+            memory: dec.read_u64()?,
+            io: dec.read_u64()?,
+            bandwidth: dec.read_u64()?,
+        };
+        let committee_size = dec.read_u64()? as usize;
+        let rotation_count = dec.read_u64()? as usize;
+        let runtime_version = dec.read_u32()?;
+
+        let validator_len = dec.read_u64()? as usize;
+        let mut validators = Vec::with_capacity(validator_len);
+        for _ in 0..validator_len {
+            let id = ValidatorId(dec.read_fixed::<32>()?);
+            let low = dec.read_u64()?;
+            let high = dec.read_u64()?;
+            validators.push(GenesisValidator {
+                id,
+                weight: u128::from(low) | (u128::from(high) << 64),
+            });
+        }
+
+        let allocation_len = dec.read_u64()? as usize;
+        let mut allocations = Vec::with_capacity(allocation_len);
+        for _ in 0..allocation_len {
+            let address = Address(dec.read_fixed::<32>()?);
+            let amount = dec.read_u64()?;
+            allocations.push(Allocation { address, amount });
+        }
+
+        dec.finish()?;
+
+        Ok(Self {
+            version,
+            chain_id,
+            capacity,
+            committee_size,
+            rotation_count,
+            runtime_version,
+            validators,
+            allocations,
+        })
     }
 }
 

@@ -15,10 +15,12 @@
 
 #![forbid(unsafe_code)]
 
+pub mod envelope;
 pub mod error;
 pub mod lane;
 pub mod validator;
 
+pub use envelope::Envelope;
 pub use error::TransactionError;
 pub use lane::TransactionLane;
 pub use validator::{

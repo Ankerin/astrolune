@@ -39,7 +39,7 @@ pub const MAX_STATE_KEY_LEN: usize = 256;
 pub const PROTOCOL_VERSION: u16 = 1;
 
 /// Encodes a length as a compact prefix.
-pub(crate) fn encode_length(len: usize, output: &mut Vec<u8>) {
+pub fn encode_length(len: usize, output: &mut Vec<u8>) {
     if len < 128 {
         output.push(u8::try_from(len).expect("length < 128 fits in u8"));
     } else {
@@ -63,7 +63,7 @@ pub(crate) fn decode_length(decoder: &mut Decoder<'_>) -> Result<usize, DecodeEr
 }
 
 /// Encodes a byte slice with a length prefix.
-pub(crate) fn encode_bytes(bytes: &[u8], output: &mut Vec<u8>) {
+pub fn encode_bytes(bytes: &[u8], output: &mut Vec<u8>) {
     encode_length(bytes.len(), output);
     output.extend_from_slice(bytes);
 }

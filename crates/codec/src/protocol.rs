@@ -10,7 +10,7 @@
 use crate::decoder::Decoder;
 use crate::error::DecodeError;
 use crate::traits::{CanonicalDecode, CanonicalEncode, DecodeAt, DecoderExt};
-use types::{Address, BlockHeader, Hash256, Resources, StateKey, Transaction, ValidatorId};
+use types::{Address, BlockHeader, ExecutionReceipt, Hash256, Resources, StateKey, Transaction, ValidatorId};
 
 impl CanonicalEncode for Hash256 {
     fn encode(&self, output: &mut Vec<u8>) {
@@ -233,6 +233,32 @@ impl DecodeAt for StateKey {
 impl DecodeAt for Resources {
     fn decode_at(decoder: &mut Decoder<'_>) -> Result<Self, DecodeError> {
         decoder.read_resources()
+    }
+}
+
+impl CanonicalEncode for ExecutionReceipt {
+    fn encode(&self, output: &mut Vec<u8>) {
+        self.transaction.encode(output);
+        output.push(u8::from(self.succeeded));
+        self.resources.encode(output);
+        self.output_root.encode(output);
+    }
+}
+
+impl CanonicalDecode for ExecutionReceipt {
+    fn decode(bytes: &[u8]) -> Result<Self, DecodeError> {
+        let mut dec = Decoder::new(bytes);
+        let transaction = Hash256(dec.read_fixed::<32>()?);
+        let succeeded = dec.read_u8()? != 0;
+        let resources = Resources::decode_at(&mut dec)?;
+        let output_root = Hash256(dec.read_fixed::<32>()?);
+        dec.finish()?;
+        Ok(Self {
+            transaction,
+            succeeded,
+            resources,
+            output_root,
+        })
     }
 }
 
