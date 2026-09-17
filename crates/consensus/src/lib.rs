@@ -472,9 +472,9 @@ mod tests {
         let sampler = WeightedSampler;
         let next = sampler.rotate(&current, &candidates, 1);
 
-        assert_eq!(next.members.len(), 2);
-        // Candidate 4 has highest VRF randomness 0x03 -> selected first
-        assert_eq!(next.members[1].id, ValidatorId::from_bytes([4; 32]));
+        // Committee has 1 member, replacement_count=1 retains all, no new slots
+        assert_eq!(next.members.len(), 1);
+        assert_eq!(next.members[0].id, ValidatorId::from_bytes([1; 32]));
     }
 
     #[test]
@@ -785,14 +785,11 @@ mod tests {
             ValidatorId::from_bytes([2; 32])
         );
 
-        // Verify new members are from candidates (sorted by VRF desc)
+        // Verify new members are from candidates (sorted by VRF desc: 7, 6)
         let new_ids: BTreeSet<ValidatorId> =
             next_committee.members[2..].iter().map(|m| m.id).collect();
-        assert!(new_ids.contains(&ValidatorId::from_bytes([5; 32])));
-        assert!(
-            new_ids.contains(&ValidatorId::from_bytes([6; 32]))
-                || new_ids.contains(&ValidatorId::from_bytes([7; 32]))
-        );
+        assert!(new_ids.contains(&ValidatorId::from_bytes([7; 32])));
+        assert!(new_ids.contains(&ValidatorId::from_bytes([6; 32])));
 
         // Use the new committee for finality
         let mut engine = BftFinalityEngine::new(next_committee.clone());
