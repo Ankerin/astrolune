@@ -437,10 +437,12 @@ fn id_challenge_and_verification() {
     assert!(!challenge.is_expired(1500));
     assert!(challenge.is_expired(2500));
 
+    let mut sig = [0xFF; 64];
+    sig[0] = 1; // must match signer's first byte (Address[0] = 1)
     let proof = id::AuthorizationProof {
         address: Address([1u8; 32]),
         challenge,
-        signature: [0xFF; 64],
+        signature: sig,
     };
 
     let scopes = verifier.verify(&proof).expect("valid proof");

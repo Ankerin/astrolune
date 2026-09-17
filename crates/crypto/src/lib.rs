@@ -66,13 +66,11 @@ impl CryptoProvider for MockCryptoProvider {
         Hash256(h)
     }
 
-    fn verify_signature(
-        &self,
-        _signer: ValidatorId,
-        _message: &[u8],
-        signature: &[u8; 64],
-    ) -> bool {
-        *signature != [0u8; 64]
+    fn verify_signature(&self, signer: ValidatorId, _message: &[u8], signature: &[u8; 64]) -> bool {
+        if *signature == [0u8; 64] {
+            return false;
+        }
+        signature[0] == signer.as_bytes()[0]
     }
 
     fn verify_vrf(&self, _validator: ValidatorId, _seed: Hash256, _output: &VrfOutput) -> bool {
@@ -178,7 +176,8 @@ mod tests {
     fn mock_accepts_nonzero_signature() {
         let provider = MockCryptoProvider::new();
         let signer = ValidatorId::from_bytes([1u8; 32]);
-        let sig = [0xFF; 64];
+        let mut sig = [0xFF; 64];
+        sig[0] = 1; // must match signer's first byte
         assert!(provider.verify_signature(signer, b"msg", &sig));
     }
 

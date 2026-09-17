@@ -346,7 +346,8 @@ mod tests {
     #[test]
     fn verify_happy_path() {
         let challenge = test_challenge();
-        let signature = [0xAA; 64];
+        let mut signature = [0xAA; 64];
+        signature[0] = 1; // must match signer's first byte (Address[0] = 1)
         let proof = AuthorizationProof {
             address: Address::from_bytes([1u8; 32]),
             challenge,
@@ -375,10 +376,12 @@ mod tests {
     #[test]
     fn verify_replay_rejected() {
         let challenge = test_challenge();
+        let mut sig = [0xAA; 64];
+        sig[0] = 1;
         let proof = AuthorizationProof {
             address: Address::from_bytes([1u8; 32]),
             challenge,
-            signature: [0xAA; 64],
+            signature: sig,
         };
 
         let mut verifier = InMemoryVerifier::new(Box::new(MockCryptoProvider::new()));
@@ -388,7 +391,7 @@ mod tests {
         let proof2 = AuthorizationProof {
             address: Address::from_bytes([1u8; 32]),
             challenge: test_challenge(), // same fields, same nonce
-            signature: [0xAA; 64],
+            signature: sig,
         };
         assert_eq!(verifier.verify(&proof2), Err(IdError::Replay));
     }
