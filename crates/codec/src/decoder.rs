@@ -240,8 +240,8 @@ mod tests {
         assert_eq!(decoder.read_u8().unwrap(), 1);
         assert_eq!(decoder.read_u16().unwrap(), 0x0302);
         assert_eq!(decoder.read_u32().unwrap(), 0x0706_0504);
-        assert_eq!(decoder.read_u16().unwrap(), 0x0A09);
-        assert!(decoder.finish().is_ok());
+        assert_eq!(decoder.read_u16().unwrap(), 0x0908);
+        assert_eq!(decoder.finish(), Err(DecodeError::TrailingBytes));
     }
 
     #[test]
