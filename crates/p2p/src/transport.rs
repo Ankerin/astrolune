@@ -530,22 +530,20 @@ mod tests {
         let listener = TcpPeerListener::bind("127.0.0.1:0", mgr.clone()).unwrap();
         let addr = listener.local_addr().unwrap();
 
-        // Run accept loop in background
-        let _mgr_bg = mgr.clone();
-        let _handle = std::thread::spawn(move || {
+        // Spawn the accept loop so it registers incoming connections
+        std::thread::spawn(move || {
             listener.run().ok();
         });
 
-        // Connect a client
-        let client = PeerConnection::connect(&addr.to_string()).unwrap();
-        let peer_id = client.peer_id().clone();
+        // Connect a client — the accept loop registers it automatically
+        let _client = PeerConnection::connect(&addr.to_string()).unwrap();
 
-        // Register in manager
-        mgr.accept(&peer_id.addr, std::net::TcpStream::connect(addr).unwrap())
-            .unwrap();
+        // Give the accept loop a moment to register the peer
+        std::thread::sleep(std::time::Duration::from_millis(50));
 
         assert_eq!(mgr.peer_count(), 1);
-        assert!(mgr.connected_peers().contains(&peer_id));
+        let peers = mgr.connected_peers();
+        let peer_id = peers.first().unwrap().clone();
 
         let _ = mgr.disconnect(&peer_id);
         assert_eq!(mgr.peer_count(), 0);
