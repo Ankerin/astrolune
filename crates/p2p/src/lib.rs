@@ -9,12 +9,17 @@
 pub mod error;
 pub mod frame;
 pub mod message;
+pub mod transport;
 
 pub use error::NetworkError;
 pub use frame::{
     BoundedFrameDecoder, FRAME_HEADER_SIZE, Frame, FrameDecoder, FrameEncoder, MAX_FRAME_SIZE,
 };
 pub use message::{CompactBlock, MessageKind, Reconstruction};
+pub use transport::{
+    OwnedFrame, PeerConnection, PeerId, PeerManager, PeerMessage, TcpPeerListener,
+    TransportError,
+};
 
 #[cfg(test)]
 mod tests {

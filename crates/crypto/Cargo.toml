@@ -3,7 +3,7 @@
 
 [package]
 name = "crypto"
-description = "Cryptographic provider interfaces for AstroLune"
+description = "Cryptographic provider implementations for AstroLune"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true

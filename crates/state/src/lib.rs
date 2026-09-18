@@ -13,11 +13,13 @@ pub mod database;
 pub mod diff;
 pub mod lease;
 pub mod memory;
+pub mod persistent;
 
 pub use database::{StateDatabase, StateError, StateSnapshot};
 pub use diff::{StateChange, StateDiff};
 pub use lease::{AccessMode, AccessRequest, StateLease};
 pub use memory::InMemoryState;
+pub use persistent::FileBackedState;
 
 #[cfg(test)]
 mod tests {

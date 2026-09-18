@@ -14,7 +14,13 @@ publish = false
 
 [dependencies]
 config = { path = "../../crates/config" }
+consensus = { path = "../../crates/consensus" }
+crypto = { path = "../../crates/crypto" }
+genesis = { path = "../../crates/genesis" }
 node = { path = "../../crates/node" }
+p2p = { path = "../../crates/p2p" }
+rpc = { path = "../../crates/rpc" }
+state = { path = "../../crates/state" }
 types = { path = "../../crates/types" }
 
 [lints]

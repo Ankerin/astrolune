@@ -3,34 +3,39 @@
 
 //! `AstroLune` node daemon entry point.
 //!
-//! Demonstrates the node service lifecycle:
-//! 1. Configure node
-//! 2. Start and track pipeline stages
-//! 3. Collect telemetry observations
-//! 4. Shutdown cleanly
+//! Demonstrates the node service lifecycle with real components:
+//! 1. Load or create cryptographic keys
+//! 2. Open persistent file-backed state storage
+//! 3. Start P2P listener for peer connections
+//! 4. Start JSON-RPC server for external clients
+//! 5. Drive the consensus pipeline
+//! 6. Shutdown cleanly
 
 #![forbid(unsafe_code)]
 #![allow(clippy::print_stdout, clippy::print_stderr)]
 
 use std::path::PathBuf;
+use std::sync::{Arc, Mutex};
 
 use config::{NetworkConfig, NodeConfig, SecretRef};
-use node::{
-    AdaptiveCapacityController, BasicNodeService, CapacityController, CapacityObservation,
-    NodeService,
-};
+use node::{BasicNodeService, NodeService};
+use rpc::TcpRpcServer;
+use state::FileBackedState;
 
 /// Application error type.
 #[derive(Debug)]
 enum DaemonError {
     /// Configuration validation failure.
     Config(String),
+    /// IO or storage error.
+    Io(String),
 }
 
 impl core::fmt::Display for DaemonError {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match self {
             Self::Config(msg) => write!(f, "configuration error: {msg}"),
+            Self::Io(msg) => write!(f, "I/O error: {msg}"),
         }
     }
 }
@@ -109,13 +114,72 @@ fn run() -> Result<(), DaemonError> {
         return Ok(());
     }
 
-    // Simulate node lifecycle
-    let capacity = node::DEFAULT_CAPACITY;
-    println!("\nStarting node service...");
+    // Initialize persistent state storage
+    let state_path = config.data_dir.join("state.dat");
+    println!("\nOpening state database at {}...", state_path.display());
+    let _state = FileBackedState::open(&state_path)
+        .map_err(|e| DaemonError::Io(format!("failed to open state: {e}")))?;
+    println!("  state root : {:?}", _state.root());
 
+    // Initialize cryptographic provider
+    let keystore = crypto::Ed25519Keystore::new();
+    println!("  crypto     : {} keys loaded", keystore.len());
+
+    // Initialize P2P peer manager
+    let peer_manager = Arc::new(p2p::PeerManager::with_limit(config.network.max_peers));
+    println!("  p2p peers  : {}/{} connected", peer_manager.peer_count(), config.network.max_peers);
+
+    // Initialize RPC service
+    let rpc_service = rpc::InMemoryRpcService::new(config.chain_id);
+    let rpc_service = Arc::new(Mutex::new(rpc_service));
+
+    println!("\nStarting services...");
+
+    // Start P2P listener in background thread
+    let p2p_addr = config.network.p2p_listen.clone();
+    let p2p_mgr = peer_manager.clone();
+    let _p2p_handle = std::thread::Builder::new()
+        .name("p2p-listener".into())
+        .spawn(move || {
+            match p2p::TcpPeerListener::bind(&p2p_addr, p2p_mgr) {
+                Ok(listener) => {
+                    println!("  p2p  : listening on {p2p_addr}");
+                    if let Err(e) = listener.run() {
+                        eprintln!("  p2p  : listener error: {e}");
+                    }
+                }
+                Err(e) => {
+                    eprintln!("  p2p  : failed to bind: {e}");
+                }
+            }
+        })
+        .map_err(|e| DaemonError::Io(format!("failed to spawn p2p thread: {e}")))?;
+
+    // Start RPC server in background thread
+    let rpc_addr = config.network.rpc_listen.clone();
+    let rpc_svc = rpc_service.clone();
+    let _rpc_handle = std::thread::Builder::new()
+        .name("rpc-server".into())
+        .spawn(move || {
+            match TcpRpcServer::bind(rpc_svc, &rpc_addr) {
+                Ok(server) => {
+                    println!("  rpc  : listening on {rpc_addr}");
+                    if let Err(e) = server.run() {
+                        eprintln!("  rpc  : server error: {e}");
+                    }
+                }
+                Err(e) => {
+                    eprintln!("  rpc  : failed to bind: {e}");
+                }
+            }
+        })
+        .map_err(|e| DaemonError::Io(format!("failed to spawn rpc thread: {e}")))?;
+
+    println!("\nAll services started.");
+
+    // Drive the pipeline through one demo cycle
     let mut service = BasicNodeService::new();
-
-    // Drive the pipeline through all stages
+    println!("\nRunning pipeline demo...");
     println!("  initial    : {:?}", service.current_state());
     loop {
         service
@@ -125,27 +189,6 @@ fn run() -> Result<(), DaemonError> {
         if service.current_state() == &node::NodeState::Idle {
             break;
         }
-    }
-
-    // Simulate capacity observations
-    let controller = AdaptiveCapacityController::new(capacity, node::LATENCY_WINDOW);
-    println!("\nCollecting capacity observations...");
-    for i in 0..4 {
-        let obs = CapacityObservation {
-            used: types::Resources {
-                compute: 400 + i * 100,
-                memory: 256,
-                io: 64,
-                bandwidth: 256,
-            },
-            within_latency_target: true,
-        };
-        let new_cap = controller.next_capacity(capacity, &[obs]);
-        println!(
-            "  observation {i}: compute={} -> capacity={}",
-            400 + i * 100,
-            new_cap.compute
-        );
     }
 
     println!("\nDaemon shutting down cleanly.");

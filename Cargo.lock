@@ -53,7 +53,13 @@ name = "daemon"
 version = "0.1.0"
 dependencies = [
  "config",
+ "consensus",
+ "crypto",
+ "genesis",
  "node",
+ "p2p",
+ "rpc",
+ "state",
  "types",
 ]
 

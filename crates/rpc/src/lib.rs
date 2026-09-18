@@ -4,8 +4,16 @@
 //! Bounded external `RPC` types for wallets, applications, and operators.
 //!
 //! This interface is deliberately separate from the binary consensus protocol.
+//! The `TcpRpcServer` provides a synchronous JSON-RPC server over TCP.
 
 #![forbid(unsafe_code)]
+#![allow(clippy::missing_errors_doc)]
+
+pub mod json;
+pub mod server;
+
+pub use json::{JsonRpcRequest, JsonRpcResponse};
+pub use server::TcpRpcServer;
 
 use std::collections::BTreeMap;
 use std::fmt;
