@@ -7,7 +7,7 @@
 //! external dependencies. It handles the subset of JSON needed for RPC
 //! communication: objects, arrays, strings, numbers, booleans, and null.
 
-use std::fmt;
+use std::fmt::{self, Write};
 use types::{Address, Hash256};
 
 /// A JSON value represented as a tree of owned strings and primitives.
@@ -147,7 +147,7 @@ impl Parser {
             Some('{') => self.parse_object(),
             Some('[') => self.parse_array(),
             Some('"') => self.parse_string().map(JsonValue::String),
-            Some('t') | Some('f') => self.parse_bool(),
+            Some('t' | 'f') => self.parse_bool(),
             Some('n') => self.parse_null(),
             Some(ch) if ch.is_ascii_digit() || ch == '-' => self.parse_number(),
             Some(ch) => Err(JsonError {
@@ -178,7 +178,7 @@ impl Parser {
             fields.push((key, value));
             self.skip_whitespace();
             match self.advance() {
-                Some(',') => continue,
+                Some(',') => {}
                 Some('}') => break,
                 other => {
                     return Err(JsonError {
@@ -205,7 +205,7 @@ impl Parser {
             items.push(self.parse_value()?);
             self.skip_whitespace();
             match self.advance() {
-                Some(',') => continue,
+                Some(',') => {}
                 Some(']') => break,
                 other => {
                     return Err(JsonError {
@@ -274,7 +274,7 @@ impl Parser {
         if self.peek() == Some('-') {
             self.advance();
         }
-        while self.peek().map_or(false, |c| c.is_ascii_digit()) {
+        while self.peek().is_some_and(|c| c.is_ascii_digit()) {
             self.advance();
         }
         let s: String = self.input[start..self.pos].iter().collect();
@@ -345,7 +345,7 @@ pub fn to_json(value: &JsonValue) -> String {
                     '\r' => out.push_str("\\r"),
                     '\t' => out.push_str("\\t"),
                     c if c.is_control() => {
-                        out.push_str(&format!("\\u{:04x}", c as u32));
+                        let _ = write!(out, "\\u{:04x}", c as u32);
                     }
                     c => out.push(c),
                 }
@@ -378,7 +378,7 @@ fn escape_json_key(s: &str) -> String {
             '\r' => out.push_str("\\r"),
             '\t' => out.push_str("\\t"),
             c if c.is_control() => {
-                out.push_str(&format!("\\u{:04x}", c as u32));
+                let _ = write!(out, "\\u{:04x}", c as u32);
             }
             c => out.push(c),
         }
@@ -427,13 +427,10 @@ pub struct JsonRpcError {
 /// the JSON-RPC 2.0 request format.
 pub fn parse_rpc_request(input: &str) -> Result<JsonRpcRequest, JsonError> {
     let value = parse_json(input)?;
-    let obj = match &value {
-        JsonValue::Object(fields) => fields,
-        _ => {
-            return Err(JsonError {
-                message: "request must be a JSON object".into(),
-            });
-        }
+    let JsonValue::Object(obj) = &value else {
+        return Err(JsonError {
+            message: "request must be a JSON object".into(),
+        });
     };
 
     let id = obj
@@ -454,17 +451,13 @@ pub fn parse_rpc_request(input: &str) -> Result<JsonRpcRequest, JsonError> {
     let params = obj
         .iter()
         .find(|(k, _)| k == "params")
-        .map(|(_, v)| v.clone())
-        .unwrap_or(JsonValue::Object(Vec::new()));
+        .map_or(JsonValue::Object(Vec::new()), |(_, v)| v.clone());
 
-    Ok(JsonRpcRequest {
-        id,
-        method,
-        params,
-    })
+    Ok(JsonRpcRequest { id, method, params })
 }
 
 /// Serializes a JSON-RPC response into a JSON string.
+#[must_use]
 pub fn serialize_rpc_response(response: &JsonRpcResponse) -> String {
     let mut fields = Vec::new();
     fields.push(("jsonrpc".into(), JsonValue::String("2.0".into())));
@@ -516,7 +509,7 @@ pub fn rpc_error(id: i64, code: i64, message: impl Into<String>) -> JsonRpcRespo
 pub fn hash_to_hex(hash: Hash256) -> String {
     let mut out = String::with_capacity(64);
     for byte in hash.as_bytes() {
-        out.push_str(&format!("{byte:02x}"));
+        let _ = write!(out, "{byte:02x}");
     }
     out
 }
@@ -526,7 +519,7 @@ pub fn hash_to_hex(hash: Hash256) -> String {
 pub fn address_to_hex(addr: Address) -> String {
     let mut out = String::with_capacity(64);
     for byte in addr.as_bytes() {
-        out.push_str(&format!("{byte:02x}"));
+        let _ = write!(out, "{byte:02x}");
     }
     out
 }

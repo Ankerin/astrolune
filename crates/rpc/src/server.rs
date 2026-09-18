@@ -14,9 +14,7 @@ use std::io::{BufReader, Read, Write};
 use std::net::{TcpListener, TcpStream};
 use std::sync::{Arc, Mutex};
 
-use crate::json::{
-    JsonValue, rpc_error, rpc_success, serialize_rpc_response,
-};
+use crate::json::{JsonValue, rpc_error, rpc_success, serialize_rpc_response};
 use crate::{RpcError, RpcRequest, RpcResponse, RpcService};
 
 /// Maximum request payload size in bytes (1 MiB).
@@ -79,7 +77,6 @@ impl TcpRpcServer {
     }
 
     /// Returns the local address this server is listening on.
-    #[must_use]
     pub fn local_addr(&self) -> std::io::Result<std::net::SocketAddr> {
         self.listener.local_addr()
     }
@@ -110,12 +107,7 @@ impl TcpRpcServer {
 
             let len = u32::from_le_bytes(len_bytes) as usize;
             if len > MAX_REQUEST_SIZE {
-                Self::write_error_response(
-                    &mut stream,
-                    0,
-                    -32600,
-                    "request too large",
-                )?;
+                Self::write_error_response(&mut stream, 0, -32600, "request too large")?;
                 continue;
             }
 
@@ -123,12 +115,9 @@ impl TcpRpcServer {
             let mut payload = vec![0u8; len];
             reader.read_exact(&mut payload)?;
 
-            let request_str = match String::from_utf8(payload) {
-                Ok(s) => s,
-                Err(_) => {
-                    Self::write_error_response(&mut stream, 0, -32700, "invalid UTF-8")?;
-                    continue;
-                }
+            let Ok(request_str) = String::from_utf8(payload) else {
+                Self::write_error_response(&mut stream, 0, -32700, "invalid UTF-8")?;
+                continue;
             };
 
             // Parse and dispatch the request
@@ -163,12 +152,10 @@ impl TcpRpcServer {
                 // Extract the address parameter
                 let addr_hex = rpc_req.params.get("address").and_then(|v| v.as_str());
                 match addr_hex {
-                    Some(hex) => {
-                        match parse_hex_address(hex) {
-                            Ok(addr) => RpcRequest::Account(addr),
-                            Err(msg) => return rpc_error(rpc_req.id, -32602, msg),
-                        }
-                    }
+                    Some(hex) => match parse_hex_address(hex) {
+                        Ok(addr) => RpcRequest::Account(addr),
+                        Err(msg) => return rpc_error(rpc_req.id, -32602, msg),
+                    },
                     None => {
                         return rpc_error(rpc_req.id, -32602, "missing 'address' parameter");
                     }
@@ -192,23 +179,20 @@ impl TcpRpcServer {
         };
 
         // Acquire the service lock and process the request
-        let svc = match service.lock() {
-            Ok(s) => s,
-            Err(_) => {
-                return rpc_error(rpc_req.id, -32603, "internal error");
-            }
+        let Ok(svc) = service.lock() else {
+            return rpc_error(rpc_req.id, -32603, "internal error");
         };
 
         match svc.handle(request) {
             Ok(response) => Self::response_to_json(rpc_req.id, response),
             Err(e) => {
                 let code = match e {
-                    RpcError::InvalidRequest => -32600,
-                    RpcError::Unauthorized => -32600,
-                    RpcError::LimitExceeded => -32600,
+                    RpcError::InvalidRequest | RpcError::Unauthorized | RpcError::LimitExceeded => {
+                        -32600
+                    }
                     RpcError::Unavailable => -32000,
                 };
-                rpc_error(rpc_req.id, code, &e.to_string())
+                rpc_error(rpc_req.id, code, e.to_string())
             }
         }
     }
@@ -221,17 +205,23 @@ impl TcpRpcServer {
                 finalized_height,
                 finalized_block,
             } => {
-                let mut fields = Vec::new();
-                fields.push(("chain_id".into(), JsonValue::Number(chain_id as i64)));
-                fields.push(("finalized_height".into(), JsonValue::Number(finalized_height as i64)));
-                fields.push((
-                    "finalized_block".into(),
-                    JsonValue::String(crate::json::hash_to_hex(finalized_block)),
-                ));
+                #[allow(clippy::cast_possible_wrap)]
+                let fields = vec![
+                    ("chain_id".into(), JsonValue::Number(i64::from(chain_id))),
+                    (
+                        "finalized_height".into(),
+                        JsonValue::Number(finalized_height as i64),
+                    ),
+                    (
+                        "finalized_block".into(),
+                        JsonValue::String(crate::json::hash_to_hex(finalized_block)),
+                    ),
+                ];
                 rpc_success(id, JsonValue::Object(fields))
             }
             RpcResponse::Account(data) => match data {
                 Some(bytes) => {
+                    #[allow(clippy::format_collect)]
                     let hex: String = bytes.iter().map(|b: &u8| format!("{b:02x}")).collect();
                     rpc_success(id, JsonValue::String(hex))
                 }
@@ -252,6 +242,7 @@ impl TcpRpcServer {
                 "response too large",
             ));
         }
+        #[allow(clippy::cast_possible_truncation)]
         stream.write_all(&(bytes.len() as u32).to_le_bytes())?;
         stream.write_all(bytes)?;
         stream.flush()
@@ -289,7 +280,7 @@ fn parse_hex_address(hex: &str) -> Result<types::Address, String> {
 /// Parses a hex-encoded byte string into a `Vec<u8>`.
 fn parse_hex_bytes(hex: &str) -> Result<Vec<u8>, String> {
     let hex = hex.strip_prefix("0x").unwrap_or(hex);
-    if hex.len() % 2 != 0 {
+    if !hex.len().is_multiple_of(2) {
         return Err("hex string must have even length".into());
     }
     let mut bytes = Vec::with_capacity(hex.len() / 2);
@@ -341,9 +332,7 @@ mod tests {
 
     #[test]
     fn dispatch_chain_status() {
-        let service: Arc<Mutex<dyn RpcService>> = Arc::new(Mutex::new(
-            InMemoryRpcService::new(42),
-        ));
+        let service: Arc<Mutex<dyn RpcService>> = Arc::new(Mutex::new(InMemoryRpcService::new(42)));
         let rpc_req = crate::json::JsonRpcRequest {
             id: 1,
             method: "chain_status".into(),
@@ -356,9 +345,7 @@ mod tests {
 
     #[test]
     fn dispatch_unknown_method() {
-        let service: Arc<Mutex<dyn RpcService>> = Arc::new(Mutex::new(
-            InMemoryRpcService::new(1),
-        ));
+        let service: Arc<Mutex<dyn RpcService>> = Arc::new(Mutex::new(InMemoryRpcService::new(1)));
         let rpc_req = crate::json::JsonRpcRequest {
             id: 1,
             method: "unknown_method".into(),

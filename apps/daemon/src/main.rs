@@ -12,7 +12,7 @@
 //! 6. Shutdown cleanly
 
 #![forbid(unsafe_code)]
-#![allow(clippy::print_stdout, clippy::print_stderr)]
+#![allow(clippy::print_stdout, clippy::print_stderr, clippy::too_many_lines)]
 
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
@@ -117,9 +117,9 @@ fn run() -> Result<(), DaemonError> {
     // Initialize persistent state storage
     let state_path = config.data_dir.join("state.dat");
     println!("\nOpening state database at {}...", state_path.display());
-    let _state = FileBackedState::open(&state_path)
+    let state = FileBackedState::open(&state_path)
         .map_err(|e| DaemonError::Io(format!("failed to open state: {e}")))?;
-    println!("  state root : {:?}", _state.root());
+    println!("  state root : {:?}", state.root());
 
     // Initialize cryptographic provider
     let keystore = crypto::Ed25519Keystore::new();
@@ -127,7 +127,11 @@ fn run() -> Result<(), DaemonError> {
 
     // Initialize P2P peer manager
     let peer_manager = Arc::new(p2p::PeerManager::with_limit(config.network.max_peers));
-    println!("  p2p peers  : {}/{} connected", peer_manager.peer_count(), config.network.max_peers);
+    println!(
+        "  p2p peers  : {}/{} connected",
+        peer_manager.peer_count(),
+        config.network.max_peers
+    );
 
     // Initialize RPC service
     let rpc_service = rpc::InMemoryRpcService::new(config.chain_id);
@@ -140,8 +144,8 @@ fn run() -> Result<(), DaemonError> {
     let p2p_mgr = peer_manager.clone();
     let _p2p_handle = std::thread::Builder::new()
         .name("p2p-listener".into())
-        .spawn(move || {
-            match p2p::TcpPeerListener::bind(&p2p_addr, p2p_mgr) {
+        .spawn(
+            move || match p2p::TcpPeerListener::bind(&p2p_addr, p2p_mgr) {
                 Ok(listener) => {
                     println!("  p2p  : listening on {p2p_addr}");
                     if let Err(e) = listener.run() {
@@ -151,8 +155,8 @@ fn run() -> Result<(), DaemonError> {
                 Err(e) => {
                     eprintln!("  p2p  : failed to bind: {e}");
                 }
-            }
-        })
+            },
+        )
         .map_err(|e| DaemonError::Io(format!("failed to spawn p2p thread: {e}")))?;
 
     // Start RPC server in background thread
@@ -160,17 +164,15 @@ fn run() -> Result<(), DaemonError> {
     let rpc_svc = rpc_service.clone();
     let _rpc_handle = std::thread::Builder::new()
         .name("rpc-server".into())
-        .spawn(move || {
-            match TcpRpcServer::bind(rpc_svc, &rpc_addr) {
-                Ok(server) => {
-                    println!("  rpc  : listening on {rpc_addr}");
-                    if let Err(e) = server.run() {
-                        eprintln!("  rpc  : server error: {e}");
-                    }
+        .spawn(move || match TcpRpcServer::bind(rpc_svc, &rpc_addr) {
+            Ok(server) => {
+                println!("  rpc  : listening on {rpc_addr}");
+                if let Err(e) = server.run() {
+                    eprintln!("  rpc  : server error: {e}");
                 }
-                Err(e) => {
-                    eprintln!("  rpc  : failed to bind: {e}");
-                }
+            }
+            Err(e) => {
+                eprintln!("  rpc  : failed to bind: {e}");
             }
         })
         .map_err(|e| DaemonError::Io(format!("failed to spawn rpc thread: {e}")))?;

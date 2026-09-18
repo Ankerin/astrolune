@@ -1,7 +1,7 @@
 // Copyright (c) 2026 Astrolune contributors
 // SPDX-License-Identifier: MIT
 
-//! Cryptographic operations for consensus, transactions, and AstroLune ID.
+//! Cryptographic operations for consensus, transactions, and `AstroLune` ID.
 //!
 //! This crate provides domain-separated hashing, digital signature interfaces,
 //! and Merkle tree construction. The production hash function is a BLAKE2s-like
@@ -269,12 +269,8 @@ mod tests {
     #[test]
     fn ed25519_different_keys_different_signatures() {
         let mut keystore = Ed25519Keystore::new();
-        let key1 = keystore
-            .generate_key("k1".into(), [1u8; 32])
-            .expect("k1");
-        let key2 = keystore
-            .generate_key("k2".into(), [2u8; 32])
-            .expect("k2");
+        let key1 = keystore.generate_key("k1".into(), [1u8; 32]).expect("k1");
+        let key2 = keystore.generate_key("k2".into(), [2u8; 32]).expect("k2");
 
         let msg = b"shared message";
         let sig1 = keystore.sign(&key1, msg).expect("sig1");
@@ -340,11 +336,7 @@ mod tests {
 
     #[test]
     fn merkle_root_three_elements() {
-        let leaves = vec![
-            Hash256([1u8; 32]),
-            Hash256([2u8; 32]),
-            Hash256([3u8; 32]),
-        ];
+        let leaves = vec![Hash256([1u8; 32]), Hash256([2u8; 32]), Hash256([3u8; 32])];
         let root = compute_receipts_root(&leaves);
         assert_ne!(root, Hash256::ZERO);
     }

@@ -64,11 +64,7 @@ impl FileBackedState {
 
         let root = Self::compute_root(&data);
 
-        let state = Self {
-            data,
-            root,
-            path,
-        };
+        let state = Self { data, root, path };
 
         // Persist the empty state if the file did not exist
         if !state.path.exists() {
@@ -164,8 +160,7 @@ impl FileBackedState {
 
         for (key, value) in &self.data {
             let key_len = u32::try_from(key.len()).map_err(|_| StateError::LimitExceeded)?;
-            let val_len =
-                u32::try_from(value.len()).map_err(|_| StateError::LimitExceeded)?;
+            let val_len = u32::try_from(value.len()).map_err(|_| StateError::LimitExceeded)?;
 
             file.write_all(&key_len.to_le_bytes())
                 .map_err(|_| StateError::Corrupt)?;
@@ -173,8 +168,7 @@ impl FileBackedState {
                 .map_err(|_| StateError::Corrupt)?;
             file.write_all(&val_len.to_le_bytes())
                 .map_err(|_| StateError::Corrupt)?;
-            file.write_all(value)
-                .map_err(|_| StateError::Corrupt)?;
+            file.write_all(value).map_err(|_| StateError::Corrupt)?;
         }
 
         file.flush().map_err(|_| StateError::Corrupt)?;

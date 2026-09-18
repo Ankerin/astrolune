@@ -50,7 +50,10 @@ mod tests {
             CryptoError::EquivocationDetected.to_string(),
             "equivocation detected"
         );
-        assert_eq!(CryptoError::InvalidSignature.to_string(), "invalid signature");
+        assert_eq!(
+            CryptoError::InvalidSignature.to_string(),
+            "invalid signature"
+        );
         assert_eq!(CryptoError::InvalidSeed.to_string(), "invalid seed");
     }
 

@@ -13,8 +13,14 @@ use types::Hash256;
 /// BLAKE2s IV (initialization vector) derived from the fractional parts of
 /// the square roots of the first 8 primes.
 const IV: [u32; 8] = [
-    0x6A09E667, 0xBB67AE85, 0x3C6EF372, 0xA54FF53A,
-    0x510E527F, 0x9B05688C, 0x1F83D9AB, 0x5BE0CD19,
+    0x6A09_E667,
+    0xBB67_AE85,
+    0x3C6E_F372,
+    0xA54F_F53A,
+    0x510E_527F,
+    0x9B05_688C,
+    0x1F83_D9AB,
+    0x5BE0_CD19,
 ];
 
 /// BLAKE2s sigma permutation schedule (10 rounds).
@@ -35,6 +41,7 @@ const SIGMA: [[usize; 16]; 10] = [
 ///
 /// Mixes four 32-bit words with two message words and returns updated values.
 /// This avoids borrow-checker issues with mutable array references.
+#[allow(clippy::many_single_char_names)]
 #[inline]
 fn g(a: u32, b: u32, c: u32, d: u32, x: u32, y: u32) -> (u32, u32, u32, u32) {
     let a = a.wrapping_add(b).wrapping_add(x);
@@ -54,16 +61,16 @@ fn g(a: u32, b: u32, c: u32, d: u32, x: u32, y: u32) -> (u32, u32, u32, u32) {
 fn compress(state: &mut [u32; 8], block: &[u8; 64], t0: u32, t1: u32, last: bool) {
     // Working vector initialized from state + IV
     let mut v = [0u32; 16];
-    v[0]  = state[0];
-    v[1]  = state[1];
-    v[2]  = state[2];
-    v[3]  = state[3];
-    v[4]  = state[4];
-    v[5]  = state[5];
-    v[6]  = state[6];
-    v[7]  = state[7];
-    v[8]  = IV[0];
-    v[9]  = IV[1];
+    v[0] = state[0];
+    v[1] = state[1];
+    v[2] = state[2];
+    v[3] = state[3];
+    v[4] = state[4];
+    v[5] = state[5];
+    v[6] = state[6];
+    v[7] = state[7];
+    v[8] = IV[0];
+    v[9] = IV[1];
     v[10] = IV[2];
     v[11] = IV[3];
     v[12] = IV[4];
@@ -86,45 +93,67 @@ fn compress(state: &mut [u32; 8], block: &[u8; 64], t0: u32, t1: u32, last: bool
     }
 
     // 10 rounds of mixing
-    for round in 0..10 {
-        let s = &SIGMA[round];
-
+    for s in &SIGMA {
         // Column step: apply G to (v[0],v[4],v[8],v[12]), (v[1],v[5],v[9],v[13]), etc.
-        let (a0, b0, c0, d0) = g(v[0],  v[4],  v[8],  v[12], m[s[0]],  m[s[1]]);
-        v[0]  = a0; v[4]  = b0; v[8]  = c0; v[12] = d0;
+        let (a0, b0, c0, d0) = g(v[0], v[4], v[8], v[12], m[s[0]], m[s[1]]);
+        v[0] = a0;
+        v[4] = b0;
+        v[8] = c0;
+        v[12] = d0;
 
-        let (a1, b1, c1, d1) = g(v[1],  v[5],  v[9],  v[13], m[s[2]],  m[s[3]]);
-        v[1]  = a1; v[5]  = b1; v[9]  = c1; v[13] = d1;
+        let (a1, b1, c1, d1) = g(v[1], v[5], v[9], v[13], m[s[2]], m[s[3]]);
+        v[1] = a1;
+        v[5] = b1;
+        v[9] = c1;
+        v[13] = d1;
 
-        let (a2, b2, c2, d2) = g(v[2],  v[6],  v[10], v[14], m[s[4]],  m[s[5]]);
-        v[2]  = a2; v[6]  = b2; v[10] = c2; v[14] = d2;
+        let (a2, b2, c2, d2) = g(v[2], v[6], v[10], v[14], m[s[4]], m[s[5]]);
+        v[2] = a2;
+        v[6] = b2;
+        v[10] = c2;
+        v[14] = d2;
 
-        let (a3, b3, c3, d3) = g(v[3],  v[7],  v[11], v[15], m[s[6]],  m[s[7]]);
-        v[3]  = a3; v[7]  = b3; v[11] = c3; v[15] = d3;
+        let (a3, b3, c3, d3) = g(v[3], v[7], v[11], v[15], m[s[6]], m[s[7]]);
+        v[3] = a3;
+        v[7] = b3;
+        v[11] = c3;
+        v[15] = d3;
 
         // Diagonal step
-        let (a4, b4, c4, d4) = g(v[0],  v[5],  v[10], v[15], m[s[8]],  m[s[9]]);
-        v[0]  = a4; v[5]  = b4; v[10] = c4; v[15] = d4;
+        let (a4, b4, c4, d4) = g(v[0], v[5], v[10], v[15], m[s[8]], m[s[9]]);
+        v[0] = a4;
+        v[5] = b4;
+        v[10] = c4;
+        v[15] = d4;
 
-        let (a5, b5, c5, d5) = g(v[1],  v[6],  v[11], v[12], m[s[10]], m[s[11]]);
-        v[1]  = a5; v[6]  = b5; v[11] = c5; v[12] = d5;
+        let (a5, b5, c5, d5) = g(v[1], v[6], v[11], v[12], m[s[10]], m[s[11]]);
+        v[1] = a5;
+        v[6] = b5;
+        v[11] = c5;
+        v[12] = d5;
 
-        let (a6, b6, c6, d6) = g(v[2],  v[7],  v[8],  v[13], m[s[12]], m[s[13]]);
-        v[2]  = a6; v[7]  = b6; v[8]  = c6; v[13] = d6;
+        let (a6, b6, c6, d6) = g(v[2], v[7], v[8], v[13], m[s[12]], m[s[13]]);
+        v[2] = a6;
+        v[7] = b6;
+        v[8] = c6;
+        v[13] = d6;
 
-        let (a7, b7, c7, d7) = g(v[3],  v[4],  v[9],  v[14], m[s[14]], m[s[15]]);
-        v[3]  = a7; v[4]  = b7; v[9]  = c7; v[14] = d7;
+        let (a7, b7, c7, d7) = g(v[3], v[4], v[9], v[14], m[s[14]], m[s[15]]);
+        v[3] = a7;
+        v[4] = b7;
+        v[9] = c7;
+        v[14] = d7;
     }
 
     // Finalize: xor the two halves of the working vector into the state
-    state[0]  ^= v[0]  ^ v[8];
-    state[1]  ^= v[1]  ^ v[9];
-    state[2]  ^= v[2]  ^ v[10];
-    state[3]  ^= v[3]  ^ v[11];
-    state[4]  ^= v[4]  ^ v[12];
-    state[5]  ^= v[5]  ^ v[13];
-    state[6]  ^= v[6]  ^ v[14];
-    state[7]  ^= v[7]  ^ v[15];
+    state[0] ^= v[0] ^ v[8];
+    state[1] ^= v[1] ^ v[9];
+    state[2] ^= v[2] ^ v[10];
+    state[3] ^= v[3] ^ v[11];
+    state[4] ^= v[4] ^ v[12];
+    state[5] ^= v[5] ^ v[13];
+    state[6] ^= v[6] ^ v[14];
+    state[7] ^= v[7] ^ v[15];
 }
 
 /// Domain prefix prepended to all hash operations for cross-domain separation.
@@ -152,7 +181,9 @@ pub fn blake2s(data: &[u8]) -> Hash256 {
 
     // Process the final (possibly partial) block
     let remaining = data.len() % 64;
-    t += remaining as u32;
+    #[allow(clippy::cast_possible_truncation)]
+    let remaining_u32 = remaining as u32;
+    t += remaining_u32;
     let mut last_block = [0u8; 64];
     last_block[..remaining].copy_from_slice(&data[offset..]);
     compress(&mut state, &last_block, t, 0, true);

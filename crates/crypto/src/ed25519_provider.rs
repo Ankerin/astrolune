@@ -55,7 +55,7 @@ pub struct KeyEntry {
 /// The keystore tracks signing positions to prevent equivocation.
 pub struct Ed25519Keystore {
     keys: BTreeMap<String, KeyEntry>,
-    /// Maps (key_id, height, round, phase) to the signed message hash.
+    /// Maps (`key_id`, height, round, phase) to the signed message hash.
     /// Prevents signing different messages at the same position.
     signed_positions: BTreeMap<(String, u64, u32, u32), [u8; 32]>,
 }
@@ -78,11 +78,7 @@ impl Ed25519Keystore {
     /// # Errors
     ///
     /// Returns [`CryptoError::DuplicateKey`] if the key ID already exists.
-    pub fn generate_key(
-        &mut self,
-        key_id: String,
-        seed: [u8; 32],
-    ) -> Result<KeyId, CryptoError> {
+    pub fn generate_key(&mut self, key_id: String, seed: [u8; 32]) -> Result<KeyId, CryptoError> {
         if self.keys.contains_key(&key_id) {
             return Err(CryptoError::DuplicateKey);
         }
@@ -133,11 +129,7 @@ impl Ed25519Keystore {
     /// # Errors
     ///
     /// Returns [`CryptoError::KeyNotFound`] if the key ID is not registered.
-    pub fn sign(
-        &self,
-        key_id: &KeyId,
-        message: &[u8],
-    ) -> Result<[u8; 64], CryptoError> {
+    pub fn sign(&self, key_id: &KeyId, message: &[u8]) -> Result<[u8; 64], CryptoError> {
         let entry = self.keys.get(&key_id.0).ok_or(CryptoError::KeyNotFound)?;
         Ok(ed25519_sign(&entry.secret_key, message))
     }
@@ -161,11 +153,10 @@ impl Ed25519Keystore {
         let pos_key = (key_id.0.clone(), height, round, phase);
 
         // Check for equivocation: different message at same position
-        if let Some(existing) = self.signed_positions.get(&pos_key) {
-            if *existing != message_hash {
-                return Err(CryptoError::EquivocationDetected);
-            }
-            // Same message at same position: re-sign is allowed
+        if let Some(existing) = self.signed_positions.get(&pos_key)
+            && *existing != message_hash
+        {
+            return Err(CryptoError::EquivocationDetected);
         }
 
         let entry = self.keys.get(&key_id.0).ok_or(CryptoError::KeyNotFound)?;
@@ -178,11 +169,7 @@ impl Ed25519Keystore {
     ///
     /// This is a static method that does not require keystore state.
     #[must_use]
-    pub fn verify_pubkey(
-        public_key: &[u8; 32],
-        message: &[u8],
-        signature: &[u8; 64],
-    ) -> bool {
+    pub fn verify_pubkey(public_key: &[u8; 32], message: &[u8], signature: &[u8; 64]) -> bool {
         ed25519_verify(public_key, message, signature)
     }
 
@@ -290,9 +277,7 @@ mod tests {
         let kid = ks.generate_key("pos".into(), [5u8; 32]).expect("gen");
         let msg = [42u8; 32];
 
-        let sig1 = ks
-            .sign_at_position(&kid, 1, 0, 0, msg)
-            .expect("first sign");
+        let sig1 = ks.sign_at_position(&kid, 1, 0, 0, msg).expect("first sign");
         let sig2 = ks
             .sign_at_position(&kid, 1, 0, 0, msg)
             .expect("re-sign same msg");
@@ -319,8 +304,10 @@ mod tests {
         let mut ks = Ed25519Keystore::new();
         let kid = ks.generate_key("diff".into(), [11u8; 32]).expect("gen");
 
-        ks.sign_at_position(&kid, 1, 0, 0, [1u8; 32]).expect("pos a");
-        ks.sign_at_position(&kid, 1, 0, 1, [2u8; 32]).expect("pos b");
+        ks.sign_at_position(&kid, 1, 0, 0, [1u8; 32])
+            .expect("pos a");
+        ks.sign_at_position(&kid, 1, 0, 1, [2u8; 32])
+            .expect("pos b");
     }
 
     #[test]

@@ -14,7 +14,9 @@ use std::net::TcpStream;
 use std::sync::{Arc, Mutex};
 
 use crate::error::NetworkError;
-use crate::frame::{BoundedFrameDecoder, FrameDecoder, FrameEncoder, FRAME_HEADER_SIZE, MAX_FRAME_SIZE};
+use crate::frame::{
+    BoundedFrameDecoder, FRAME_HEADER_SIZE, FrameDecoder, FrameEncoder, MAX_FRAME_SIZE,
+};
 use crate::message::MessageKind;
 
 /// Default connection timeout in milliseconds.
@@ -199,9 +201,7 @@ impl PeerConnection {
         let mut header = [0u8; FRAME_HEADER_SIZE];
         self.reader.read_exact(&mut header)?;
 
-        let len = u32::from_le_bytes([
-            header[1], header[2], header[3], header[4],
-        ]) as usize;
+        let len = u32::from_le_bytes([header[1], header[2], header[3], header[4]]) as usize;
 
         if len > MAX_FRAME_SIZE {
             return Err(TransportError::InvalidFrame(NetworkError::LimitExceeded));
@@ -212,7 +212,10 @@ impl PeerConnection {
         buf.resize(FRAME_HEADER_SIZE + len, 0);
         self.reader.read_exact(&mut buf[FRAME_HEADER_SIZE..])?;
 
-        let frame = self.decoder.decode(&buf).map_err(TransportError::InvalidFrame)?;
+        let frame = self
+            .decoder
+            .decode(&buf)
+            .map_err(TransportError::InvalidFrame)?;
 
         Ok(OwnedFrame {
             kind: frame.kind,
@@ -239,10 +242,7 @@ impl PeerConnection {
     /// # Errors
     ///
     /// Returns `TransportError` on I/O or protocol errors.
-    pub fn send_and_receive(
-        &mut self,
-        request: &OwnedFrame,
-    ) -> Result<OwnedFrame, TransportError> {
+    pub fn send_and_receive(&mut self, request: &OwnedFrame) -> Result<OwnedFrame, TransportError> {
         self.write_frame(request)?;
         self.read_frame()
     }
@@ -294,7 +294,10 @@ impl PeerManager {
         let conn = PeerConnection::connect(addr)?;
         let peer_id = conn.peer_id().clone();
 
-        let mut peers = self.peers.lock().map_err(|_| TransportError::NotConnected)?;
+        let mut peers = self
+            .peers
+            .lock()
+            .map_err(|_| TransportError::NotConnected)?;
         if peers.len() >= self.max_peers {
             return Err(TransportError::PeerLimitReached);
         }
@@ -308,15 +311,14 @@ impl PeerManager {
     /// # Errors
     ///
     /// Returns `TransportError` if the peer limit has been reached.
-    pub fn accept(
-        &self,
-        addr: &str,
-        stream: TcpStream,
-    ) -> Result<PeerId, TransportError> {
+    pub fn accept(&self, addr: &str, stream: TcpStream) -> Result<PeerId, TransportError> {
         let conn = PeerConnection::from_stream(addr, stream)?;
         let peer_id = conn.peer_id().clone();
 
-        let mut peers = self.peers.lock().map_err(|_| TransportError::NotConnected)?;
+        let mut peers = self
+            .peers
+            .lock()
+            .map_err(|_| TransportError::NotConnected)?;
         if peers.len() >= self.max_peers {
             return Err(TransportError::PeerLimitReached);
         }
@@ -342,7 +344,10 @@ impl PeerManager {
     ///
     /// Returns `TransportError` if the peer is not connected or the write fails.
     pub fn send(&self, peer_id: &PeerId, frame: &OwnedFrame) -> Result<(), TransportError> {
-        let mut peers = self.peers.lock().map_err(|_| TransportError::NotConnected)?;
+        let mut peers = self
+            .peers
+            .lock()
+            .map_err(|_| TransportError::NotConnected)?;
         let conn = peers.get_mut(peer_id).ok_or(TransportError::NotConnected)?;
         conn.write_frame(frame)
     }
@@ -353,7 +358,10 @@ impl PeerManager {
     ///
     /// Returns `TransportError` if the peer is not connected or the read fails.
     pub fn receive(&self, peer_id: &PeerId) -> Result<OwnedFrame, TransportError> {
-        let mut peers = self.peers.lock().map_err(|_| TransportError::NotConnected)?;
+        let mut peers = self
+            .peers
+            .lock()
+            .map_err(|_| TransportError::NotConnected)?;
         let conn = peers.get_mut(peer_id).ok_or(TransportError::NotConnected)?;
         conn.read_frame()
     }
@@ -366,9 +374,8 @@ impl PeerManager {
     /// Returns a list of `(PeerId, Result<(), TransportError>)` for each peer.
     #[must_use]
     pub fn broadcast(&self, frame: &OwnedFrame) -> Vec<(PeerId, Result<(), TransportError>)> {
-        let peers = match self.peers.lock() {
-            Ok(p) => p,
-            Err(_) => return Vec::new(),
+        let Ok(peers) = self.peers.lock() else {
+            return Vec::new();
         };
 
         let ids: Vec<PeerId> = peers.keys().cloned().collect();
@@ -385,10 +392,7 @@ impl PeerManager {
     /// Returns the number of currently connected peers.
     #[must_use]
     pub fn peer_count(&self) -> usize {
-        self.peers
-            .lock()
-            .map(|peers| peers.len())
-            .unwrap_or(0)
+        self.peers.lock().map(|peers| peers.len()).unwrap_or(0)
     }
 
     /// Returns the list of connected peer IDs.
@@ -425,10 +429,7 @@ impl TcpPeerListener {
     /// # Errors
     ///
     /// Returns `std::io::Error` if the address cannot be bound.
-    pub fn bind(
-        addr: &str,
-        peer_manager: Arc<PeerManager>,
-    ) -> Result<Self, std::io::Error> {
+    pub fn bind(addr: &str, peer_manager: Arc<PeerManager>) -> Result<Self, std::io::Error> {
         let listener = std::net::TcpListener::bind(addr)?;
         listener.set_nonblocking(false)?;
         Ok(Self {
@@ -448,8 +449,7 @@ impl TcpPeerListener {
                 Ok(stream) => {
                     let addr = stream
                         .peer_addr()
-                        .map(|a| a.to_string())
-                        .unwrap_or_else(|_| "unknown".into());
+                        .map_or_else(|_| "unknown".into(), |a| a.to_string());
 
                     match self.peer_manager.accept(&addr, stream) {
                         Ok(peer_id) => {
@@ -469,7 +469,6 @@ impl TcpPeerListener {
     }
 
     /// Returns the local address this listener is bound to.
-    #[must_use]
     pub fn local_addr(&self) -> std::io::Result<std::net::SocketAddr> {
         self.listener.local_addr()
     }
@@ -485,9 +484,9 @@ mod tests {
         let frame = OwnedFrame::new(MessageKind::Hello, b"ping".to_vec());
         let encoded = frame.encode();
         let decoder = BoundedFrameDecoder::new(MAX_FRAME_SIZE);
-        let decoded = decoder.decode(&encoded).unwrap();
-        assert_eq!(decoded.kind, MessageKind::Hello);
-        assert_eq!(decoded.payload, b"ping");
+        let frame = decoder.decode(&encoded).unwrap();
+        assert_eq!(frame.kind, MessageKind::Hello);
+        assert_eq!(frame.payload, b"ping");
     }
 
     #[test]
@@ -532,7 +531,7 @@ mod tests {
         let addr = listener.local_addr().unwrap();
 
         // Run accept loop in background
-        let mgr_bg = mgr.clone();
+        let _mgr_bg = mgr.clone();
         let _handle = std::thread::spawn(move || {
             listener.run().ok();
         });
@@ -542,13 +541,13 @@ mod tests {
         let peer_id = client.peer_id().clone();
 
         // Register in manager
-        mgr.accept(&peer_id.addr, std::net::TcpStream::connect(&addr).unwrap())
+        mgr.accept(&peer_id.addr, std::net::TcpStream::connect(addr).unwrap())
             .unwrap();
 
         assert_eq!(mgr.peer_count(), 1);
         assert!(mgr.connected_peers().contains(&peer_id));
 
-        mgr.disconnect(&peer_id);
+        let _ = mgr.disconnect(&peer_id);
         assert_eq!(mgr.peer_count(), 0);
     }
 }

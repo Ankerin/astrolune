@@ -17,8 +17,7 @@ pub use frame::{
 };
 pub use message::{CompactBlock, MessageKind, Reconstruction};
 pub use transport::{
-    OwnedFrame, PeerConnection, PeerId, PeerManager, PeerMessage, TcpPeerListener,
-    TransportError,
+    OwnedFrame, PeerConnection, PeerId, PeerManager, PeerMessage, TcpPeerListener, TransportError,
 };
 
 #[cfg(test)]
