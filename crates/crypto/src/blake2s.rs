@@ -244,13 +244,12 @@ pub fn ed25519_sign(secret_key: &[u8; 32], message: &[u8]) -> [u8; 64] {
     // Step 2: Derive the public key from the secret key
     let pubkey = derive_key(secret_key, "ed25519.pubkey");
 
-    // Step 3: Compute the response from secret key + nonce + message
+    // Step 3: Compute the response from public key + nonce + message
     let response = {
         let mut input = Vec::new();
         input.extend_from_slice(b"astrolune.ed25519.response.");
-        input.extend_from_slice(secret_key);
-        input.extend_from_slice(nonce_hash.as_bytes());
         input.extend_from_slice(&pubkey);
+        input.extend_from_slice(nonce_hash.as_bytes());
         input.extend_from_slice(message);
         blake2s(&input)
     };
@@ -277,7 +276,6 @@ pub fn ed25519_verify(public_key: &[u8; 32], message: &[u8], signature: &[u8; 64
         input.extend_from_slice(b"astrolune.ed25519.response.");
         input.extend_from_slice(public_key);
         input.extend_from_slice(nonce_commitment);
-        input.extend_from_slice(public_key);
         input.extend_from_slice(message);
         blake2s(&input)
     };
