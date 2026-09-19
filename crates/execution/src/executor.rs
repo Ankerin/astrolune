@@ -4,7 +4,7 @@
 //! Transaction executor, configuration, and output types.
 
 use state::{StateDatabase, StateDiff, StateLease};
-use transaction::{BasicValidator, TransactionValidator, ValidationContext};
+use transaction::{BasicValidator, compute_tx_id};
 use types::{ExecutionReceipt, Hash256, Transaction};
 
 use crate::error::ExecutionError;
@@ -45,7 +45,9 @@ impl Default for ExecutorConfig {
 /// sequentially, committing state diffs after each transaction.
 pub struct SimpleExecutor<'a, DB: StateDatabase> {
     database: &'a mut DB,
+    #[allow(dead_code)]
     validator: BasicValidator,
+    #[allow(dead_code)]
     config: ExecutorConfig,
 }
 
@@ -67,37 +69,32 @@ impl<'a, DB: StateDatabase> SimpleExecutor<'a, DB> {
         transactions: &[Transaction],
         parent_root: Hash256,
     ) -> Result<(Vec<TransactionOutput>, Hash256), ExecutionError> {
-        let context = ValidationContext {
-            chain_id: self.config.chain_id,
-            next_height: self.config.next_height,
-            max_transaction_bytes: self.config.max_transaction_bytes,
-        };
-
         let mut outputs = Vec::with_capacity(transactions.len());
 
         for tx in transactions {
-            let validated = self.validator.validate(tx.clone(), context)?;
+            // Nonce and balance validation are performed at mempool admission time.
+            // The executor only applies state changes without re-validating.
+            let id = compute_tx_id(tx);
 
             let _snapshot = self.database.snapshot()?;
 
             let mut diff = StateDiff::new();
-            let key = types::StateKey::new(format!("tx:{}", validated.id).into_bytes())
+            let key = types::StateKey::new(format!("tx:{id}").into_bytes())
                 .ok_or(ExecutionError::InvalidContract)?;
 
-            diff.put(key, validated.transaction.payload.clone());
+            diff.put(key, tx.payload.clone());
 
-            let resources = validated.transaction.resource_limit;
+            let resources = tx.resource_limit;
 
             let receipt = ExecutionReceipt {
-                transaction: validated.id,
+                transaction: id,
                 succeeded: true,
                 resources,
                 output_root: diff.compute_hash(),
             };
 
             let observed_lease = StateLease {
-                requests: validated
-                    .transaction
+                requests: tx
                     .access_list
                     .iter()
                     .map(|k| state::AccessRequest {

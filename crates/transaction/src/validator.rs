@@ -81,6 +81,13 @@ impl BasicValidator {
         }
     }
 
+    /// Creates a permissive validator that skips account-level nonce and
+    /// balance checks. Only validates envelope shape and chain ID.
+    #[must_use]
+    pub fn permissive() -> Self {
+        Self::empty()
+    }
+
     /// Advances the nonce for an account after a transaction is committed.
     pub fn advance_nonce(&mut self, address: &Address) {
         if let Some(acc) = self.accounts.get_mut(address) {
