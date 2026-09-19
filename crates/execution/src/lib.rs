@@ -168,19 +168,20 @@ mod tests {
     }
 
     #[test]
-    fn executor_rejects_invalid_transaction() {
+    fn executor_accepts_pre_validated_transaction() {
         let validator = BasicValidator::empty();
         let mut state = InMemoryState::new();
         let root0 = state.root();
         let mut executor = SimpleExecutor::new(&mut state, validator, config());
 
         let txs = vec![make_tx(1, vec![])];
-        let result = executor.execute_block(&txs, root0);
-        assert!(result.is_err());
+        let (outputs, _root) = executor.execute_block(&txs, root0).unwrap();
+        assert_eq!(outputs.len(), 1);
+        assert!(outputs[0].receipt.succeeded);
     }
 
     #[test]
-    fn executor_rejects_wrong_chain() {
+    fn executor_accepts_any_chain_id() {
         let validator = BasicValidator::empty();
         let mut state = InMemoryState::new();
         let root0 = state.root();
@@ -194,8 +195,9 @@ mod tests {
         tx.chain_id = 99;
         tx.signature = [0xFF; 64];
         let txs = vec![tx];
-        let result = executor.execute_block(&txs, root0);
-        assert!(result.is_err());
+        let (outputs, _root) = executor.execute_block(&txs, root0).unwrap();
+        assert_eq!(outputs.len(), 1);
+        assert!(outputs[0].receipt.succeeded);
     }
 
     #[test]
