@@ -313,7 +313,7 @@ mod tests {
         Address::from_bytes([0xBB; 32])
     }
 
-    // -- normalize_path tests --
+    // normalize_path tests
 
     #[test]
     fn normalize_valid_path() {
@@ -363,7 +363,7 @@ mod tests {
         assert_eq!(normalize_path("a/b/.."), Err(PageError::InvalidPath));
     }
 
-    // -- PageError Display and Error --
+    // PageError Display and Error
 
     #[test]
     fn page_error_display() {
@@ -390,7 +390,7 @@ mod tests {
         assert_eq!(err.to_string(), "asset not found");
     }
 
-    // -- register and load --
+    // Register and load
 
     #[test]
     fn register_and_load_roundtrip() {
@@ -578,7 +578,7 @@ mod tests {
         assert_ne!(root_a, root_ab);
     }
 
-    // -- mime_type tests --
+    // mime_type tests
 
     #[test]
     fn mime_type_html() {
@@ -645,7 +645,7 @@ mod tests {
         assert_eq!(mime_type("noextension"), "application/octet-stream");
     }
 
-    // -- CSP_HEADER test --
+    // CSP_HEADER test
 
     #[test]
     fn csp_header_value() {
@@ -654,7 +654,7 @@ mod tests {
         assert!(CSP_HEADER.contains("frame-ancestors 'none'"));
     }
 
-    // -- constants tests --
+    // Constants tests
 
     #[test]
     fn max_asset_size_is_ten_megabytes() {
@@ -666,7 +666,7 @@ mod tests {
         assert_eq!(MAX_MANIFEST_ASSETS, 1000);
     }
 
-    // -- PageManifest::validate tests --
+    // PageManifest::validate tests
 
     #[test]
     fn validate_valid_manifest() {
@@ -712,7 +712,7 @@ mod tests {
         assert_eq!(manifest.validate(), Err(PageError::InvalidManifest));
     }
 
-    // -- OriginPolicy tests --
+    // OriginPolicy tests
 
     #[test]
     fn origin_policy_allows_listed() {
@@ -744,7 +744,7 @@ mod tests {
         assert!(!policy.is_allowed("https://example.com/"));
     }
 
-    // -- register PayloadTooLarge tests --
+    // Register PayloadTooLarge tests
 
     #[test]
     fn register_rejects_oversized_content() {
@@ -779,7 +779,7 @@ mod tests {
         );
     }
 
-    // -- register TooManyAssets tests --
+    // Register TooManyAssets tests
 
     #[test]
     fn register_rejects_when_too_many_assets() {
@@ -832,7 +832,7 @@ mod tests {
         ));
     }
 
-    // -- asset_count tests --
+    // Asset_count tests
 
     #[test]
     fn asset_count_starts_at_zero() {
