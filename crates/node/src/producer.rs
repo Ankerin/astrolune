@@ -526,7 +526,7 @@ mod tests {
     #[test]
     #[allow(clippy::cast_possible_truncation)]
     fn produce_block_multiple_transactions() {
-        let mut producer = BlockProducer::new(test_config());
+        let mut producer = BlockProducer::with_account(sender(), 0, 100_000, test_config());
         for i in 0u64..3 {
             let tx = make_tx(i, vec![i as u8]);
             producer.submit_transaction(tx).unwrap();
@@ -623,7 +623,7 @@ mod tests {
     #[test]
     #[allow(clippy::cast_possible_truncation)]
     fn multiple_blocks_sequential() {
-        let mut producer = BlockProducer::new(test_config());
+        let mut producer = BlockProducer::with_account(sender(), 0, 100_000, test_config());
         let mut storage = storage::InMemoryStorage::new();
 
         for h in 0u64..5 {
