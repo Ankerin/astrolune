@@ -296,6 +296,11 @@ impl BlockProducer {
 
         let (outputs, state_root) = executor.execute_block(&transactions, parent_root)?;
 
+        // Advance validator nonces after execution so subsequent submissions are valid
+        for tx in &transactions {
+            self.validator.advance_nonce(&tx.sender);
+        }
+
         // Compute the receipts root commitment
         let receipts: Vec<types::ExecutionReceipt> =
             outputs.iter().map(|o| o.receipt.clone()).collect();
@@ -364,11 +369,6 @@ impl BlockProducer {
         // Advance the producer state for the next block
         self.height += 1;
         self.parent_hash = proposal.block.header.compute_hash();
-
-        // Update validator account nonces for committed transactions
-        for tx in &proposal.block.transactions {
-            self.validator.advance_nonce(&tx.sender);
-        }
 
         Ok(checkpoint)
     }
