@@ -127,6 +127,18 @@ impl Mempool {
     pub fn is_empty(&self) -> bool {
         self.entries.is_empty()
     }
+
+    /// Removes a transaction by its sender and nonce.
+    pub fn remove(&mut self, sender: &Address, nonce: u64) {
+        self.entries.remove(&(*sender, nonce));
+    }
+
+    /// Removes multiple transactions by sender and nonce pairs.
+    pub fn remove_batch(&mut self, keys: &[(Address, u64)]) {
+        for (sender, nonce) in keys {
+            self.entries.remove(&(*sender, *nonce));
+        }
+    }
 }
 
 fn checked_add_resources(left: Resources, right: Resources) -> Option<Resources> {

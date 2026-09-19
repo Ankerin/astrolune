@@ -271,6 +271,10 @@ impl BlockProducer {
             self.config.block_capacity,
         );
 
+        let selected_keys: Vec<(Address, u64)> = selected
+            .iter()
+            .map(|e| (e.transaction.sender, e.transaction.nonce))
+            .collect();
         let transactions: Vec<Transaction> = selected
             .iter()
             .map(|entry| entry.transaction.clone())
@@ -325,6 +329,9 @@ impl BlockProducer {
             transactions,
         };
 
+        // Remove selected transactions from the mempool
+        self.mempool.remove_batch(&selected_keys);
+
         let proposal = BlockProposal {
             block,
             outputs,
@@ -357,6 +364,11 @@ impl BlockProducer {
         // Advance the producer state for the next block
         self.height += 1;
         self.parent_hash = proposal.block.header.compute_hash();
+
+        // Update validator account nonces for committed transactions
+        for tx in &proposal.block.transactions {
+            self.validator.advance_nonce(&tx.sender);
+        }
 
         Ok(checkpoint)
     }

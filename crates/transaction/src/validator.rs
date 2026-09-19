@@ -80,6 +80,13 @@ impl BasicValidator {
             accounts: BTreeMap::new(),
         }
     }
+
+    /// Advances the nonce for an account after a transaction is committed.
+    pub fn advance_nonce(&mut self, address: &Address) {
+        if let Some(acc) = self.accounts.get_mut(address) {
+            acc.nonce += 1;
+        }
+    }
 }
 
 impl Default for BasicValidator {
