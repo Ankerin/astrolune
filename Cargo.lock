@@ -125,6 +125,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "isolation"
+version = "0.1.0"
+dependencies = [
+ "types",
+]
+
+[[package]]
 name = "keystore"
 version = "0.1.0"
 dependencies = [

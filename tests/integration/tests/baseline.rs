@@ -377,7 +377,13 @@ fn rpc_service_full_workflow() {
 fn dns_proxy_service_chain() {
     let mut resolver = InMemoryResolver::new();
     resolver
-        .register("appastro", Record::Service(b"gateway".to_vec()))
+        .register(
+            "appastro",
+            Address::default(),
+            Record::Service(b"gateway".to_vec()),
+            0,
+            dns::DEFAULT_LEASE_SECS,
+        )
         .expect("register dns");
 
     let record = resolver.resolve("appastro").expect("resolves");
@@ -422,7 +428,7 @@ fn id_challenge_and_verification() {
         signature: [0xFF; 64],
     };
 
-    let scopes = verifier.verify(&proof).expect("valid proof");
+    let (scopes, _session) = verifier.verify(&proof).expect("valid proof");
     assert_eq!(scopes, vec![Scope::Address]);
 
     let err = verifier.verify(&proof);

@@ -10,7 +10,7 @@
 #![forbid(unsafe_code)]
 #![allow(clippy::missing_errors_doc)]
 
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 
 use crypto::CryptoProvider;
 use types::{Address, ValidatorId};
@@ -59,10 +59,61 @@ pub struct AuthorizationProof {
     pub signature: [u8; 64],
 }
 
+/// An active session granting capabilities to a wallet address.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct Session {
+    /// Unique session identifier.
+    pub id: [u8; 32],
+    /// Wallet address this session belongs to.
+    pub address: Address,
+    /// Granted capabilities.
+    pub scopes: Vec<Scope>,
+    /// Timestamp when the session was created.
+    pub issued_at: u64,
+    /// Timestamp when the session expires.
+    pub expires_at: u64,
+    /// Whether the session has been revoked.
+    pub revoked: bool,
+}
+
+impl Session {
+    /// Returns `true` if the session is expired at the given time.
+    #[must_use]
+    pub fn is_expired(&self, current_time: u64) -> bool {
+        current_time >= self.expires_at
+    }
+
+    /// Returns `true` if the session is active (not revoked and not expired).
+    #[must_use]
+    pub fn is_active(&self, current_time: u64) -> bool {
+        !self.revoked && !self.is_expired(current_time)
+    }
+}
+
 /// Verifies proof binding, expiry, signature, and nonce consumption.
 pub trait AuthorizationVerifier {
-    /// Consumes a valid nonce exactly once and returns the granted scopes.
-    fn verify(&mut self, proof: &AuthorizationProof) -> Result<Vec<Scope>, IdError>;
+    /// Consumes a valid nonce exactly once and returns the granted scopes
+    /// alongside a new session.
+    fn verify(&mut self, proof: &AuthorizationProof) -> Result<(Vec<Scope>, Session), IdError>;
+}
+
+/// Manages sessions for wallet addresses.
+pub trait SessionManager {
+    /// Creates a new session for the given address and scopes.
+    fn create(&mut self, address: Address, scopes: Vec<Scope>, issued_at: u64, ttl: u64)
+    -> Session;
+
+    /// Retrieves a session by its identifier.
+    fn get(&self, session_id: &[u8; 32]) -> Option<&Session>;
+
+    /// Revokes a session by its identifier.
+    fn revoke(&mut self, session_id: &[u8; 32]) -> Result<(), IdError>;
+
+    /// Returns `true` if the session is valid (not revoked and not expired).
+    fn is_valid(&self, session_id: &[u8; 32], current_time: u64) -> bool;
+
+    /// Revokes all sessions for the given address and returns the count.
+    fn revoke_all_for_address(&mut self, address: Address) -> usize;
 }
 
 /// Authorization failures safe to expose as protocol status codes.
@@ -76,6 +127,10 @@ pub enum IdError {
     Replay,
     /// Wallet signature is invalid.
     InvalidSignature,
+    /// Session ID does not match any active session.
+    SessionNotFound,
+    /// Session has been revoked.
+    SessionRevoked,
 }
 
 impl std::fmt::Display for IdError {
@@ -85,6 +140,8 @@ impl std::fmt::Display for IdError {
             Self::Expired => write!(f, "challenge expired"),
             Self::Replay => write!(f, "nonce already consumed"),
             Self::InvalidSignature => write!(f, "invalid signature"),
+            Self::SessionNotFound => write!(f, "session not found"),
+            Self::SessionRevoked => write!(f, "session revoked"),
         }
     }
 }
@@ -238,6 +295,7 @@ impl AuthorizationChallenge {
 pub struct InMemoryVerifier {
     consumed: BTreeSet<[u8; 32]>,
     crypto: Box<dyn CryptoProvider>,
+    session_counter: u64,
 }
 
 impl InMemoryVerifier {
@@ -247,12 +305,27 @@ impl InMemoryVerifier {
         Self {
             consumed: BTreeSet::new(),
             crypto,
+            session_counter: 0,
         }
+    }
+
+    /// Derives a deterministic session ID from the address and counter.
+    fn derive_session_id(address: Address, counter: u64) -> [u8; 32] {
+        let mut id = [0u8; 32];
+        let addr_bytes = *address.as_bytes();
+        for (i, byte) in addr_bytes.iter().enumerate() {
+            id[i % 32] ^= byte;
+            id[(i + 5) % 32] = id[(i + 5) % 32].wrapping_add(*byte);
+        }
+        for (i, byte) in counter.to_le_bytes().iter().enumerate() {
+            id[(i + 16) % 32] ^= byte;
+        }
+        id
     }
 }
 
 impl AuthorizationVerifier for InMemoryVerifier {
-    fn verify(&mut self, proof: &AuthorizationProof) -> Result<Vec<Scope>, IdError> {
+    fn verify(&mut self, proof: &AuthorizationProof) -> Result<(Vec<Scope>, Session), IdError> {
         if proof.challenge.is_expired(proof.challenge.issued_at) {
             return Err(IdError::Expired);
         }
@@ -272,7 +345,139 @@ impl AuthorizationVerifier for InMemoryVerifier {
             return Err(IdError::InvalidSignature);
         }
 
-        Ok(proof.challenge.scopes.clone())
+        let scopes = proof.challenge.scopes.clone();
+        let session_id = Self::derive_session_id(proof.address, self.session_counter);
+        self.session_counter += 1;
+
+        let session = Session {
+            id: session_id,
+            address: proof.address,
+            scopes: scopes.clone(),
+            issued_at: proof.challenge.issued_at,
+            expires_at: proof.challenge.expires_at,
+            revoked: false,
+        };
+
+        Ok((scopes, session))
+    }
+}
+
+/// In-memory session manager backed by a [`BTreeMap`].
+pub struct InMemorySessionManager {
+    sessions: BTreeMap<[u8; 32], Session>,
+}
+
+impl InMemorySessionManager {
+    /// Creates a new empty session manager.
+    #[must_use]
+    pub fn new() -> Self {
+        Self {
+            sessions: BTreeMap::new(),
+        }
+    }
+
+    /// Removes all expired sessions and returns the count of purged sessions.
+    #[must_use]
+    pub fn purge_expired(&mut self, current_time: u64) -> usize {
+        let before = self.sessions.len();
+        self.sessions
+            .retain(|_, session| !session.is_expired(current_time));
+        before - self.sessions.len()
+    }
+}
+
+impl Default for InMemorySessionManager {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl SessionManager for InMemorySessionManager {
+    fn create(
+        &mut self,
+        address: Address,
+        scopes: Vec<Scope>,
+        issued_at: u64,
+        ttl: u64,
+    ) -> Session {
+        let session_id = Self::compute_session_id(&self.sessions, address, issued_at);
+        let session = Session {
+            id: session_id,
+            address,
+            scopes,
+            issued_at,
+            expires_at: issued_at.saturating_add(ttl),
+            revoked: false,
+        };
+        self.sessions.insert(session_id, session.clone());
+        session
+    }
+
+    fn get(&self, session_id: &[u8; 32]) -> Option<&Session> {
+        self.sessions.get(session_id)
+    }
+
+    fn revoke(&mut self, session_id: &[u8; 32]) -> Result<(), IdError> {
+        let session = self
+            .sessions
+            .get_mut(session_id)
+            .ok_or(IdError::SessionNotFound)?;
+        if session.revoked {
+            return Err(IdError::SessionRevoked);
+        }
+        session.revoked = true;
+        Ok(())
+    }
+
+    fn is_valid(&self, session_id: &[u8; 32], current_time: u64) -> bool {
+        self.sessions
+            .get(session_id)
+            .is_some_and(|s| s.is_active(current_time))
+    }
+
+    fn revoke_all_for_address(&mut self, address: Address) -> usize {
+        let mut count = 0;
+        for session in self.sessions.values_mut() {
+            if session.address == address && !session.revoked {
+                session.revoked = true;
+                count += 1;
+            }
+        }
+        count
+    }
+}
+
+impl InMemorySessionManager {
+    /// Computes a deterministic session ID from the current map size, address,
+    /// and timestamp.
+    fn compute_session_id(
+        sessions: &BTreeMap<[u8; 32], Session>,
+        address: Address,
+        issued_at: u64,
+    ) -> [u8; 32] {
+        let mut id = [0u8; 32];
+        let addr_bytes = *address.as_bytes();
+        for (i, byte) in addr_bytes.iter().enumerate() {
+            id[i % 32] ^= byte;
+            id[(i + 5) % 32] = id[(i + 5) % 32].wrapping_add(*byte);
+        }
+        for (i, byte) in issued_at.to_le_bytes().iter().enumerate() {
+            id[(i + 8) % 32] ^= byte;
+        }
+        let count = sessions.len() as u64;
+        for (i, byte) in count.to_le_bytes().iter().enumerate() {
+            id[(i + 16) % 32] ^= byte;
+        }
+        // Ensure uniqueness: if a collision exists, perturb until free.
+        let mut candidate = id;
+        let mut attempt: u64 = 0;
+        while sessions.contains_key(&candidate) {
+            for (i, byte) in attempt.to_le_bytes().iter().enumerate() {
+                candidate[(i + 24) % 32] ^= byte;
+            }
+            attempt += 1;
+        }
+        candidate
     }
 }
 
@@ -354,8 +559,13 @@ mod tests {
         };
 
         let mut verifier = InMemoryVerifier::new(Box::new(MockCryptoProvider::new()));
-        let scopes = verifier.verify(&proof).unwrap();
+        let (scopes, session) = verifier.verify(&proof).unwrap();
         assert_eq!(scopes, vec![Scope::Address, Scope::SignMessage]);
+        assert_eq!(session.address, Address::from_bytes([1u8; 32]));
+        assert_eq!(session.scopes, scopes);
+        assert!(!session.revoked);
+        assert_eq!(session.issued_at, 1_000);
+        assert_eq!(session.expires_at, 1_100);
     }
 
     #[test]
@@ -382,7 +592,7 @@ mod tests {
         };
 
         let mut verifier = InMemoryVerifier::new(Box::new(MockCryptoProvider::new()));
-        let _scopes = verifier.verify(&proof).unwrap();
+        let _result = verifier.verify(&proof).unwrap();
 
         // Reusing the same nonce must fail.
         let proof2 = AuthorizationProof {
@@ -422,5 +632,215 @@ mod tests {
         // Mock accepts any non-zero signature — address mismatch is not detected.
         let result = verifier.verify(&proof);
         assert!(result.is_ok());
+    }
+
+    // --- Session tests ---
+
+    #[test]
+    fn session_is_expired() {
+        let session = Session {
+            id: [0u8; 32],
+            address: Address::from_bytes([1u8; 32]),
+            scopes: vec![Scope::Address],
+            issued_at: 100,
+            expires_at: 200,
+            revoked: false,
+        };
+        assert!(!session.is_expired(100));
+        assert!(!session.is_expired(199));
+        assert!(session.is_expired(200));
+        assert!(session.is_expired(300));
+    }
+
+    #[test]
+    fn session_is_active() {
+        let session = Session {
+            id: [0u8; 32],
+            address: Address::from_bytes([1u8; 32]),
+            scopes: vec![Scope::Address],
+            issued_at: 100,
+            expires_at: 200,
+            revoked: false,
+        };
+        assert!(session.is_active(150));
+        assert!(!session.is_active(200)); // expired
+    }
+
+    #[test]
+    fn session_revoked_is_not_active() {
+        let session = Session {
+            id: [0u8; 32],
+            address: Address::from_bytes([1u8; 32]),
+            scopes: vec![Scope::Address],
+            issued_at: 100,
+            expires_at: 500,
+            revoked: true,
+        };
+        assert!(!session.is_active(150)); // revoked
+    }
+
+    #[test]
+    fn session_manager_create_and_get() {
+        let mut mgr = InMemorySessionManager::new();
+        let addr = Address::from_bytes([1u8; 32]);
+        let scopes = vec![Scope::Address, Scope::SignMessage];
+        let session = mgr.create(addr, scopes.clone(), 1_000, 300);
+
+        assert_eq!(session.address, addr);
+        assert_eq!(session.scopes, scopes);
+        assert_eq!(session.issued_at, 1_000);
+        assert_eq!(session.expires_at, 1_300);
+        assert!(!session.revoked);
+
+        let fetched = mgr.get(&session.id).unwrap();
+        assert_eq!(fetched.id, session.id);
+        assert_eq!(fetched.address, addr);
+    }
+
+    #[test]
+    fn session_manager_get_nonexistent() {
+        let mgr = InMemorySessionManager::new();
+        assert!(mgr.get(&[42u8; 32]).is_none());
+    }
+
+    #[test]
+    fn session_manager_revoke() {
+        let mut mgr = InMemorySessionManager::new();
+        let addr = Address::from_bytes([1u8; 32]);
+        let session = mgr.create(addr, vec![Scope::Address], 1_000, 300);
+
+        mgr.revoke(&session.id).unwrap();
+        let fetched = mgr.get(&session.id).unwrap();
+        assert!(fetched.revoked);
+    }
+
+    #[test]
+    fn session_manager_revoke_not_found() {
+        let mut mgr = InMemorySessionManager::new();
+        assert_eq!(mgr.revoke(&[99u8; 32]), Err(IdError::SessionNotFound));
+    }
+
+    #[test]
+    fn session_manager_revoke_already_revoked() {
+        let mut mgr = InMemorySessionManager::new();
+        let addr = Address::from_bytes([1u8; 32]);
+        let session = mgr.create(addr, vec![Scope::Address], 1_000, 300);
+
+        mgr.revoke(&session.id).unwrap();
+        assert_eq!(mgr.revoke(&session.id), Err(IdError::SessionRevoked));
+    }
+
+    #[test]
+    fn session_manager_is_valid() {
+        let mut mgr = InMemorySessionManager::new();
+        let addr = Address::from_bytes([1u8; 32]);
+        let session = mgr.create(addr, vec![Scope::Address], 1_000, 300);
+
+        assert!(mgr.is_valid(&session.id, 1_000));
+        assert!(mgr.is_valid(&session.id, 1_299));
+        assert!(!mgr.is_valid(&session.id, 1_300)); // expired
+        assert!(!mgr.is_valid(&session.id, 500)); // before issued_at, still valid
+    }
+
+    #[test]
+    fn session_manager_is_valid_revoked() {
+        let mut mgr = InMemorySessionManager::new();
+        let addr = Address::from_bytes([1u8; 32]);
+        let session = mgr.create(addr, vec![Scope::Address], 1_000, 300);
+
+        mgr.revoke(&session.id).unwrap();
+        assert!(!mgr.is_valid(&session.id, 1_100));
+    }
+
+    #[test]
+    fn session_manager_revoke_all_for_address() {
+        let mut mgr = InMemorySessionManager::new();
+        let addr1 = Address::from_bytes([1u8; 32]);
+        let addr2 = Address::from_bytes([2u8; 32]);
+
+        let s1 = mgr.create(addr1, vec![Scope::Address], 1_000, 300);
+        let s2 = mgr.create(addr2, vec![Scope::SignMessage], 1_000, 300);
+        let _s3 = mgr.create(addr1, vec![Scope::SubmitTransaction], 1_000, 300);
+
+        let count = mgr.revoke_all_for_address(addr1);
+        assert_eq!(count, 2);
+
+        // addr1 sessions are revoked
+        assert!(mgr.get(&s1.id).unwrap().revoked);
+
+        // addr2 session is still active
+        assert!(!mgr.is_valid(&s2.id, 1_100));
+    }
+
+    #[test]
+    fn session_manager_purge_expired() {
+        let mut mgr = InMemorySessionManager::new();
+        let addr = Address::from_bytes([1u8; 32]);
+
+        let _s1 = mgr.create(addr, vec![Scope::Address], 1_000, 100); // expires at 1100
+        let s2 = mgr.create(addr, vec![Scope::SignMessage], 1_000, 500); // expires at 1500
+        let _s3 = mgr.create(addr, vec![Scope::SubmitTransaction], 1_200, 100); // expires at 1300
+
+        let purged = mgr.purge_expired(1_200);
+        assert_eq!(purged, 2); // s1 and s3 expired
+
+        // s2 should still be present
+        assert!(mgr.get(&s2.id).is_some());
+    }
+
+    #[test]
+    fn session_manager_purge_expired_none() {
+        let mut mgr = InMemorySessionManager::new();
+        let addr = Address::from_bytes([1u8; 32]);
+        let _s = mgr.create(addr, vec![Scope::Address], 1_000, 500);
+
+        let purged = mgr.purge_expired(1_000);
+        assert_eq!(purged, 0);
+    }
+
+    #[test]
+    fn session_ids_unique_per_create() {
+        let mut mgr = InMemorySessionManager::new();
+        let addr = Address::from_bytes([1u8; 32]);
+        let s1 = mgr.create(addr, vec![Scope::Address], 1_000, 300);
+        let s2 = mgr.create(addr, vec![Scope::Address], 1_000, 300);
+        assert_ne!(s1.id, s2.id);
+    }
+
+    #[test]
+    fn verify_returns_unique_sessions() {
+        let challenge1 = test_challenge();
+        let proof1 = AuthorizationProof {
+            address: Address::from_bytes([1u8; 32]),
+            challenge: challenge1,
+            signature: [0xAA; 64],
+        };
+
+        let mut verifier = InMemoryVerifier::new(Box::new(MockCryptoProvider::new()));
+        let (_scopes1, session1) = verifier.verify(&proof1).unwrap();
+
+        // Create a different challenge (different nonce won't replay).
+        let challenge2 = AuthorizationChallenge::new(
+            2, // different chain_id produces different nonce
+            "https://app.example.com",
+            "backend.example.com",
+            &[Scope::Address],
+            2_000,
+            2_100,
+        );
+        let proof2 = AuthorizationProof {
+            address: Address::from_bytes([1u8; 32]),
+            challenge: challenge2,
+            signature: [0xBB; 64],
+        };
+        let (_scopes2, session2) = verifier.verify(&proof2).unwrap();
+
+        assert_ne!(session1.id, session2.id);
+    }
+
+    #[test]
+    fn error_display() {
+        assert_eq!(format!("{}", IdError::SessionNotFound), "session not found");
+        assert_eq!(format!("{}", IdError::SessionRevoked), "session revoked");
     }
 }

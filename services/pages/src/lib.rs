@@ -10,9 +10,20 @@
 #![forbid(unsafe_code)]
 #![allow(clippy::missing_errors_doc)]
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::fmt;
 use types::{Address, Hash256};
+
+/// Maximum size in bytes for a single asset.
+pub const MAX_ASSET_SIZE: usize = 10 * 1024 * 1024;
+
+/// Maximum number of assets allowed in a single manifest.
+pub const MAX_MANIFEST_ASSETS: usize = 1000;
+
+/// Default Content-Security-Policy header value.
+pub const CSP_HEADER: &str = "default-src 'self'; script-src 'self'; \
+    style-src 'self' 'unsafe-inline'; img-src 'self' data:; \
+    font-src 'self'; connect-src 'self'; frame-ancestors 'none'";
 
 /// Immutable published website release.
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -25,6 +36,26 @@ pub struct PageManifest {
     pub entrypoint: String,
     /// Monotonic owner-controlled release number.
     pub revision: u64,
+}
+
+impl PageManifest {
+    /// Validates manifest invariants.
+    ///
+    /// The entrypoint must be non-empty and the revision must be non-zero.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`PageError::InvalidManifest`] if any invariant is violated.
+    #[must_use = "call .is_ok() or handle the error"]
+    pub fn validate(&self) -> Result<(), PageError> {
+        if self.entrypoint.is_empty() {
+            return Err(PageError::InvalidManifest);
+        }
+        if self.revision == 0 {
+            return Err(PageError::InvalidManifest);
+        }
+        Ok(())
+    }
 }
 
 /// Retrieves and verifies assets for an authenticated manifest.
@@ -42,6 +73,12 @@ pub enum PageError {
     NotFound,
     /// Asset bytes do not match the manifest commitment.
     IntegrityFailure,
+    /// Asset exceeds the maximum allowed size.
+    PayloadTooLarge,
+    /// Manifest violates structural invariants.
+    InvalidManifest,
+    /// Too many assets have been registered.
+    TooManyAssets,
 }
 
 impl fmt::Display for PageError {
@@ -50,11 +87,47 @@ impl fmt::Display for PageError {
             Self::InvalidPath => write!(f, "invalid path"),
             Self::NotFound => write!(f, "asset not found"),
             Self::IntegrityFailure => write!(f, "integrity failure"),
+            Self::PayloadTooLarge => write!(f, "payload too large"),
+            Self::InvalidManifest => write!(f, "invalid manifest"),
+            Self::TooManyAssets => write!(f, "too many assets"),
         }
     }
 }
 
 impl std::error::Error for PageError {}
+
+/// Returns the MIME type for a file extension.
+///
+/// # Examples
+///
+/// ```ignore
+/// assert_eq!(pages::mime_type("index.html"), "text/html");
+/// assert_eq!(pages::mime_type("style.css"), "text/css");
+/// assert_eq!(pages::mime_type("unknown"), "application/octet-stream");
+/// ```
+#[must_use]
+pub fn mime_type(path: &str) -> &'static str {
+    let ext = path.rsplit('.').next().unwrap_or("");
+    match ext {
+        "html" | "htm" => "text/html",
+        "css" => "text/css",
+        "js" | "mjs" => "application/javascript",
+        "json" => "application/json",
+        "png" => "image/png",
+        "jpg" | "jpeg" => "image/jpeg",
+        "gif" => "image/gif",
+        "svg" => "image/svg+xml",
+        "ico" => "image/x-icon",
+        "txt" => "text/plain",
+        "wasm" => "application/wasm",
+        "woff" => "font/woff",
+        "woff2" => "font/woff2",
+        "ttf" => "font/ttf",
+        "xml" => "application/xml",
+        "pdf" => "application/pdf",
+        _ => "application/octet-stream",
+    }
+}
 
 /// Validates and normalizes a relative path.
 ///
@@ -87,6 +160,30 @@ pub fn normalize_path(path: &str) -> Result<String, PageError> {
     }
 
     Ok(normalized)
+}
+
+/// Origin-based access policy.
+///
+/// Controls which HTTP `Origin` headers are permitted to access protected
+/// resources.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct OriginPolicy {
+    /// Allowed origins. An empty set blocks all cross-origin requests.
+    pub allowed_origins: BTreeSet<String>,
+}
+
+impl OriginPolicy {
+    /// Creates a new policy with the given allowed origins.
+    #[must_use]
+    pub fn new(allowed_origins: BTreeSet<String>) -> Self {
+        Self { allowed_origins }
+    }
+
+    /// Returns `true` if the origin is in the allowed set.
+    #[must_use]
+    pub fn is_allowed(&self, origin: &str) -> bool {
+        self.allowed_origins.contains(origin)
+    }
 }
 
 /// Deterministically hashes content bytes into a [`Hash256`].
@@ -135,13 +232,23 @@ impl InMemoryPageSource {
         }
     }
 
+    /// Returns the total number of registered assets.
+    #[must_use]
+    pub fn asset_count(&self) -> usize {
+        self.entries.len()
+    }
+
     /// Registers content at the given path for an owner.
     ///
     /// The path is normalized and the owner's content root is recomputed.
+    /// Content exceeding [`MAX_ASSET_SIZE`] or adding more than
+    /// [`MAX_MANIFEST_ASSETS`] total assets is rejected.
     ///
     /// # Errors
     ///
-    /// Returns [`PageError::InvalidPath`] if the path is not normalizable.
+    /// Returns [`PageError::InvalidPath`] if the path is not normalizable,
+    /// [`PageError::PayloadTooLarge`] if the content exceeds the size limit,
+    /// or [`PageError::TooManyAssets`] if the asset limit is reached.
     pub fn register(
         &mut self,
         owner: Address,
@@ -149,6 +256,14 @@ impl InMemoryPageSource {
         content: Vec<u8>,
     ) -> Result<(), PageError> {
         let normalized = normalize_path(path)?;
+        if content.len() > MAX_ASSET_SIZE {
+            return Err(PageError::PayloadTooLarge);
+        }
+        if self.entries.len() >= MAX_MANIFEST_ASSETS
+            && !self.entries.contains_key(&(owner, normalized.clone()))
+        {
+            return Err(PageError::TooManyAssets);
+        }
         self.entries.insert((owner, normalized), content);
         let root = compute_content_root(&self.entries, owner);
         self.roots.insert(owner, root);
@@ -258,6 +373,15 @@ mod tests {
             format!("{}", PageError::IntegrityFailure),
             "integrity failure"
         );
+        assert_eq!(
+            format!("{}", PageError::PayloadTooLarge),
+            "payload too large"
+        );
+        assert_eq!(
+            format!("{}", PageError::InvalidManifest),
+            "invalid manifest"
+        );
+        assert_eq!(format!("{}", PageError::TooManyAssets), "too many assets");
     }
 
     #[test]
@@ -452,5 +576,287 @@ mod tests {
         let root_ab = source.content_root(o).unwrap();
 
         assert_ne!(root_a, root_ab);
+    }
+
+    // -- mime_type tests --
+
+    #[test]
+    fn mime_type_html() {
+        assert_eq!(mime_type("index.html"), "text/html");
+        assert_eq!(mime_type("page.htm"), "text/html");
+    }
+
+    #[test]
+    fn mime_type_css() {
+        assert_eq!(mime_type("style.css"), "text/css");
+    }
+
+    #[test]
+    fn mime_type_javascript() {
+        assert_eq!(mime_type("app.js"), "application/javascript");
+        assert_eq!(mime_type("module.mjs"), "application/javascript");
+    }
+
+    #[test]
+    fn mime_type_json() {
+        assert_eq!(mime_type("data.json"), "application/json");
+    }
+
+    #[test]
+    fn mime_type_images() {
+        assert_eq!(mime_type("logo.png"), "image/png");
+        assert_eq!(mime_type("photo.jpg"), "image/jpeg");
+        assert_eq!(mime_type("photo.jpeg"), "image/jpeg");
+        assert_eq!(mime_type("animation.gif"), "image/gif");
+        assert_eq!(mime_type("icon.svg"), "image/svg+xml");
+        assert_eq!(mime_type("favicon.ico"), "image/x-icon");
+    }
+
+    #[test]
+    fn mime_type_text() {
+        assert_eq!(mime_type("readme.txt"), "text/plain");
+    }
+
+    #[test]
+    fn mime_type_wasm() {
+        assert_eq!(mime_type("module.wasm"), "application/wasm");
+    }
+
+    #[test]
+    fn mime_type_fonts() {
+        assert_eq!(mime_type("font.woff"), "font/woff");
+        assert_eq!(mime_type("font.woff2"), "font/woff2");
+        assert_eq!(mime_type("font.ttf"), "font/ttf");
+    }
+
+    #[test]
+    fn mime_type_xml() {
+        assert_eq!(mime_type("feed.xml"), "application/xml");
+    }
+
+    #[test]
+    fn mime_type_pdf() {
+        assert_eq!(mime_type("document.pdf"), "application/pdf");
+    }
+
+    #[test]
+    fn mime_type_unknown_extension() {
+        assert_eq!(mime_type("file.xyz"), "application/octet-stream");
+        assert_eq!(mime_type("noextension"), "application/octet-stream");
+    }
+
+    // -- CSP_HEADER test --
+
+    #[test]
+    fn csp_header_value() {
+        assert!(CSP_HEADER.contains("default-src 'self'"));
+        assert!(CSP_HEADER.contains("script-src 'self'"));
+        assert!(CSP_HEADER.contains("frame-ancestors 'none'"));
+    }
+
+    // -- constants tests --
+
+    #[test]
+    fn max_asset_size_is_ten_megabytes() {
+        assert_eq!(MAX_ASSET_SIZE, 10 * 1024 * 1024);
+    }
+
+    #[test]
+    fn max_manifest_assets_is_one_thousand() {
+        assert_eq!(MAX_MANIFEST_ASSETS, 1000);
+    }
+
+    // -- PageManifest::validate tests --
+
+    #[test]
+    fn validate_valid_manifest() {
+        let manifest = PageManifest {
+            owner: owner(),
+            content_root: Hash256::ZERO,
+            entrypoint: "index.html".into(),
+            revision: 1,
+        };
+        assert!(manifest.validate().is_ok());
+    }
+
+    #[test]
+    fn validate_rejects_empty_entrypoint() {
+        let manifest = PageManifest {
+            owner: owner(),
+            content_root: Hash256::ZERO,
+            entrypoint: String::new(),
+            revision: 1,
+        };
+        assert_eq!(manifest.validate(), Err(PageError::InvalidManifest));
+    }
+
+    #[test]
+    fn validate_rejects_zero_revision() {
+        let manifest = PageManifest {
+            owner: owner(),
+            content_root: Hash256::ZERO,
+            entrypoint: "index.html".into(),
+            revision: 0,
+        };
+        assert_eq!(manifest.validate(), Err(PageError::InvalidManifest));
+    }
+
+    #[test]
+    fn validate_rejects_empty_entrypoint_and_zero_revision() {
+        let manifest = PageManifest {
+            owner: owner(),
+            content_root: Hash256::ZERO,
+            entrypoint: String::new(),
+            revision: 0,
+        };
+        assert_eq!(manifest.validate(), Err(PageError::InvalidManifest));
+    }
+
+    // -- OriginPolicy tests --
+
+    #[test]
+    fn origin_policy_allows_listed() {
+        let mut origins = BTreeSet::new();
+        origins.insert("https://example.com".into());
+        origins.insert("https://app.example.com".into());
+        let policy = OriginPolicy::new(origins);
+
+        assert!(policy.is_allowed("https://example.com"));
+        assert!(policy.is_allowed("https://app.example.com"));
+        assert!(!policy.is_allowed("https://evil.com"));
+    }
+
+    #[test]
+    fn origin_policy_empty_blocks_all() {
+        let policy = OriginPolicy::new(BTreeSet::new());
+        assert!(!policy.is_allowed("https://example.com"));
+        assert!(!policy.is_allowed(""));
+    }
+
+    #[test]
+    fn origin_policy_exact_match() {
+        let mut origins = BTreeSet::new();
+        origins.insert("https://example.com".into());
+        let policy = OriginPolicy::new(origins);
+
+        assert!(policy.is_allowed("https://example.com"));
+        assert!(!policy.is_allowed("https://Example.com"));
+        assert!(!policy.is_allowed("https://example.com/"));
+    }
+
+    // -- register PayloadTooLarge tests --
+
+    #[test]
+    fn register_rejects_oversized_content() {
+        let mut source = InMemoryPageSource::new();
+        let o = owner();
+        let oversized = vec![0u8; MAX_ASSET_SIZE + 1];
+
+        assert_eq!(
+            source.register(o, "big.bin", oversized),
+            Err(PageError::PayloadTooLarge)
+        );
+    }
+
+    #[test]
+    fn register_accepts_content_at_limit() {
+        let mut source = InMemoryPageSource::new();
+        let o = owner();
+        let at_limit = vec![0u8; MAX_ASSET_SIZE];
+
+        assert!(source.register(o, "exact.bin", at_limit).is_ok());
+    }
+
+    #[test]
+    fn register_rejects_invalid_path_before_size_check() {
+        let mut source = InMemoryPageSource::new();
+        let o = owner();
+        let oversized = vec![0u8; MAX_ASSET_SIZE + 1];
+
+        assert_eq!(
+            source.register(o, "/bad", oversized),
+            Err(PageError::InvalidPath)
+        );
+    }
+
+    // -- register TooManyAssets tests --
+
+    #[test]
+    fn register_rejects_when_too_many_assets() {
+        let mut source = InMemoryPageSource::new();
+        let o = owner();
+
+        for i in 0..MAX_MANIFEST_ASSETS {
+            let path = format!("file_{i}.txt");
+            source.register(o, &path, b"x".to_vec()).unwrap();
+        }
+
+        assert_eq!(
+            source.register(o, "one_more.txt", b"y".to_vec()),
+            Err(PageError::TooManyAssets)
+        );
+    }
+
+    #[test]
+    fn register_allows_reregister_at_limit() {
+        let mut source = InMemoryPageSource::new();
+        let o = owner();
+
+        for i in 0..MAX_MANIFEST_ASSETS {
+            let path = format!("file_{i}.txt");
+            source.register(o, &path, b"x".to_vec()).unwrap();
+        }
+
+        assert!(
+            source
+                .register(o, "file_0.txt", b"updated".to_vec())
+                .is_ok()
+        );
+    }
+
+    #[test]
+    fn register_allows_other_owner_at_limit() {
+        let mut source = InMemoryPageSource::new();
+        let a = owner();
+        let b = other_owner();
+
+        for i in 0..MAX_MANIFEST_ASSETS {
+            let path = format!("file_{i}.txt");
+            source.register(a, &path, b"x".to_vec()).unwrap();
+        }
+
+        assert!(source.register(b, "file_0.txt", b"other".to_vec()).is_ok());
+    }
+
+    // -- asset_count tests --
+
+    #[test]
+    fn asset_count_starts_at_zero() {
+        let source = InMemoryPageSource::new();
+        assert_eq!(source.asset_count(), 0);
+    }
+
+    #[test]
+    fn asset_count_increases() {
+        let mut source = InMemoryPageSource::new();
+        let o = owner();
+
+        source.register(o, "a.txt", b"a".to_vec()).unwrap();
+        assert_eq!(source.asset_count(), 1);
+
+        source.register(o, "b.txt", b"b".to_vec()).unwrap();
+        assert_eq!(source.asset_count(), 2);
+    }
+
+    #[test]
+    fn asset_count_unchanged_on_reregister() {
+        let mut source = InMemoryPageSource::new();
+        let o = owner();
+
+        source.register(o, "a.txt", b"first".to_vec()).unwrap();
+        assert_eq!(source.asset_count(), 1);
+
+        source.register(o, "a.txt", b"second".to_vec()).unwrap();
+        assert_eq!(source.asset_count(), 1);
     }
 }
