@@ -663,7 +663,7 @@ fn block_producer_produces_empty_block() {
     let mut producer = node::BlockProducer::new(node::ProducerConfig::default());
     let proposal = producer.produce_block().expect("produces block");
 
-    assert_eq!(proposal.block.header.height, 1);
+    assert_eq!(proposal.block.header.height, 0);
     assert!(proposal.block.transactions.is_empty());
     assert!(proposal.outputs.is_empty());
     assert_eq!(proposal.state_root, Hash256::ZERO);
@@ -704,7 +704,7 @@ fn block_producer_commits_to_storage() {
         .expect("commits");
 
     assert_eq!(cp.height, 0);
-    assert_eq!(producer.height(), 2);
+    assert_eq!(producer.height(), 1);
     assert_eq!(producer.parent_hash(), proposal.block.header.compute_hash());
 }
 
@@ -716,12 +716,12 @@ fn block_producer_multiple_blocks() {
     let mut producer = producer;
     let mut storage = InMemoryStorage::new();
 
-    for h in 1u64..=5 {
+    for h in 0u64..5 {
         #[allow(clippy::cast_possible_truncation)]
         let tx = types::Transaction {
             chain_id: 7,
             sender,
-            nonce: h - 1,
+            nonce: h,
             access_list: Vec::new(),
             resource_limit: resources(10),
             payload: vec![h as u8],
@@ -737,7 +737,7 @@ fn block_producer_multiple_blocks() {
             .expect("commits");
     }
 
-    assert_eq!(producer.height(), 6);
+    assert_eq!(producer.height(), 5);
     let cp = storage
         .recover()
         .expect("recovers")
@@ -755,7 +755,7 @@ fn full_node_service_full_cycle() {
     }
 
     assert_eq!(*service.current_state(), node::FullNodeState::Idle);
-    assert_eq!(service.height(), 2);
+    assert_eq!(service.height(), 1);
     assert!(service.storage().checkpoint().is_some());
 }
 
@@ -781,7 +781,7 @@ fn full_node_service_with_transactions() {
         service.advance().expect("advances");
     }
 
-    assert_eq!(service.height(), 2);
+    assert_eq!(service.height(), 1);
     assert_eq!(service.pending_transactions(), 0);
 }
 
@@ -803,7 +803,7 @@ fn full_node_service_committee_setup() {
 
     let committee = service.committee().expect("has committee");
     assert_eq!(committee.members.len(), 2);
-    assert_eq!(committee.height, 1);
+    assert_eq!(committee.height, 0);
 }
 
 #[test]
@@ -816,7 +816,7 @@ fn full_node_service_multiple_cycles() {
         }
     }
 
-    assert_eq!(service.height(), 4);
+    assert_eq!(service.height(), 3);
 }
 
 #[test]

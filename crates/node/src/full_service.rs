@@ -281,7 +281,7 @@ mod tests {
     fn service_starts_idle() {
         let service = FullNodeService::new(test_config());
         assert_eq!(*service.current_state(), FullNodeState::Idle);
-        assert_eq!(service.height(), 1);
+        assert_eq!(service.height(), 0);
     }
 
     #[test]
@@ -292,7 +292,7 @@ mod tests {
         service.advance().unwrap();
         assert_eq!(
             *service.current_state(),
-            FullNodeState::Proposing { height: 1 }
+            FullNodeState::Proposing { height: 0 }
         );
 
         // Proposing -> Voting
@@ -300,7 +300,7 @@ mod tests {
         assert!(matches!(
             *service.current_state(),
             FullNodeState::Voting {
-                height: 1,
+                height: 0,
                 round: 0
             }
         ));
@@ -309,14 +309,14 @@ mod tests {
         service.advance().unwrap();
         assert_eq!(
             *service.current_state(),
-            FullNodeState::Executing { height: 1 }
+            FullNodeState::Executing { height: 0 }
         );
 
         // Executing -> Committing
         service.advance().unwrap();
         assert_eq!(
             *service.current_state(),
-            FullNodeState::Committing { height: 1 }
+            FullNodeState::Committing { height: 0 }
         );
 
         // Committing -> Idle
@@ -355,7 +355,7 @@ mod tests {
         }
 
         assert_eq!(*service.current_state(), FullNodeState::Idle);
-        assert_eq!(service.height(), 2);
+        assert_eq!(service.height(), 1);
         assert!(service.storage().checkpoint().is_some());
     }
 
@@ -369,7 +369,7 @@ mod tests {
             }
         }
 
-        assert_eq!(service.height(), 4);
+        assert_eq!(service.height(), 3);
         assert_eq!(service.observations.len(), 3);
     }
 

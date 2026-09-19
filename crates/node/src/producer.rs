@@ -152,7 +152,7 @@ pub struct BlockProducer {
 impl BlockProducer {
     /// Creates a new block producer with the given configuration.
     ///
-    /// The producer starts at height 1 with the genesis hash as parent.
+    /// The producer starts at height 0 (genesis) with the zero hash as parent.
     ///
     /// # Panics
     ///
@@ -166,7 +166,7 @@ impl BlockProducer {
             config,
             mempool,
             state: InMemoryState::new(),
-            height: 1,
+            height: 0,
             parent_hash: Hash256::ZERO,
             validator: BasicValidator::empty(),
             admission_sequence: 0,
@@ -196,7 +196,7 @@ impl BlockProducer {
             config,
             mempool,
             state: InMemoryState::new(),
-            height: 1,
+            height: 0,
             parent_hash: Hash256::ZERO,
             validator,
             admission_sequence: 0,
@@ -475,9 +475,9 @@ mod tests {
     }
 
     #[test]
-    fn producer_starts_at_height_one() {
+    fn producer_starts_at_height_zero() {
         let producer = BlockProducer::new(test_config());
-        assert_eq!(producer.height(), 1);
+        assert_eq!(producer.height(), 0);
         assert_eq!(producer.parent_hash(), Hash256::ZERO);
         assert_eq!(producer.pending_count(), 0);
     }
@@ -486,7 +486,7 @@ mod tests {
     fn submit_and_produce_empty_block() {
         let mut producer = BlockProducer::new(test_config());
         let proposal = producer.produce_block().unwrap();
-        assert_eq!(proposal.block.header.height, 1);
+        assert_eq!(proposal.block.header.height, 0);
         assert!(proposal.block.transactions.is_empty());
         assert!(proposal.outputs.is_empty());
         assert_eq!(proposal.state_root, producer.state().root());
@@ -535,7 +535,7 @@ mod tests {
             .commit_block(&proposal, vec![0xAA; 32], &mut storage)
             .unwrap();
 
-        assert_eq!(producer.height(), 2);
+        assert_eq!(producer.height(), 1);
         assert_eq!(producer.parent_hash(), proposal.block.header.compute_hash());
     }
 
@@ -601,7 +601,7 @@ mod tests {
             .unwrap();
 
         let proposal2 = producer.produce_block().unwrap();
-        assert_eq!(proposal2.block.header.height, 2);
+        assert_eq!(proposal2.block.header.height, 1);
         assert_eq!(
             proposal2.block.header.parent,
             proposal1.block.header.compute_hash()
@@ -614,19 +614,19 @@ mod tests {
         let mut producer = BlockProducer::new(test_config());
         let mut storage = storage::InMemoryStorage::new();
 
-        for h in 1u64..=5 {
-            let tx = make_tx(h - 1, vec![h as u8]);
+        for h in 0u64..5 {
+            let tx = make_tx(h, vec![h as u8]);
             producer.submit_transaction(tx).unwrap();
 
             let proposal = producer.produce_block().unwrap();
             assert_eq!(proposal.block.header.height, h);
 
             producer
-                .commit_block(&proposal, vec![h as u8; 32], &mut storage)
+                .commit_block(&proposal, vec![0xAA; 32], &mut storage)
                 .unwrap();
         }
 
-        assert_eq!(producer.height(), 6);
+        assert_eq!(producer.height(), 5);
         assert_eq!(storage.recover().unwrap().unwrap().height, 4);
     }
 }
