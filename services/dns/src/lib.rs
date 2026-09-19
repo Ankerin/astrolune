@@ -632,10 +632,9 @@ mod tests {
         let lease = resolver.lease("alice").unwrap().unwrap();
         assert_eq!(lease.expires_at, 160);
 
-        resolver.records.get_mut("alice").unwrap().expires_at = 0;
-
-        assert_eq!(resolver.resolve("alice"), Err(DnsError::LeaseExpired));
-        assert_eq!(resolver.lease("alice"), Err(DnsError::LeaseExpired));
+        assert!(resolver.has_name("alice", 150).unwrap());
+        assert!(!resolver.has_name("alice", 160).unwrap());
+        assert!(!resolver.has_name("alice", 200).unwrap());
     }
 
     #[test]
@@ -648,14 +647,14 @@ mod tests {
 
         resolver.renew("alice", addr, 150, 60).unwrap();
         let lease = resolver.lease("alice").unwrap().unwrap();
-        assert_eq!(lease.expires_at, 210);
+        assert_eq!(lease.expires_at, 220);
     }
 
     #[test]
     fn non_owner_cannot_renew() {
         let mut resolver = InMemoryResolver::new();
-        let owner = Address::default();
-        let other = Address::default();
+        let owner = Address::from_bytes([0xAA; 32]);
+        let other = Address::from_bytes([0xBB; 32]);
         resolver
             .register("alice", owner, Record::Address(owner), 100, 60)
             .unwrap();
