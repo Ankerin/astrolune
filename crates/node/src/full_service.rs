@@ -4,7 +4,7 @@
 //! Full node service with real subsystem integration.
 //!
 //! This module provides [`FullNodeService`], a concrete implementation
-//! of [`NodeService`] that wires together the mempool, consensus engine,
+//! of the node service trait that wires together the mempool, consensus engine,
 //! execution pipeline, and persistent storage into a cohesive block
 //! production and finalization workflow.
 
