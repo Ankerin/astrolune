@@ -825,7 +825,11 @@ mod tests {
             source.register(a, &path, b"x".to_vec()).unwrap();
         }
 
-        assert!(source.register(b, "file_0.txt", b"other".to_vec()).is_ok());
+        // Global limit is reached; new entries from other owners are rejected.
+        assert!(matches!(
+            source.register(b, "file_0.txt", b"other".to_vec()),
+            Err(PageError::TooManyAssets)
+        ));
     }
 
     // -- asset_count tests --
