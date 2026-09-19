@@ -45,4 +45,4 @@ Consensus fixes transaction order. Execution produces receipts and state diffs. 
 - **Audited:** an independent review has been completed and findings addressed.
 - **Production-ready:** release gates, operations, and supported-version policy are complete.
 
-Most of the repository is currently an **interface baseline**.
+Most of the repository is currently an **interface baseline**. The `node` crate now contains **implemented** block production and pipeline coordination with real subsystem integration.

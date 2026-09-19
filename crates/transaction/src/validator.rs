@@ -60,6 +60,7 @@ pub struct AccountState {
 ///
 /// Signature verification is delegated to the crypto provider through the
 /// `SignatureVerifier` callback. This validator does not mutate any state.
+#[derive(Clone)]
 pub struct BasicValidator {
     /// Known account states keyed by address.
     accounts: BTreeMap<Address, AccountState>,

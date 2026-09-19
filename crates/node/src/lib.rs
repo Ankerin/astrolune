@@ -2,19 +2,31 @@
 // SPDX-License-Identifier: MIT
 
 //! Node pipeline coordination across propagation, consensus, execution, and commit.
+//!
+//! This crate provides the core node service layer that coordinates:
+//! - Block production via [`BlockProducer`]
+//! - Pipeline state machine via [`BasicNodeService`]
+//! - Adaptive capacity management via [`AdaptiveCapacityController`]
 
 #![forbid(unsafe_code)]
 #![allow(clippy::missing_errors_doc)]
 
 pub mod capacity;
+pub mod full_service;
 pub mod pipeline;
+pub mod producer;
 pub mod service;
 
 pub use capacity::{
     AdaptiveCapacityController, CapacityController, CapacityObservation, DEFAULT_CAPACITY,
     LATENCY_WINDOW, MIN_CAPACITY, NodeError,
 };
+pub use full_service::{FullNodeService, FullNodeState};
 pub use pipeline::PipelineStage;
+pub use producer::{
+    BlockProducer, BlockProposal, ProducerConfig, ProducerError, compute_receipts_root,
+    compute_transactions_root, hash_transaction,
+};
 pub use service::{BasicNodeService, NodeService, NodeState};
 
 #[cfg(test)]

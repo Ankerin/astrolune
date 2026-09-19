@@ -19,6 +19,7 @@ use genesis::{Genesis, GenesisValidator};
 use id::{AuthorizationChallenge, AuthorizationVerifier, InMemoryVerifier, Scope};
 use keystore::{KeyHandle, KeyPurpose, MockKeystore, Signer};
 use mempool::{Mempool, PoolEntry, PoolLimits};
+use node::NodeService;
 use p2p::{BoundedFrameDecoder, FrameDecoder, FrameEncoder, MAX_FRAME_SIZE, MessageKind};
 use pages::{InMemoryPageSource, PageManifest, PageSource};
 use proxy::{EchoHandler, InMemoryProxyGateway, ProxyGateway, ProxyRequest};
@@ -653,4 +654,193 @@ fn end_to_end_block_production() {
 
     let recovered = storage.recover().expect("recovers");
     assert_eq!(recovered, Some(cp));
+}
+
+// Block production pipeline integration tests
+
+#[test]
+fn block_producer_produces_empty_block() {
+    let mut producer = node::BlockProducer::new(node::ProducerConfig::default());
+    let proposal = producer.produce_block().expect("produces block");
+
+    assert_eq!(proposal.block.header.height, 1);
+    assert!(proposal.block.transactions.is_empty());
+    assert!(proposal.outputs.is_empty());
+    assert_eq!(proposal.state_root, Hash256::ZERO);
+}
+
+#[test]
+fn block_producer_submit_and_produce() {
+    let sender = Address([1u8; 32]);
+    let producer =
+        node::BlockProducer::with_account(sender, 0, 100_000, node::ProducerConfig::default());
+    let mut producer = producer;
+
+    let tx = types::Transaction {
+        chain_id: 7,
+        sender,
+        nonce: 0,
+        access_list: Vec::new(),
+        resource_limit: resources(10),
+        payload: vec![1, 2, 3],
+        signature: [0xFF; 64],
+    };
+    producer.submit_transaction(tx).expect("submits");
+
+    let proposal = producer.produce_block().expect("produces");
+    assert_eq!(proposal.block.transactions.len(), 1);
+    assert!(proposal.outputs[0].receipt.succeeded);
+}
+
+#[test]
+fn block_producer_commits_to_storage() {
+    let producer = node::BlockProducer::new(node::ProducerConfig::default());
+    let mut producer = producer;
+    let mut storage = InMemoryStorage::new();
+
+    let proposal = producer.produce_block().expect("produces");
+    let cp = producer
+        .commit_block(&proposal, vec![0xAA; 32], &mut storage)
+        .expect("commits");
+
+    assert_eq!(cp.height, 0);
+    assert_eq!(producer.height(), 2);
+    assert_eq!(producer.parent_hash(), proposal.block.header.compute_hash());
+}
+
+#[test]
+fn block_producer_multiple_blocks() {
+    let sender = Address([1u8; 32]);
+    let producer =
+        node::BlockProducer::with_account(sender, 0, 100_000, node::ProducerConfig::default());
+    let mut producer = producer;
+    let mut storage = InMemoryStorage::new();
+
+    for h in 1u64..=5 {
+        #[allow(clippy::cast_possible_truncation)]
+        let tx = types::Transaction {
+            chain_id: 7,
+            sender,
+            nonce: h - 1,
+            access_list: Vec::new(),
+            resource_limit: resources(10),
+            payload: vec![h as u8],
+            signature: [0xFF; 64],
+        };
+        producer.submit_transaction(tx).expect("submits");
+
+        let proposal = producer.produce_block().expect("produces");
+        assert_eq!(proposal.block.header.height, h);
+
+        producer
+            .commit_block(&proposal, vec![0xAA; 32], &mut storage)
+            .expect("commits");
+    }
+
+    assert_eq!(producer.height(), 6);
+    let cp = storage
+        .recover()
+        .expect("recovers")
+        .expect("has checkpoint");
+    assert_eq!(cp.height, 4);
+}
+
+#[test]
+fn full_node_service_full_cycle() {
+    let mut service = node::FullNodeService::new(node::ProducerConfig::default());
+
+    // Run one complete pipeline cycle: Idle -> Proposing -> Voting -> Executing -> Committing -> Idle
+    for _ in 0..5 {
+        service.advance().expect("advances");
+    }
+
+    assert_eq!(*service.current_state(), node::FullNodeState::Idle);
+    assert_eq!(service.height(), 2);
+    assert!(service.storage().checkpoint().is_some());
+}
+
+#[test]
+fn full_node_service_with_transactions() {
+    let mut service = node::FullNodeService::new(node::ProducerConfig::default());
+
+    let sender = Address([1u8; 32]);
+    let tx = types::Transaction {
+        chain_id: 7,
+        sender,
+        nonce: 0,
+        access_list: Vec::new(),
+        resource_limit: resources(10),
+        payload: vec![1, 2, 3],
+        signature: [0xFF; 64],
+    };
+    service.submit_transaction(tx).expect("submits");
+    assert_eq!(service.pending_transactions(), 1);
+
+    // Run one cycle
+    for _ in 0..5 {
+        service.advance().expect("advances");
+    }
+
+    assert_eq!(service.height(), 2);
+    assert_eq!(service.pending_transactions(), 0);
+}
+
+#[test]
+fn full_node_service_committee_setup() {
+    let mut service = node::FullNodeService::new(node::ProducerConfig::default());
+
+    let members = vec![
+        CommitteeMember {
+            id: ValidatorId::from_bytes([1; 32]),
+            power: PotbWeight(100),
+        },
+        CommitteeMember {
+            id: ValidatorId::from_bytes([2; 32]),
+            power: PotbWeight(200),
+        },
+    ];
+    service.setup_committee(members);
+
+    let committee = service.committee().expect("has committee");
+    assert_eq!(committee.members.len(), 2);
+    assert_eq!(committee.height, 1);
+}
+
+#[test]
+fn full_node_service_multiple_cycles() {
+    let mut service = node::FullNodeService::new(node::ProducerConfig::default());
+
+    for _ in 0..3 {
+        for _ in 0..5 {
+            service.advance().expect("advances");
+        }
+    }
+
+    assert_eq!(service.height(), 4);
+}
+
+#[test]
+fn transactions_root_deterministic() {
+    let txs = vec![testkit::transaction(0, 0), testkit::transaction(1, 0)];
+    let root1 = node::compute_transactions_root(&txs);
+    let root2 = node::compute_transactions_root(&txs);
+    assert_eq!(root1, root2);
+    assert_ne!(root1, Hash256::ZERO);
+}
+
+#[test]
+fn hash_transaction_deterministic() {
+    let tx = testkit::transaction(0, 0);
+    let h1 = node::hash_transaction(&tx);
+    let h2 = node::hash_transaction(&tx);
+    assert_eq!(h1, h2);
+    assert_ne!(h1, Hash256::ZERO);
+}
+
+#[test]
+fn producer_config_default_values() {
+    let config = node::ProducerConfig::default();
+    assert_eq!(config.chain_id, 7);
+    assert_eq!(config.max_block_transactions, 256);
+    assert_eq!(config.max_transaction_bytes, 1024 * 1024);
 }

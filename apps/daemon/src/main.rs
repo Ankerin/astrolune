@@ -5,10 +5,10 @@
 //!
 //! Demonstrates the node service lifecycle with real components:
 //! 1. Load or create cryptographic keys
-//! 2. Open persistent file-backed state storage
+//! 2. Initialize the block production pipeline
 //! 3. Start P2P listener for peer connections
 //! 4. Start JSON-RPC server for external clients
-//! 5. Drive the consensus pipeline
+//! 5. Run the consensus and execution pipeline
 //! 6. Shutdown cleanly
 
 #![forbid(unsafe_code)]
@@ -18,9 +18,8 @@ use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 
 use config::{NetworkConfig, NodeConfig, SecretRef};
-use node::{BasicNodeService, NodeService};
+use node::{FullNodeService, NodeService, ProducerConfig};
 use rpc::TcpRpcServer;
-use state::FileBackedState;
 
 /// Application error type.
 #[derive(Debug)]
@@ -45,12 +44,13 @@ impl std::error::Error for DaemonError {}
 const HELP: &str = "\
 AstroLune node daemon
 
-Usage: daemon [--help | --version] [--dry-run]
+Usage: daemon [--help | --version] [--dry-run] [--blocks N]
 
 Options:
-  --dry-run  Validate configuration and print startup plan without running
-  --help     Show this message
-  --version  Show version
+  --dry-run    Validate configuration and print startup plan without running
+  --blocks N   Produce N blocks then exit (default: run indefinitely)
+  --help       Show this message
+  --version    Show version
 ";
 
 fn main() {
@@ -66,6 +66,7 @@ fn main() {
 
 fn run() -> Result<(), DaemonError> {
     let dry_run = std::env::args().any(|a| a == "--dry-run");
+    let max_blocks = parse_max_blocks();
 
     match std::env::args().nth(1).as_deref() {
         None | Some("--help" | "-h") => {
@@ -76,7 +77,7 @@ fn run() -> Result<(), DaemonError> {
             println!("daemon {}", env!("CARGO_PKG_VERSION"));
             return Ok(());
         }
-        Some(arg) if arg.starts_with('-') && arg != "--dry-run" => {
+        Some(arg) if arg.starts_with('-') && arg != "--dry-run" && arg != "--blocks" => {
             eprintln!("unknown flag: {arg}\n\n{HELP}");
             std::process::exit(2);
         }
@@ -114,21 +115,31 @@ fn run() -> Result<(), DaemonError> {
         return Ok(());
     }
 
-    // Initialize persistent state storage
-    let state_path = config.data_dir.join("state.dat");
-    println!("\nOpening state database at {}...", state_path.display());
-    let state = FileBackedState::open(&state_path)
-        .map_err(|e| DaemonError::Io(format!("failed to open state: {e}")))?;
-    println!("  state root : {:?}", state.root());
+    // Initialize the block production pipeline
+    let producer_config = ProducerConfig {
+        chain_id: config.chain_id,
+        ..ProducerConfig::default()
+    };
+    let mut full_service = FullNodeService::new(producer_config);
 
-    // Initialize cryptographic provider
-    let keystore = crypto::Ed25519Keystore::new();
-    println!("  crypto     : {} keys loaded", keystore.len());
+    // Set up a single-validator committee for local testing
+    let validator_id = types::ValidatorId::from_bytes([1u8; 32]);
+    full_service.setup_committee(vec![consensus::CommitteeMember {
+        id: validator_id,
+        power: consensus::PotbWeight(100),
+    }]);
+
+    println!("\nInitialized services:");
+    println!("  height   : {}", full_service.height());
+    println!(
+        "  committee: {} members",
+        full_service.committee().map_or(0, |c| c.members.len())
+    );
 
     // Initialize P2P peer manager
     let peer_manager = Arc::new(p2p::PeerManager::with_limit(config.network.max_peers));
     println!(
-        "  p2p peers  : {}/{} connected",
+        "  p2p peers: {}/{} connected",
         peer_manager.peer_count(),
         config.network.max_peers
     );
@@ -178,21 +189,57 @@ fn run() -> Result<(), DaemonError> {
         .map_err(|e| DaemonError::Io(format!("failed to spawn rpc thread: {e}")))?;
 
     println!("\nAll services started.");
+    println!("\nRunning block production pipeline...");
 
-    // Drive the pipeline through one demo cycle
-    let mut service = BasicNodeService::new();
-    println!("\nRunning pipeline demo...");
-    println!("  initial    : {:?}", service.current_state());
+    // Run the block production loop
+    let mut blocks_produced = 0u64;
     loop {
-        service
-            .advance()
-            .map_err(|e| DaemonError::Config(format!("{e:?}")))?;
-        println!("  advanced to: {:?}", service.current_state());
-        if service.current_state() == &node::NodeState::Idle {
+        // Check if we've reached the block limit
+        if let Some(max) = max_blocks
+            && blocks_produced >= max
+        {
+            println!("\nReached block limit ({max}), shutting down.");
             break;
+        }
+
+        // Run one full pipeline cycle: Idle -> Proposing -> Voting -> Executing -> Committing -> Idle
+        for _ in 0..5 {
+            full_service
+                .advance()
+                .map_err(|e| DaemonError::Config(format!("{e:?}")))?;
+        }
+
+        blocks_produced += 1;
+        println!(
+            "  block #{} produced at height {}",
+            blocks_produced,
+            full_service.height() - 1
+        );
+
+        // Print state summary
+        if let Some(checkpoint) = full_service.storage().checkpoint() {
+            println!("    state_root: {:?}", checkpoint.state_root);
+        }
+
+        // Brief pause between blocks in demo mode
+        if max_blocks.is_none() {
+            std::thread::sleep(std::time::Duration::from_millis(100));
         }
     }
 
     println!("\nDaemon shutting down cleanly.");
     Ok(())
+}
+
+/// Parses the maximum number of blocks to produce from command line arguments.
+fn parse_max_blocks() -> Option<u64> {
+    let args: Vec<String> = std::env::args().collect();
+    for i in 0..args.len() {
+        if args[i] == "--blocks"
+            && let Some(val) = args.get(i + 1)
+        {
+            return val.parse().ok();
+        }
+    }
+    None
 }

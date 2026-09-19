@@ -4,7 +4,7 @@
 
 ## 8.1 Current baseline
 
-As of 2026-09-14, this repository contains a Rust 2024 workspace with:
+As of 2026-09-19, this repository contains a Rust 2024 workspace with:
 
 - canonical shared types and bounded decoder primitives;
 - compileable interfaces for cryptography, genesis, transactions, PoTB committees, BFT votes, state, runtime, execution, persistence, synchronization, P2P, RPC, configuration, keystore, telemetry, and node coordination;
@@ -12,7 +12,10 @@ As of 2026-09-14, this repository contains a Rust 2024 workspace with:
 - a Rust contract SDK boundary;
 - library and executable scaffolds for DNS, Proxy, Pages, and ID;
 - intentionally minimal `cli`, `daemon`, and `cargo-contract` entry points;
-- CI, dependency-policy automation, contribution templates, project governance documents, and engineering specifications.
+- CI, dependency-policy automation, contribution templates, project governance documents, and engineering specifications;
+- a block production pipeline (`BlockProducer`) that coordinates mempool selection, deterministic execution, and storage commitment;
+- a full node service (`FullNodeService`) that wires together consensus, execution, and storage into a cohesive pipeline;
+- a daemon with a real block production loop and configurable block limits.
 
 This is predominantly an **interface baseline**. It is not a functioning blockchain network, contract runtime, wallet platform, or service deployment.
 

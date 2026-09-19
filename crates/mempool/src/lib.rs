@@ -151,6 +151,19 @@ pub enum MempoolError {
     CapacityExceeded,
 }
 
+impl std::fmt::Display for MempoolError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::InvalidLimits => write!(f, "invalid pool limits"),
+            Self::Duplicate => write!(f, "duplicate transaction"),
+            Self::ConflictingNonce => write!(f, "conflicting sender nonce"),
+            Self::CapacityExceeded => write!(f, "pool capacity exceeded"),
+        }
+    }
+}
+
+impl std::error::Error for MempoolError {}
+
 #[cfg(test)]
 mod tests {
     use super::{Mempool, PoolEntry, PoolLimits};

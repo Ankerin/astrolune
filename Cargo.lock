@@ -144,8 +144,11 @@ version = "0.1.0"
 dependencies = [
  "consensus",
  "execution",
+ "mempool",
  "p2p",
  "state",
+ "storage",
+ "transaction",
  "types",
 ]
 

@@ -14,8 +14,11 @@ repository.workspace = true
 [dependencies]
 consensus = { path = "../consensus" }
 execution = { path = "../execution" }
+mempool = { path = "../mempool" }
 p2p = { path = "../p2p" }
 state = { path = "../state" }
+storage = { path = "../storage" }
+transaction = { path = "../transaction" }
 types = { path = "../types" }
 
 [lints]
