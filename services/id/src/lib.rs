@@ -86,7 +86,7 @@ impl Session {
     /// Returns `true` if the session is active (not revoked and not expired).
     #[must_use]
     pub fn is_active(&self, current_time: u64) -> bool {
-        !self.revoked && !self.is_expired(current_time)
+        !self.revoked && current_time >= self.issued_at && !self.is_expired(current_time)
     }
 }
 
@@ -769,7 +769,7 @@ mod tests {
         assert!(mgr.get(&s1.id).unwrap().revoked);
 
         // addr2 session is still active
-        assert!(!mgr.is_valid(&s2.id, 1_100));
+        assert!(mgr.is_valid(&s2.id, 1_100));
     }
 
     #[test]
@@ -781,7 +781,7 @@ mod tests {
         let s2 = mgr.create(addr, vec![Scope::SignMessage], 1_000, 500); // expires at 1500
         let _s3 = mgr.create(addr, vec![Scope::SubmitTransaction], 1_200, 100); // expires at 1300
 
-        let purged = mgr.purge_expired(1_200);
+        let purged = mgr.purge_expired(1_300);
         assert_eq!(purged, 2); // s1 and s3 expired
 
         // s2 should still be present
