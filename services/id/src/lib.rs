@@ -634,7 +634,7 @@ mod tests {
         assert!(result.is_ok());
     }
 
-    // --- Session tests ---
+    // Session tests
 
     #[test]
     fn session_is_expired() {

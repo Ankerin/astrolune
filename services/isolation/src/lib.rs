@@ -186,7 +186,7 @@ impl ServiceKey for MockServiceKey {
 mod tests {
     use super::*;
 
-    // ── IsolationError ────────────────────────────────────────────────────
+    // IsolationError
 
     #[test]
     fn error_display() {
@@ -216,7 +216,7 @@ mod tests {
         assert_eq!(err, copied);
     }
 
-    // ── RateLimiter ───────────────────────────────────────────────────────
+    // RateLimiter
 
     #[test]
     fn rate_limiter_allows_within_window() {
@@ -281,7 +281,7 @@ mod tests {
         assert!(!limiter.check(b"svc", 50));
     }
 
-    // ── ServiceIdentity ───────────────────────────────────────────────────
+    // ServiceIdentity
 
     #[test]
     fn identity_clone_debug_eq() {
@@ -295,7 +295,7 @@ mod tests {
         assert!(dbg.contains("svc-a"));
     }
 
-    // ── ServiceKey / MockServiceKey ───────────────────────────────────────
+    // ServiceKey / MockServiceKey
 
     #[test]
     fn mock_key_id() {
@@ -317,7 +317,7 @@ mod tests {
         assert!(!key.verify(b"hello", &[0u8; 64]));
     }
 
-    // ── ServiceAuth ───────────────────────────────────────────────────────
+    // ServiceAuth
 
     #[test]
     fn auth_register_and_verify() {
