@@ -240,6 +240,9 @@ impl BlockProducer {
 
         let validated = self.validator.validate(tx, context)?;
 
+        // Advance the sender's nonce after successful admission to the mempool.
+        self.validator.advance_nonce(&validated.transaction.sender);
+
         let id = validated.id;
         let encoded_len = transaction::estimate_encoded_len(&validated.transaction);
 
@@ -292,14 +295,9 @@ impl BlockProducer {
 
         let parent_root = self.state.root();
         let mut executor =
-            SimpleExecutor::new(&mut self.state, self.validator.clone(), executor_config);
+            SimpleExecutor::new(&mut self.state, BasicValidator::empty(), executor_config);
 
         let (outputs, state_root) = executor.execute_block(&transactions, parent_root)?;
-
-        // Advance validator nonces after execution so subsequent submissions are valid
-        for tx in &transactions {
-            self.validator.advance_nonce(&tx.sender);
-        }
 
         // Compute the receipts root commitment
         let receipts: Vec<types::ExecutionReceipt> =
