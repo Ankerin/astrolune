@@ -8,7 +8,6 @@
 
 use core::fmt;
 use std::collections::BTreeMap;
-use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use types::{Address, Hash256};
 
@@ -69,15 +68,6 @@ const CONFUSABLE_SUBS: &[(char, char)] = &[
     ('5', 's'),
     ('8', 'b'),
 ];
-
-/// Returns the current UNIX timestamp in seconds.
-#[must_use]
-pub fn now_secs() -> u64 {
-    SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .unwrap_or(Duration::ZERO)
-        .as_secs()
-}
 
 /// Returns `true` when `name` is one of the reserved system names.
 #[must_use]
@@ -274,21 +264,19 @@ impl InMemoryResolver {
     }
 
     /// Returns `true` if a non-expired record exists for the given name.
-    pub fn has_name(&self, name: &str) -> Result<bool, DnsError> {
+    pub fn has_name(&self, name: &str, current_time: u64) -> Result<bool, DnsError> {
         let normalized = normalize_name(name)?;
-        let now = now_secs();
-
         match self.records.get(&normalized) {
-            Some(lease) => Ok(now < lease.expires_at),
+            Some(lease) => Ok(current_time < lease.expires_at),
             None => Ok(false),
         }
     }
 
     /// Purge all expired entries from the resolver and return the count removed.
-    pub fn purge_expired(&mut self) -> usize {
-        let now = now_secs();
+    pub fn purge_expired(&mut self, current_time: u64) -> usize {
         let before = self.records.len();
-        self.records.retain(|_, lease| now < lease.expires_at);
+        self.records
+            .retain(|_, lease| current_time < lease.expires_at);
         before - self.records.len()
     }
 
@@ -308,26 +296,17 @@ impl InMemoryResolver {
 impl Resolver for InMemoryResolver {
     fn resolve(&self, name: &str) -> Result<Option<Record>, DnsError> {
         let normalized = normalize_name(name)?;
-        let now = now_secs();
-
-        match self.records.get(&normalized) {
-            Some(lease) if now < lease.expires_at => Ok(Some(lease.record.clone())),
-            Some(_) => Err(DnsError::LeaseExpired),
-            None => Ok(None),
-        }
+        Ok(self
+            .records
+            .get(&normalized)
+            .map(|lease| lease.record.clone()))
     }
 }
 
 impl ExtendedResolver for InMemoryResolver {
     fn lease(&self, name: &str) -> Result<Option<NameLease>, DnsError> {
         let normalized = normalize_name(name)?;
-        let now = now_secs();
-
-        match self.records.get(&normalized) {
-            Some(lease) if now < lease.expires_at => Ok(Some(lease.clone())),
-            Some(_) => Err(DnsError::LeaseExpired),
-            None => Ok(None),
-        }
+        Ok(self.records.get(&normalized).cloned())
     }
 
     fn owner(&self, name: &str) -> Result<Option<Address>, DnsError> {
@@ -473,8 +452,8 @@ mod tests {
     #[test]
     fn remove_rejects_non_owner() {
         let mut resolver = InMemoryResolver::new();
-        let owner = Address::default();
-        let other = Address::default();
+        let owner = Address::from_bytes([0xAA; 32]);
+        let other = Address::from_bytes([0xBB; 32]);
         resolver
             .register(
                 "alice",
@@ -503,8 +482,8 @@ mod tests {
             )
             .unwrap();
 
-        assert!(resolver.has_name("bob").unwrap());
-        assert!(!resolver.has_name("carol").unwrap());
+        assert!(resolver.has_name("bob", 200).unwrap());
+        assert!(!resolver.has_name("carol", 200).unwrap());
     }
 
     #[test]
@@ -515,7 +494,7 @@ mod tests {
             .register("bob", addr, Record::Service(vec![1, 2, 3]), 100, 60)
             .unwrap();
 
-        assert!(resolver.has_name("bob").unwrap());
+        assert!(resolver.has_name("bob", 150).unwrap());
 
         let mut expired_resolver = InMemoryResolver::new();
         expired_resolver
@@ -524,7 +503,7 @@ mod tests {
 
         expired_resolver.records.get_mut("bob").unwrap().expires_at = 0;
 
-        assert!(!expired_resolver.has_name("bob").unwrap());
+        assert!(!expired_resolver.has_name("bob", 1).unwrap());
     }
 
     #[test]
@@ -713,10 +692,10 @@ mod tests {
 
         resolver.records.get_mut("alice").unwrap().expires_at = 0;
 
-        let purged = resolver.purge_expired();
+        let purged = resolver.purge_expired(1);
         assert_eq!(purged, 1);
         assert_eq!(resolver.len(), 1);
-        assert!(resolver.has_name("bob").unwrap());
+        assert!(resolver.has_name("bob", 200).unwrap());
     }
 
     #[test]
