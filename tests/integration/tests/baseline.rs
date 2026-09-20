@@ -643,7 +643,7 @@ fn end_to_end_block_production() {
             header: BlockHeader {
                 height: 0,
                 parent: parent_hash,
-                transactions_root: hash(99),
+                transactions_root: node::compute_transactions_root(&selected_txs),
                 state_root: new_root,
                 receipts_root: hash(100),
                 committee_root: hash(101),
@@ -672,7 +672,7 @@ fn block_producer_produces_empty_block() {
     assert_eq!(proposal.block.header.height, 0);
     assert!(proposal.block.transactions.is_empty());
     assert!(proposal.outputs.is_empty());
-    assert_eq!(proposal.state_root, Hash256::ZERO);
+    assert_eq!(proposal.state_root, state::commitment::empty_root());
 }
 
 #[test]

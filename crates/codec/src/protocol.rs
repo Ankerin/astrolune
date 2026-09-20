@@ -132,6 +132,9 @@ impl CanonicalDecode for Transaction {
         let nonce = decoder.read_u64()?;
 
         let list_len = super::decode_length(&mut decoder)?;
+        if list_len > super::MAX_LIST_LEN {
+            return Err(DecodeError::LimitExceeded);
+        }
         if list_len > decoder.remaining() {
             return Err(DecodeError::Truncated);
         }
@@ -169,13 +172,7 @@ impl CanonicalDecode for Transaction {
 
 impl CanonicalEncode for BlockHeader {
     fn encode(&self, output: &mut Vec<u8>) {
-        self.height.encode(output);
-        self.parent.encode(output);
-        self.transactions_root.encode(output);
-        self.state_root.encode(output);
-        self.receipts_root.encode(output);
-        self.committee_root.encode(output);
-        self.capacity.encode(output);
+        output.extend_from_slice(&self.canonical_bytes());
     }
 }
 
@@ -239,10 +236,7 @@ impl DecodeAt for Resources {
 
 impl CanonicalEncode for ExecutionReceipt {
     fn encode(&self, output: &mut Vec<u8>) {
-        self.transaction.encode(output);
-        output.push(u8::from(self.succeeded));
-        self.resources.encode(output);
-        self.output_root.encode(output);
+        output.extend_from_slice(&self.canonical_bytes());
     }
 }
 
@@ -271,6 +265,13 @@ impl CanonicalDecode for ExecutionReceipt {
 mod tests {
     use super::*;
     use crate::traits::CanonicalEncode;
+
+    #[test]
+    fn oversized_access_count_fails_before_reading_or_allocating_keys() {
+        let mut bytes = vec![0; 44];
+        crate::encode_length(crate::MAX_LIST_LEN + 1, &mut bytes);
+        assert_eq!(Transaction::decode(&bytes), Err(DecodeError::LimitExceeded));
+    }
 
     #[test]
     fn hash256_roundtrip() {

@@ -40,5 +40,14 @@ pub const GENESIS: &[u8] = b"astrolune.genesis.v1";
 /// State root commitment domain.
 pub const STATE_ROOT: &[u8] = b"astrolune.state.v1";
 
+/// Length-framed state key/value leaf.
+pub const STATE_LEAF: &[u8] = b"astrolune.state.leaf.v1";
+
+/// Ordered pair of state Merkle children.
+pub const STATE_NODE: &[u8] = b"astrolune.state.node.v1";
+
+/// Ordered execution diff commitment.
+pub const STATE_DIFF: &[u8] = b"astrolune.state.diff.v1";
+
 /// Execution receipt commitment domain.
 pub const RECEIPT: &[u8] = b"astrolune.receipt.v1";

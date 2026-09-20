@@ -38,7 +38,8 @@ impl BlockHeader {
     /// access to the validator set and state database.
     #[must_use]
     pub fn validate_parent(&self, parent: &BlockHeader) -> bool {
-        self.height == parent.height.saturating_add(1) && self.parent == Self::compute_hash(parent)
+        parent.height.checked_add(1) == Some(self.height)
+            && self.parent == Self::compute_hash(parent)
     }
 
     /// Computes a deterministic hash of this block header.
@@ -48,7 +49,13 @@ impl BlockHeader {
     /// lightweight identification.
     #[must_use]
     pub fn compute_hash(&self) -> Hash256 {
-        let mut data = [0u8; 224];
+        crate::hash::domain_hash(crate::domain::BLOCK_HEADER, &self.canonical_bytes())
+    }
+
+    /// Returns the fixed-width canonical header representation.
+    #[must_use]
+    pub fn canonical_bytes(&self) -> [u8; 200] {
+        let mut data = [0u8; 200];
         data[0..8].copy_from_slice(&self.height.to_le_bytes());
         data[8..40].copy_from_slice(&self.parent.0);
         data[40..72].copy_from_slice(&self.transactions_root.0);
@@ -59,12 +66,7 @@ impl BlockHeader {
         data[176..184].copy_from_slice(&self.capacity.memory.to_le_bytes());
         data[184..192].copy_from_slice(&self.capacity.io.to_le_bytes());
         data[192..200].copy_from_slice(&self.capacity.bandwidth.to_le_bytes());
-        // XOR-fold 224 bytes into 32 bytes
-        let mut hash = [0u8; 32];
-        for (i, byte) in data.iter().enumerate() {
-            hash[i % 32] ^= byte;
-        }
-        Hash256(hash)
+        data
     }
 }
 
@@ -98,7 +100,13 @@ impl ExecutionReceipt {
     /// inclusion in the block header receipts root.
     #[must_use]
     pub fn commitment(&self) -> Hash256 {
-        let mut data = [0u8; 108];
+        crate::hash::domain_hash(crate::domain::RECEIPT, &self.canonical_bytes())
+    }
+
+    /// Returns the fixed-width canonical receipt representation.
+    #[must_use]
+    pub fn canonical_bytes(&self) -> [u8; 97] {
+        let mut data = [0u8; 97];
         data[0..32].copy_from_slice(&self.transaction.0);
         data[32] = u8::from(self.succeeded);
         data[33..41].copy_from_slice(&self.resources.compute.to_le_bytes());
@@ -106,11 +114,7 @@ impl ExecutionReceipt {
         data[49..57].copy_from_slice(&self.resources.io.to_le_bytes());
         data[57..65].copy_from_slice(&self.resources.bandwidth.to_le_bytes());
         data[65..97].copy_from_slice(&self.output_root.0);
-        let mut hash = [0u8; 32];
-        for (i, byte) in data.iter().enumerate() {
-            hash[i % 32] ^= byte;
-        }
-        Hash256(hash)
+        data
     }
 }
 

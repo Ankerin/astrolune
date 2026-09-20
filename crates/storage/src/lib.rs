@@ -6,17 +6,31 @@
 //! This crate is node infrastructure. It is not a user-data storage or file-
 //! sharing service and creates no storage marketplace.
 //!
-//! The reference `InMemoryStorage` implements the full `NodeStorage` trait for
-//! testing and development. Production deployments replace it with a durable
-//! backend (e.g. `RocksDB`, `SQLite`) while keeping the same trait boundary.
+//! `InMemoryStorage` and `FileBackedStorage` implement the `NodeStorage` boundary.
+//! The file backend is a bounded atomic archive for development and recovery tests;
+//! production-scale indexing and authenticated finality remain separate concerns.
 
 #![forbid(unsafe_code)]
 #![allow(clippy::missing_errors_doc)]
 
 use std::collections::BTreeMap;
 
-use state::{InMemoryState, StateDatabase, StateDiff, StateError};
+use state::{InMemoryState, StateDiff, StateError};
 use types::{Block, Hash256};
+
+mod archive;
+mod persistent;
+mod snapshot;
+
+pub use persistent::FileBackedStorage;
+
+/// Maximum encoded reference chain archive size (256 MiB).
+pub const MAX_ARCHIVE_BYTES: usize = 256 * 1024 * 1024;
+/// Maximum retained checkpoints in a reference archive; prune before reaching it.
+pub const MAX_ARCHIVE_CHECKPOINTS: usize = 4096;
+
+/// Maximum individual snapshot transport chunk size.
+pub const SNAPSHOT_CHUNK_BYTES: usize = 64 * 1024;
 
 /// Durable finalized chain position.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -46,6 +60,8 @@ pub trait NodeStorage {
     fn recover(&mut self) -> Result<Option<Checkpoint>, StorageError>;
 
     /// Atomically publishes one finalized batch after syncing its dependencies.
+    /// The caller authenticates finality and execution; storage checks ordering,
+    /// transaction commitments, structural bounds, and state roots.
     fn commit(&mut self, batch: &CommitBatch) -> Result<Checkpoint, StorageError>;
 
     /// Exports a verified snapshot through a bounded caller-owned sink.
@@ -55,9 +71,11 @@ pub trait NodeStorage {
         sink: &mut dyn SnapshotSink,
     ) -> Result<(), StorageError>;
 
-    /// Imports snapshot chunks into staging and publishes only after verification.
+    /// Imports bounded chunks against an independently authenticated checkpoint.
+    /// The caller must verify finality before passing `expected`.
     fn import_snapshot(
         &mut self,
+        expected: Checkpoint,
         source: &mut dyn SnapshotSource,
     ) -> Result<Checkpoint, StorageError>;
 
@@ -90,6 +108,10 @@ pub enum StorageError {
     LimitExceeded,
     /// Persistent I/O did not complete.
     Io,
+    /// Another process holds the database writer lock.
+    Locked,
+    /// Publication occurred but durability is uncertain; reopen before further work.
+    DurabilityUnknown,
 }
 
 impl std::fmt::Display for StorageError {
@@ -100,6 +122,10 @@ impl std::fmt::Display for StorageError {
             Self::VerificationFailed => write!(f, "verification failed"),
             Self::LimitExceeded => write!(f, "storage limit exceeded"),
             Self::Io => write!(f, "storage I/O error"),
+            Self::Locked => write!(f, "storage is locked by another writer"),
+            Self::DurabilityUnknown => {
+                write!(f, "storage durability is uncertain; reopen required")
+            }
         }
     }
 }
@@ -110,6 +136,7 @@ impl std::error::Error for StorageError {}
 ///
 /// Stores finalized blocks, state, and certificates in memory. No data
 /// survives process restarts. Useful for testing and development.
+#[derive(Clone, Debug)]
 pub struct InMemoryStorage {
     /// Finalized checkpoints indexed by height.
     checkpoints: BTreeMap<u64, Checkpoint>,
@@ -119,8 +146,8 @@ pub struct InMemoryStorage {
     blocks: BTreeMap<Hash256, Block>,
     /// Finality certificates indexed by block hash.
     certificates: BTreeMap<Hash256, Vec<u8>>,
-    /// Snapshot data keyed by `(height, chunk_index)`.
-    snapshots: BTreeMap<(u64, u32), Vec<u8>>,
+    /// Immutable historical state views retained for authenticated snapshot export.
+    snapshots: BTreeMap<u64, InMemoryState>,
 }
 
 impl InMemoryStorage {
@@ -179,31 +206,28 @@ impl NodeStorage for InMemoryStorage {
     }
 
     fn commit(&mut self, batch: &CommitBatch) -> Result<Checkpoint, StorageError> {
-        let expected_height = self
-            .checkpoints
-            .values()
-            .next_back()
-            .map_or(0, |c| c.height + 1);
-
-        if batch.block.header.height != expected_height {
+        archive::validate_block(&batch.block, &batch.finality_certificate)?;
+        let (expected_height, expected_parent) = match self.checkpoint() {
+            Some(checkpoint) => (
+                checkpoint
+                    .height
+                    .checked_add(1)
+                    .ok_or(StorageError::InvalidOrder)?,
+                checkpoint.block,
+            ),
+            None => (0, Hash256::ZERO),
+        };
+        if batch.block.header.height != expected_height
+            || batch.block.header.parent != expected_parent
+        {
             return Err(StorageError::InvalidOrder);
         }
-
-        let parent_root = if expected_height == 0 {
-            Hash256::ZERO
-        } else {
-            self.state.root()
-        };
-
-        let new_root = self
+        // Nothing is published until the complete execution overlay matches the header.
+        let next = self
             .state
-            .commit(parent_root, &batch.state_diffs)
-            .map_err(|e| match e {
-                StateError::StaleSnapshot => StorageError::InvalidOrder,
-                _ => StorageError::Corrupt,
-            })?;
-
-        if new_root != batch.block.header.state_root {
+            .prepare(self.state.root(), &batch.state_diffs)
+            .map_err(map_state_error)?;
+        if next.root() != batch.block.header.state_root {
             return Err(StorageError::VerificationFailed);
         }
 
@@ -215,8 +239,10 @@ impl NodeStorage for InMemoryStorage {
         let checkpoint = Checkpoint {
             height: batch.block.header.height,
             block: block_hash,
-            state_root: new_root,
+            state_root: next.root(),
         };
+        self.snapshots.insert(checkpoint.height, next.clone());
+        self.state = next;
         self.checkpoints.insert(checkpoint.height, checkpoint);
 
         Ok(checkpoint)
@@ -227,58 +253,46 @@ impl NodeStorage for InMemoryStorage {
         checkpoint: Checkpoint,
         sink: &mut dyn SnapshotSink,
     ) -> Result<(), StorageError> {
-        let chunks = self
-            .snapshots
-            .range((checkpoint.height, 0)..=(checkpoint.height, u32::MAX));
-
-        for (idx, (_key, data)) in chunks.enumerate() {
-            let chunk_index = u32::try_from(idx).map_err(|_| StorageError::LimitExceeded)?;
-            sink.write_chunk(chunk_index, data)?;
+        if self.checkpoints.get(&checkpoint.height) != Some(&checkpoint) {
+            return Err(StorageError::VerificationFailed);
         }
-        Ok(())
+        let state = self
+            .snapshots
+            .get(&checkpoint.height)
+            .ok_or(StorageError::Corrupt)?;
+        snapshot::export(checkpoint, state, sink)
     }
 
     fn import_snapshot(
         &mut self,
+        expected: Checkpoint,
         source: &mut dyn SnapshotSource,
     ) -> Result<Checkpoint, StorageError> {
-        let mut index = 0u32;
-        let mut chunks = Vec::new();
-
-        while let Some(data) = source.next_chunk()? {
-            chunks.push((index, data));
-            index += 1;
+        if self
+            .checkpoint()
+            .is_some_and(|current| expected.height <= current.height)
+        {
+            return Err(StorageError::InvalidOrder);
         }
-
-        if chunks.is_empty() {
-            return Err(StorageError::Corrupt);
-        }
-
-        let height = self
-            .checkpoints
-            .values()
-            .next_back()
-            .map_or(0, |c| c.height + 1);
-
-        for (idx, data) in &chunks {
-            self.snapshots.insert((height, *idx), data.clone());
-        }
-
-        let checkpoint = Checkpoint {
-            height,
-            block: Hash256::ZERO,
-            state_root: Hash256::ZERO,
-        };
-        self.checkpoints.insert(height, checkpoint);
-        Ok(checkpoint)
+        let next = snapshot::import(expected, source)?;
+        // The trusted checkpoint may be on a different history; retain no unverified ancestors.
+        self.blocks.clear();
+        self.certificates.clear();
+        self.checkpoints.clear();
+        self.snapshots.clear();
+        self.snapshots.insert(expected.height, next.clone());
+        self.state = next;
+        self.checkpoints.insert(expected.height, expected);
+        Ok(expected)
     }
 
     fn prune(&mut self, before_height: u64) -> Result<(), StorageError> {
+        let latest = self.checkpoint().map(|checkpoint| checkpoint.height);
         let heights_to_prune: Vec<u64> = self
             .checkpoints
             .keys()
             .copied()
-            .filter(|&h| h < before_height)
+            .filter(|&h| h < before_height && Some(h) != latest)
             .collect();
 
         for height in &heights_to_prune {
@@ -288,9 +302,20 @@ impl NodeStorage for InMemoryStorage {
             }
         }
 
-        self.snapshots.retain(|&(h, _), _| h >= before_height);
+        self.snapshots
+            .retain(|&height, _| self.checkpoints.contains_key(&height));
 
         Ok(())
+    }
+}
+
+fn map_state_error(error: StateError) -> StorageError {
+    match error {
+        StateError::StaleSnapshot => StorageError::InvalidOrder,
+        StateError::RootMismatch => StorageError::VerificationFailed,
+        StateError::LimitExceeded => StorageError::LimitExceeded,
+        StateError::Io | StateError::Locked | StateError::DurabilityUnknown => StorageError::Io,
+        StateError::Corrupt | StateError::LeaseViolation => StorageError::Corrupt,
     }
 }
 
@@ -324,6 +349,13 @@ mod tests {
             block: make_block(height, parent_hash, state_root),
             finality_certificate: vec![0xAA; 32],
             state_diffs: Vec::new(),
+        }
+    }
+
+    struct Source(std::vec::IntoIter<Vec<u8>>);
+    impl SnapshotSource for Source {
+        fn next_chunk(&mut self) -> Result<Option<Vec<u8>>, StorageError> {
+            Ok(self.0.next())
         }
     }
 
@@ -396,14 +428,17 @@ mod tests {
         let mut storage = InMemoryStorage::new();
         let batch = make_batch(0, Hash256::ZERO, storage.state().root());
         let cp = storage.commit(&batch).unwrap();
-        storage.snapshots.insert((0, 0), vec![1, 2, 3]);
 
         let mut exported = Vec::new();
         storage
             .export_snapshot(cp, &mut VecSink(&mut exported))
             .unwrap();
-        assert_eq!(exported.len(), 1);
-        assert_eq!(exported[0], vec![1, 2, 3]);
+        let mut restored = InMemoryStorage::new();
+        assert_eq!(
+            restored.import_snapshot(cp, &mut Source(exported.into_iter())),
+            Ok(cp)
+        );
+        assert_eq!(restored.state().root(), storage.state().root());
     }
 
     #[test]

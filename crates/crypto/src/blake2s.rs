@@ -15,16 +15,7 @@ pub fn blake2s(data: &[u8]) -> Hash256 {
     Hash256(Blake2s256::digest(data).into())
 }
 
-/// Hashes a length-delimited domain followed by the message.
-#[must_use]
-pub fn domain_hash(domain: &[u8], message: &[u8]) -> Hash256 {
-    let mut hash = Blake2s256::new();
-    hash.update(b"astrolune.v1.");
-    hash.update((domain.len() as u64).to_le_bytes());
-    hash.update(domain);
-    hash.update(message);
-    Hash256(hash.finalize().into())
-}
+pub use types::hash::domain_hash;
 
 /// Derives deterministic key material from a high-entropy seed and context.
 ///

@@ -90,7 +90,7 @@ impl<'a, DB: StateDatabase> SimpleExecutor<'a, DB> {
                 transaction: id,
                 succeeded: true,
                 resources,
-                output_root: diff.compute_hash(),
+                output_root: diff.commitment(),
             };
 
             let observed_lease = StateLease {
@@ -115,44 +115,6 @@ impl<'a, DB: StateDatabase> SimpleExecutor<'a, DB> {
         let new_root = self.database.commit(parent_root, &diffs)?;
 
         Ok((outputs, new_root))
-    }
-}
-
-/// Extension trait for computing a simple hash of a diff.
-trait DiffHash {
-    /// Computes a deterministic hash of this diff.
-    fn compute_hash(&self) -> Hash256;
-}
-
-impl DiffHash for StateDiff {
-    fn compute_hash(&self) -> Hash256 {
-        let mut hash = Hash256::ZERO;
-        for change in &self.changes {
-            match change {
-                state::StateChange::Put(key, value) => {
-                    let mut data = Vec::with_capacity(1 + key.len() + value.len());
-                    data.push(0x01);
-                    data.extend_from_slice(key.as_bytes());
-                    data.extend_from_slice(value);
-                    let mut h = [0u8; 32];
-                    for (i, byte) in data.iter().enumerate() {
-                        h[i % 32] ^= byte;
-                    }
-                    hash = hash.xor(Hash256(h));
-                }
-                state::StateChange::Delete(key) => {
-                    let mut data = Vec::with_capacity(1 + key.len());
-                    data.push(0x00);
-                    data.extend_from_slice(key.as_bytes());
-                    let mut h = [0u8; 32];
-                    for (i, byte) in data.iter().enumerate() {
-                        h[i % 32] ^= byte;
-                    }
-                    hash = hash.xor(Hash256(h));
-                }
-            }
-        }
-        hash
     }
 }
 

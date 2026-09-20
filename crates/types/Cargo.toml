@@ -11,5 +11,8 @@ license.workspace = true
 authors.workspace = true
 repository.workspace = true
 
+[dependencies]
+blake2 = "=0.10.6"
+
 [lints]
 workspace = true

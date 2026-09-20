@@ -9,17 +9,23 @@
 #![forbid(unsafe_code)]
 #![allow(clippy::missing_errors_doc)]
 
+pub mod commitment;
 pub mod database;
 pub mod diff;
 pub mod lease;
 pub mod memory;
 pub mod persistent;
+pub mod snapshot;
 
+pub use commitment::StateProof;
 pub use database::{StateDatabase, StateError, StateSnapshot};
 pub use diff::{StateChange, StateDiff};
 pub use lease::{AccessMode, AccessRequest, StateLease};
 pub use memory::InMemoryState;
 pub use persistent::FileBackedState;
+pub use snapshot::{
+    MAX_SNAPSHOT_BYTES, MAX_STATE_ENTRIES, MAX_STATE_KEY_BYTES, MAX_STATE_VALUE_BYTES,
+};
 
 #[cfg(test)]
 mod tests {
@@ -160,7 +166,7 @@ mod tests {
         let state = InMemoryState::new();
         assert!(state.is_empty());
         assert_eq!(state.len(), 0);
-        assert!(state.root().is_zero());
+        assert_eq!(state.root(), commitment::empty_root());
     }
 
     #[test]

@@ -276,10 +276,6 @@ impl BlockProducer {
             self.config.block_capacity,
         );
 
-        let selected_keys: Vec<(Address, u64)> = selected
-            .iter()
-            .map(|e| (e.transaction.sender, e.transaction.nonce))
-            .collect();
         let transactions: Vec<Transaction> = selected
             .iter()
             .map(|entry| entry.transaction.clone())
@@ -296,8 +292,10 @@ impl BlockProducer {
         };
 
         let parent_root = self.state.root();
+        // Proposal execution must not publish state before storage accepts finalization.
+        let mut staged = self.state.clone();
         let mut executor =
-            SimpleExecutor::new(&mut self.state, BasicValidator::empty(), executor_config);
+            SimpleExecutor::new(&mut staged, BasicValidator::empty(), executor_config);
 
         let (outputs, state_root) = executor.execute_block(&transactions, parent_root)?;
 
@@ -306,17 +304,7 @@ impl BlockProducer {
             outputs.iter().map(|o| o.receipt.clone()).collect();
         let receipts_root = compute_receipts_root(&receipts);
 
-        // Sum resources used across all transactions
-        let resources_used = outputs
-            .iter()
-            .fold(Resources::ZERO, |acc, output| Resources {
-                compute: acc.compute.saturating_add(output.receipt.resources.compute),
-                memory: acc.memory.saturating_add(output.receipt.resources.memory),
-                io: acc.io.saturating_add(output.receipt.resources.io),
-                bandwidth: acc
-                    .bandwidth
-                    .saturating_add(output.receipt.resources.bandwidth),
-            });
+        let resources_used = checked_resources(&receipts)?;
 
         // Build the block header
         let header = BlockHeader {
@@ -334,9 +322,6 @@ impl BlockProducer {
             transactions,
         };
 
-        // Remove selected transactions from the mempool
-        self.mempool.remove_batch(&selected_keys);
-
         let proposal = BlockProposal {
             block,
             outputs,
@@ -349,14 +334,77 @@ impl BlockProducer {
 
     /// Commits a finalized block to storage after consensus approval.
     ///
-    /// Updates the internal state root and height for the next block.
+    /// Re-executes the reference transition, verifies commitments and resource totals,
+    /// then updates state, height, and the pool only after storage succeeds.
+    /// The caller remains responsible for authenticating the finality certificate.
     pub fn commit_block<S: NodeStorage>(
         &mut self,
         proposal: &BlockProposal,
         certificate: Vec<u8>,
         storage: &mut S,
     ) -> Result<storage::Checkpoint, ProducerError> {
-        let diffs: Vec<StateDiff> = proposal.outputs.iter().map(|o| o.diff.clone()).collect();
+        let next_height = self
+            .height
+            .checked_add(1)
+            .ok_or_else(|| ProducerError::Assembly("block height exhausted".into()))?;
+        let header = &proposal.block.header;
+        if proposal.block.transactions.len() > self.config.max_block_transactions
+            || proposal.block.transactions.iter().any(|tx| {
+                tx.chain_id != self.config.chain_id
+                    || transaction::estimate_encoded_len(tx) > self.config.max_transaction_bytes
+            })
+        {
+            return Err(ProducerError::Assembly(
+                "proposal transaction bounds do not match".into(),
+            ));
+        }
+        let receipts: Vec<_> = proposal
+            .outputs
+            .iter()
+            .map(|output| output.receipt.clone())
+            .collect();
+        if header.height != self.height
+            || header.parent != self.parent_hash
+            || header.capacity != self.config.block_capacity
+            || checked_resources(&receipts)? != proposal.resources_used
+            || !proposal.resources_used.fits_in(header.capacity)
+            || proposal.state_root != header.state_root
+            || proposal.outputs.len() != proposal.block.transactions.len()
+            || compute_transactions_root(&proposal.block.transactions) != header.transactions_root
+            || compute_receipts_root(&receipts) != header.receipts_root
+            || proposal
+                .outputs
+                .iter()
+                .zip(&proposal.block.transactions)
+                .any(|(output, tx)| {
+                    output.receipt.transaction != hash_transaction(tx)
+                        || output.receipt.output_root != output.diff.commitment()
+                })
+        {
+            return Err(ProducerError::Assembly(
+                "proposal commitments do not match".into(),
+            ));
+        }
+        // Re-execute the reference transition: mutually consistent forged roots are not proof
+        // that the supplied outputs actually follow from these transactions and this parent.
+        let mut staged = self.state.clone();
+        let mut executor = SimpleExecutor::new(
+            &mut staged,
+            BasicValidator::empty(),
+            ExecutorConfig {
+                chain_id: self.config.chain_id,
+                next_height: self.height,
+                max_transaction_bytes: self.config.max_transaction_bytes,
+            },
+        );
+        let (outputs, root) =
+            executor.execute_block(&proposal.block.transactions, self.state.root())?;
+        if outputs != proposal.outputs || root != header.state_root {
+            return Err(ProducerError::Assembly(
+                "proposal execution does not match".into(),
+            ));
+        }
+        let diffs: Vec<StateDiff> = outputs.into_iter().map(|output| output.diff).collect();
 
         let batch = CommitBatch {
             block: proposal.block.clone(),
@@ -366,8 +414,16 @@ impl BlockProducer {
 
         let checkpoint = storage.commit(&batch)?;
 
-        // Advance the producer state for the next block
-        self.height += 1;
+        // Publish locally only after the storage transaction succeeds.
+        self.state = staged;
+        let selected_keys: Vec<_> = proposal
+            .block
+            .transactions
+            .iter()
+            .map(|tx| (tx.sender, tx.nonce))
+            .collect();
+        self.mempool.remove_batch(&selected_keys);
+        self.height = next_height;
         self.parent_hash = proposal.block.header.compute_hash();
 
         Ok(checkpoint)
@@ -380,6 +436,13 @@ impl BlockProducer {
     }
 }
 
+fn checked_resources(receipts: &[types::ExecutionReceipt]) -> Result<Resources, ProducerError> {
+    receipts.iter().try_fold(Resources::ZERO, |sum, receipt| {
+        sum.checked_add(receipt.resources)
+            .ok_or_else(|| ProducerError::Assembly("block resource accounting overflow".into()))
+    })
+}
+
 /// Computes a Merkle root over canonical signed transaction identifiers.
 #[must_use]
 pub fn compute_transactions_root(transactions: &[Transaction]) -> Hash256 {
@@ -390,11 +453,9 @@ pub fn compute_transactions_root(transactions: &[Transaction]) -> Hash256 {
 /// Computes a Merkle root over domain-separated canonical receipt hashes.
 #[must_use]
 pub fn compute_receipts_root(receipts: &[types::ExecutionReceipt]) -> Hash256 {
-    use codec::CanonicalEncode;
-
     let hashes: Vec<_> = receipts
         .iter()
-        .map(|receipt| crypto::blake2s::domain_hash(types::domain::RECEIPT, &receipt.to_bytes()))
+        .map(types::ExecutionReceipt::commitment)
         .collect();
     crypto::compute_receipts_root(&hashes)
 }
@@ -409,6 +470,118 @@ pub fn hash_transaction(tx: &Transaction) -> Hash256 {
 mod tests {
     use super::*;
     use types::{Address, Resources};
+
+    #[test]
+    fn proposal_is_repeatable_without_publishing_or_consuming_the_pool() {
+        let mut producer = BlockProducer::new(test_config());
+        producer.submit_transaction(make_tx(0, vec![1, 2])).unwrap();
+        let parent = producer.state().root();
+        let first = producer.produce_block().unwrap();
+        let second = producer.produce_block().unwrap();
+        assert_eq!(first, second);
+        assert_ne!(first.state_root, parent);
+        assert_eq!(producer.state().root(), parent);
+        assert_eq!(producer.pending_count(), 1);
+        assert_eq!(producer.height(), 0);
+        let mut storage = storage::InMemoryStorage::new();
+        producer
+            .commit_block(&first, vec![1], &mut storage)
+            .unwrap();
+        assert_eq!(producer.state().root(), first.state_root);
+        assert_eq!(storage.state().root(), first.state_root);
+        assert_eq!(producer.pending_count(), 0);
+        assert_eq!(producer.height(), 1);
+    }
+
+    #[test]
+    fn failed_storage_commit_preserves_proposal_for_retry() {
+        let mut producer = BlockProducer::new(test_config());
+        producer.submit_transaction(make_tx(0, vec![1])).unwrap();
+        let proposal = producer.produce_block().unwrap();
+        let parent = producer.state().root();
+        let mut occupied = storage::InMemoryStorage::new();
+        let mut other = BlockProducer::new(test_config());
+        let empty = other.produce_block().unwrap();
+        other.commit_block(&empty, vec![1], &mut occupied).unwrap();
+        assert!(matches!(
+            producer.commit_block(&proposal, vec![1], &mut occupied),
+            Err(ProducerError::Storage(StorageError::InvalidOrder))
+        ));
+        assert_eq!(producer.state().root(), parent);
+        assert_eq!(producer.height(), 0);
+        assert_eq!(producer.parent_hash(), Hash256::ZERO);
+        assert_eq!(producer.pending_count(), 1);
+        assert_eq!(producer.produce_block().unwrap(), proposal);
+        let mut storage = storage::InMemoryStorage::new();
+        producer
+            .commit_block(&proposal, vec![1], &mut storage)
+            .unwrap();
+    }
+
+    #[test]
+    fn altered_proposals_are_rejected_before_publication() {
+        let mut producer = BlockProducer::new(test_config());
+        producer.submit_transaction(make_tx(0, vec![1])).unwrap();
+        let proposal = producer.produce_block().unwrap();
+        let parent = producer.state().root();
+        let mut storage = storage::InMemoryStorage::new();
+        let mut mutations = Vec::new();
+        let mut changed = proposal.clone();
+        changed.block.header.state_root = Hash256::ZERO;
+        mutations.push(changed);
+        changed = proposal.clone();
+        changed.block.header.parent = Hash256([1; 32]);
+        mutations.push(changed);
+        changed = proposal.clone();
+        changed.block.transactions[0].payload.push(2);
+        mutations.push(changed);
+        changed = proposal.clone();
+        changed.outputs[0]
+            .diff
+            .put(types::StateKey(vec![1]), vec![99]);
+        mutations.push(changed);
+        changed = proposal.clone();
+        changed.resources_used.compute += 1;
+        mutations.push(changed);
+        changed = proposal.clone();
+        changed.block.header.capacity.compute += 1;
+        mutations.push(changed);
+        changed = proposal.clone();
+        changed.outputs[0]
+            .diff
+            .put(types::StateKey(vec![99]), vec![99]);
+        changed.outputs[0].receipt.output_root = changed.outputs[0].diff.commitment();
+        changed.block.header.receipts_root =
+            compute_receipts_root(&[changed.outputs[0].receipt.clone()]);
+        changed.state_root = producer
+            .state
+            .prepare(parent, &[changed.outputs[0].diff.clone()])
+            .unwrap()
+            .root();
+        changed.block.header.state_root = changed.state_root;
+        mutations.push(changed);
+        for changed in mutations {
+            assert!(
+                producer
+                    .commit_block(&changed, vec![1], &mut storage)
+                    .is_err()
+            );
+            assert_eq!(producer.state().root(), parent);
+            assert_eq!(producer.pending_count(), 1);
+            assert_eq!(producer.height(), 0);
+            assert!(storage.checkpoint().is_none());
+        }
+        producer
+            .commit_block(&proposal, vec![1], &mut storage)
+            .unwrap();
+        let committed = producer.state().root();
+        assert!(
+            producer
+                .commit_block(&proposal, vec![1], &mut storage)
+                .is_err()
+        );
+        assert_eq!(producer.state().root(), committed);
+    }
 
     #[test]
     fn rejected_pool_admission_preserves_sender_nonce() {

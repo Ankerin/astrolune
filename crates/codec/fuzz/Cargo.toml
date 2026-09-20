@@ -15,9 +15,16 @@ cargo-fuzz = true
 [dependencies]
 libfuzzer-sys = "0.4"
 types = { path = "../../types" }
+state = { path = "../../state" }
 
 [dependencies.codec]
 path = ".."
+
+[[bin]]
+name = "decode_state_snapshot"
+path = "fuzz_targets/decode_state_snapshot.rs"
+test = false
+doc = false
 
 [[bin]]
 name = "decode_execution_receipt"

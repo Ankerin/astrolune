@@ -26,7 +26,7 @@ Canonical encodings, protocol domains, hashes, addresses, signatures, checked re
 
 Signed envelopes, validation order, account/state commitments, immutable snapshots, proofs, state diffs, atomic commit, recovery, pruning, and snapshot exchange.
 
-Current progress: signed admission validates existing transaction fields against an account view. Finalized account overlays, the complete versioned envelope, and production persistence remain open.
+Current progress: signed admission validates existing transaction fields against an account view. Merkle state commitments, membership proofs, immutable snapshots, bounded transitions, atomic state/whole-chain archive recovery, and verified snapshot exchange are implemented with rollback tests. Proposal execution stays private until successful commit. Finalized account overlays, the complete versioned transaction envelope, absence proofs, daemon restart integration, and production-scale persistence remain open. See [state and recovery](docs/10-state-and-recovery.md) and [chain archives](docs/11-chain-archives.md).
 
 ## M3 — deterministic Rust contracts
 

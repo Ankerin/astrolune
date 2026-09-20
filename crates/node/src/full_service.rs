@@ -54,7 +54,7 @@ pub enum FullNodeState {
 /// Integrates:
 /// - [`BlockProducer`] for transaction selection and block assembly
 /// - [`BftFinalityEngine`] for consensus voting and finalization
-/// - [`InMemoryStorage`] for durable block and state persistence
+/// - [`InMemoryStorage`] for atomic, process-local block and state publication
 /// - [`AdaptiveCapacityController`] for dynamic block sizing
 pub struct FullNodeService {
     /// Current pipeline state.
@@ -165,7 +165,6 @@ impl FullNodeService {
     ///
     /// The state machine follows the finalization path:
     /// Idle -> Proposing -> Voting -> Executing -> Committing -> Idle
-    #[allow(clippy::unnecessary_wraps)]
     fn advance_pipeline(&mut self) -> Result<(), NodeError> {
         self.state = match &self.state {
             FullNodeState::Idle => FullNodeState::Proposing {
@@ -208,12 +207,19 @@ impl FullNodeService {
             }
             FullNodeState::Committing { height: _ } => {
                 // Commit to storage
-                if let Some(proposal) = self.pending_proposal.take() {
-                    let _ = self.producer.commit_block(
-                        &proposal,
-                        vec![0xAA; 32], // Placeholder certificate
-                        &mut self.storage,
-                    );
+                if let Some(proposal) = self.pending_proposal.as_ref() {
+                    self.producer
+                        .commit_block(
+                            proposal,
+                            vec![0xAA; 32], // Placeholder certificate
+                            &mut self.storage,
+                        )
+                        .map_err(|error| match error {
+                            crate::producer::ProducerError::Storage(error) => {
+                                NodeError::Storage(error)
+                            }
+                            _ => NodeError::CommitmentMismatch,
+                        })?;
 
                     // Record capacity observation
                     self.observations.push(CapacityObservation {
@@ -225,6 +231,9 @@ impl FullNodeService {
                     self.block_capacity = self
                         .capacity_controller
                         .next_capacity(self.block_capacity, &self.observations);
+                    self.pending_proposal = None;
+                } else {
+                    return Err(NodeError::NotReady);
                 }
                 FullNodeState::Idle
             }
@@ -247,6 +256,26 @@ mod tests {
     use consensus::CommitteeMember;
     use mempool::PoolLimits;
     use types::{Address, Resources};
+
+    #[test]
+    fn commit_failure_remains_visible_and_keeps_pending_work() {
+        let mut service = FullNodeService::new(test_config());
+        let proposal = service.producer.produce_block().unwrap();
+        let mut invalid = proposal.clone();
+        invalid.block.header.state_root = Hash256::ZERO;
+        service.pending_proposal = Some(invalid);
+        service.state = FullNodeState::Committing { height: 0 };
+        assert_eq!(service.advance(), Err(NodeError::CommitmentMismatch));
+        assert_eq!(service.state, FullNodeState::Committing { height: 0 });
+        assert!(service.pending_proposal.is_some());
+        assert!(service.observations.is_empty());
+        assert_eq!(service.height(), 0);
+        service.pending_proposal = Some(proposal);
+        service.advance().unwrap();
+        assert_eq!(service.height(), 1);
+        assert!(service.pending_proposal.is_none());
+        assert_eq!(service.observations.len(), 1);
+    }
 
     fn sender() -> Address {
         Address([1u8; 32])

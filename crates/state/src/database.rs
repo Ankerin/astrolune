@@ -5,6 +5,7 @@
 
 use types::{Hash256, StateKey};
 
+use crate::StateProof;
 use crate::diff::StateDiff;
 
 /// An immutable state view at a finalized or speculative root.
@@ -14,6 +15,9 @@ pub trait StateSnapshot: Send + Sync {
 
     /// Reads a value without mutating shared state.
     fn get(&self, key: &StateKey) -> Result<Option<Vec<u8>>, StateError>;
+
+    /// Proves membership of an existing key; absence is not an authenticated proof.
+    fn prove(&self, key: &StateKey) -> Result<Option<StateProof>, StateError>;
 }
 
 /// State database boundary for batching, snapshots, and sequential commits.
@@ -39,6 +43,14 @@ pub enum StateError {
     StaleSnapshot,
     /// Configured state or resource limits were exceeded.
     LimitExceeded,
+    /// A proposed or imported state does not match the trusted commitment.
+    RootMismatch,
+    /// The database is already open by another writer.
+    Locked,
+    /// A filesystem operation failed before publication.
+    Io,
+    /// Publication completed, but directory synchronization failed; reopen to recover.
+    DurabilityUnknown,
 }
 
 impl std::fmt::Display for StateError {
@@ -48,6 +60,10 @@ impl std::fmt::Display for StateError {
             Self::LeaseViolation => write!(f, "lease violation"),
             Self::StaleSnapshot => write!(f, "stale snapshot"),
             Self::LimitExceeded => write!(f, "state limit exceeded"),
+            Self::RootMismatch => write!(f, "state root mismatch"),
+            Self::Locked => write!(f, "state database is locked"),
+            Self::Io => write!(f, "state I/O error"),
+            Self::DurabilityUnknown => write!(f, "state durability is unknown; reopen database"),
         }
     }
 }

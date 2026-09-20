@@ -12,6 +12,9 @@ authors.workspace = true
 repository.workspace = true
 
 [dependencies]
+codec = { path = "../codec" }
+crypto = { path = "../crypto" }
+transaction = { path = "../transaction" }
 state = { path = "../state" }
 types = { path = "../types" }
 

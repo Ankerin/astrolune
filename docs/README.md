@@ -20,6 +20,8 @@ For a concise source-tree map, read [`../ARCHITECTURE.md`](../ARCHITECTURE.md).
 | [07-validator-requirements.md](07-validator-requirements.md) | validator behavior and preliminary requirements |
 | [08-implementation-status.md](08-implementation-status.md) | baseline, roadmap, gates, and open risks |
 | [09-cryptographic-foundations.md](09-cryptographic-foundations.md) | implemented hash/signature suite, signed admission, and compatibility |
+| [10-state-and-recovery.md](10-state-and-recovery.md) | Merkle state commitments, proofs, atomic transitions, snapshots, and recovery |
+| [11-chain-archives.md](11-chain-archives.md) | atomic whole-chain archives, historical recovery, pruning, bounds, and compatibility |
 
 Legacy-shaped filenames such as `03-vm-and-gas.md`, `05-contract-languages.md`, and `06-deferred-services.md` are retained temporarily to preserve links. Their contents describe the current Rust architecture.
 

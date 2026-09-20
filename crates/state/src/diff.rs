@@ -30,11 +30,11 @@ impl StateChange {
 /// Deferred output of transaction or wave execution.
 ///
 /// Diffs are accumulated during execution and applied atomically during
-/// the commit stage. Changes are sorted by key before hashing to ensure
-/// canonical ordering.
+/// the commit stage. The commitment preserves operation order; the final state
+/// is committed separately in lexicographic key order.
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub struct StateDiff {
-    /// Changes sorted by key before hashing and commit.
+    /// Changes in deterministic execution order.
     pub changes: Vec<StateChange>,
 }
 
@@ -101,6 +101,12 @@ impl StateDiff {
     /// Later changes for the same key overwrite earlier ones when applied.
     pub fn merge(&mut self, other: Self) {
         self.changes.extend(other.changes);
+    }
+
+    /// Commits every ordered operation, including repeated writes and deletions.
+    #[must_use]
+    pub fn commitment(&self) -> types::Hash256 {
+        crypto::blake2s::domain_hash(types::domain::STATE_DIFF, &self.to_bytes())
     }
 }
 

@@ -61,7 +61,7 @@ See [`ARCHITECTURE.md`](ARCHITECTURE.md) and [`docs/README.md`](docs/README.md) 
 
 The repository pins Rust `1.93.1` with `rustfmt` and Clippy through [`rust-toolchain.toml`](rust-toolchain.toml). Install Rust with [rustup](https://rustup.rs/); entering the repository selects the pinned toolchain.
 
-No third-party runtime dependency is required by the current baseline.
+Cryptographic foundations use pinned BLAKE2s and Ed25519 backends; dependency versions are recorded in `Cargo.lock`. Reference state and [whole-chain archive persistence](docs/11-chain-archives.md) use standard-library file I/O and locks. The daemon still uses memory storage.
 
 ## Validate the workspace
 

@@ -137,6 +137,8 @@ pub enum NodeError {
     CommitmentMismatch,
     /// A bounded queue or configured resource ceiling was reached.
     CapacityExceeded,
+    /// Finalized storage rejected or could not persist the batch.
+    Storage(storage::StorageError),
 }
 
 impl std::fmt::Display for NodeError {
@@ -155,6 +157,7 @@ impl std::fmt::Display for NodeError {
                     "bounded queue or configured resource ceiling was reached"
                 )
             }
+            Self::Storage(error) => write!(f, "finalized storage: {error}"),
         }
     }
 }

@@ -28,7 +28,7 @@ Wallet addresses are `H("astrolune.account.ed25519.v1", public_key)`. Validator 
 
 The transaction ID is `H("astrolune.tx.id.v1", signed_canonical_bytes)`. It includes the signature, access list, resource limits, and payload. Envelope IDs, admission IDs, execution receipt transaction IDs, and node transaction leaves use this same function.
 
-The node constructs transaction roots with the shared binary Merkle builder. Its receipt leaves are `H("astrolune.receipt.v1", canonical_receipt_bytes)`. Some older shared-type and state helpers still use placeholder commitments; replacing those and specifying the complete commitment tree remain separate work.
+The node constructs transaction roots with the shared binary Merkle builder. Receipt leaves and `ExecutionReceipt::commitment()` both use `H("astrolune.receipt.v1", canonical_receipt_bytes)`. `BlockHeader::compute_hash()` uses `H("astrolune.block.v1", canonical_header_bytes)`. Canonical headers are exactly 200 bytes and receipts are 97 bytes, without padding. The domain helper lives in `types::hash` and is re-exported by `crypto::blake2s`, avoiding a cyclic dependency. State commitments are specified in [state and recovery](10-state-and-recovery.md).
 
 ## Signed admission
 

@@ -3,6 +3,19 @@
 
 //! A cryptographic digest committed by the protocol.
 
+use blake2::{Blake2s256, Digest};
+
+/// Computes the protocol BLAKE2s-256 digest with a length-framed domain.
+#[must_use]
+pub fn domain_hash(domain: &[u8], message: &[u8]) -> Hash256 {
+    let mut hash = Blake2s256::new();
+    hash.update(b"astrolune.v1.");
+    hash.update((domain.len() as u64).to_le_bytes());
+    hash.update(domain);
+    hash.update(message);
+    Hash256(hash.finalize().into())
+}
+
 /// A cryptographic digest committed by the protocol.
 #[derive(Clone, Copy, Debug, Default, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub struct Hash256(pub [u8; 32]);
@@ -31,8 +44,7 @@ impl Hash256 {
 
     /// Combines two digests by XOR-ing their bytes.
     ///
-    /// This is a deterministic, order-dependent operation suitable for
-    /// incremental root construction.
+    /// This commutative bit operation is not a cryptographic commitment.
     #[must_use]
     pub const fn xor(self, other: Self) -> Self {
         let mut result = [0u8; 32];

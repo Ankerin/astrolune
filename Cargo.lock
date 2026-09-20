@@ -475,6 +475,7 @@ name = "state"
 version = "0.1.0"
 dependencies = [
  "codec",
+ "crypto",
  "types",
 ]
 
@@ -482,7 +483,10 @@ dependencies = [
 name = "storage"
 version = "0.1.0"
 dependencies = [
+ "codec",
+ "crypto",
  "state",
+ "transaction",
  "types",
 ]
 
@@ -550,6 +554,9 @@ checksum = "b6f5e870be6c3b371b77fe0ee0bafb859fa4964b4404c27de1d380043c4dda20"
 [[package]]
 name = "types"
 version = "0.1.0"
+dependencies = [
+ "blake2",
+]
 
 [[package]]
 name = "unicode-ident"

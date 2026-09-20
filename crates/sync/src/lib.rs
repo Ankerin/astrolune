@@ -164,7 +164,7 @@ impl SyncVerifier for ChainVerifier {
     ///
     /// Checks that:
     /// - The slice is non-empty.
-    /// - The first header's parent matches the expected genesis hash.
+    /// - The first header is the trusted genesis or its direct child at height 1.
     /// - Each subsequent header's parent matches the computed hash of the
     ///   preceding header (parent linkage).
     /// - Heights are strictly consecutive.
@@ -174,7 +174,14 @@ impl SyncVerifier for ChainVerifier {
         }
 
         let first = &headers[0];
-        if first.parent != self.expected_genesis_hash {
+        let anchored = match first.height {
+            0 => {
+                first.parent == Hash256::ZERO && first.compute_hash() == self.expected_genesis_hash
+            }
+            1 => first.parent == self.expected_genesis_hash,
+            _ => false,
+        };
+        if !anchored {
             return Err(SyncError::InvalidAncestry);
         }
 
@@ -182,12 +189,7 @@ impl SyncVerifier for ChainVerifier {
             let prev = &window[0];
             let curr = &window[1];
 
-            let expected_parent = prev.compute_hash();
-            if curr.parent != expected_parent {
-                return Err(SyncError::InvalidAncestry);
-            }
-
-            if curr.height != prev.height.saturating_add(1) {
+            if !curr.validate_parent(prev) {
                 return Err(SyncError::InvalidAncestry);
             }
         }
@@ -230,6 +232,25 @@ impl SyncVerifier for ChainVerifier {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn genesis_anchor_binds_header_contents_and_child_height() {
+        let genesis = genesis();
+        let verifier = ChainVerifier::new(genesis.compute_hash(), 7, 1);
+        let mut altered = genesis;
+        altered.state_root = Hash256([1; 32]);
+        assert_eq!(
+            verifier.verify_headers(&[altered]),
+            Err(SyncError::InvalidAncestry)
+        );
+        let mut child = child_of(&genesis);
+        assert!(verifier.verify_headers(&[child]).is_ok());
+        child.height = 99;
+        assert_eq!(
+            verifier.verify_headers(&[child]),
+            Err(SyncError::InvalidAncestry)
+        );
+    }
 
     /// Helper to build a genesis header.
     fn genesis() -> BlockHeader {
