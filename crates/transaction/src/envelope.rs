@@ -21,7 +21,8 @@ pub struct Envelope {
 impl Envelope {
     /// Creates a new envelope from a transaction and signature.
     #[must_use]
-    pub fn new(transaction: Transaction, signature: [u8; 64]) -> Self {
+    pub fn new(mut transaction: Transaction, signature: [u8; 64]) -> Self {
+        transaction.signature = signature;
         Self {
             transaction,
             signature,
@@ -71,41 +72,9 @@ impl Envelope {
     /// and indexing.
     #[must_use]
     pub fn id(&self) -> Hash256 {
-        let mut hash = [0u8; 32];
-        let chain_bytes = self.transaction.chain_id.to_le_bytes();
-        let nonce_bytes = self.transaction.nonce.to_le_bytes();
-        let mut idx = 0usize;
-        for &byte in &chain_bytes {
-            hash[idx % 32] ^= byte;
-            let wrap = (idx + 7) % 32;
-            hash[wrap] = hash[wrap].wrapping_add(byte);
-            idx += 1;
-        }
-        for &byte in &self.transaction.sender.0 {
-            hash[idx % 32] ^= byte;
-            let wrap = (idx + 7) % 32;
-            hash[wrap] = hash[wrap].wrapping_add(byte);
-            idx += 1;
-        }
-        for &byte in &nonce_bytes {
-            hash[idx % 32] ^= byte;
-            let wrap = (idx + 7) % 32;
-            hash[wrap] = hash[wrap].wrapping_add(byte);
-            idx += 1;
-        }
-        for &byte in &self.transaction.payload {
-            hash[idx % 32] ^= byte;
-            let wrap = (idx + 7) % 32;
-            hash[wrap] = hash[wrap].wrapping_add(byte);
-            idx += 1;
-        }
-        for &byte in &self.signature {
-            hash[idx % 32] ^= byte;
-            let wrap = (idx + 7) % 32;
-            hash[wrap] = hash[wrap].wrapping_add(byte);
-            idx += 1;
-        }
-        Hash256(hash)
+        let mut transaction = self.transaction.clone();
+        transaction.signature = self.signature;
+        crate::compute_tx_id(&transaction)
     }
 
     /// Validates the envelope shape without verifying the signature.
@@ -117,6 +86,7 @@ impl Envelope {
     #[must_use]
     pub fn is_well_formed(&self) -> bool {
         self.signature != [0u8; 64]
+            && self.signature == self.transaction.signature
             && self.transaction.chain_id != 0
             && !self.transaction.sender.is_zero()
     }

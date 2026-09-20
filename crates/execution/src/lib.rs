@@ -18,7 +18,7 @@ mod wave;
 
 pub use error::ExecutionError;
 pub use executor::{ExecutorConfig, SimpleExecutor, TransactionOutput};
-pub use scheduler::{ExecutionScheduler, SerialScheduler};
+pub use scheduler::{ExecutionScheduler, GreedyScheduler, SerialScheduler};
 pub use wave::{ExecutionLane, ExecutionPlan, ExecutionWave};
 
 #[cfg(test)]

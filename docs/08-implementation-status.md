@@ -4,9 +4,11 @@
 
 ## 8.1 Current baseline
 
-As of 2026-09-19, this repository contains a Rust 2024 workspace with:
+As of 2026-09-20, this repository contains a Rust 2024 workspace with:
 
 - canonical shared types and bounded decoder primitives;
+- standard BLAKE2s-256 and strict Ed25519 backends, canonical transaction commitments, and state-aware signed admission;
+- normalized access leases and dependency-preserving greedy execution-wave planning;
 - compileable interfaces for cryptography, genesis, transactions, PoTB committees, BFT votes, state, runtime, execution, persistence, synchronization, P2P, RPC, configuration, keystore, telemetry, and node coordination;
 - a tested in-memory mempool reference policy, genesis validation, configuration secret redaction, quorum arithmetic, decoder boundary helpers, and workspace integration invariants;
 - a Rust contract SDK boundary;
@@ -23,17 +25,17 @@ This is predominantly an **interface baseline**. It is not a functioning blockch
 
 | Area | State |
 |---|---|
-| Canonical codec | cursor and exact-read/trailing-byte invariants implemented; complete protocol codecs planned |
+| Canonical codec | primitive, transaction, block-header, and receipt codecs implemented; strict length/boolean decoding and transaction preflight validation with regression tests; complete versioned protocol codecs planned |
 | Shared protocol types | interface baseline |
 | Genesis | structural validation baseline; encoding, hashing, and materialization planned |
-| Cryptography and VRF | provider interfaces only; no production implementation |
+| Cryptography and VRF | standard BLAKE2s-256 and strict Ed25519 implemented/tested; registered validator-key verification; VRF remains unimplemented and fails closed |
 | PoTB and BFT | type/state-machine interfaces and quorum helper; protocol implementation/formal work planned |
 | Keystore | non-exporting signer and anti-equivocation interface only |
-| Transactions | staged validator interface only |
+| Transactions | canonical signing/ID commitments and state-aware signed validator implemented/tested; full versioned envelope and account transitions remain planned |
 | Mempool | bounded in-memory reference admission and deterministic selection implemented/tested |
 | State and storage | snapshot/diff/persistence interfaces only |
-| Runtime and execution | module/backend/scheduler interfaces only |
-| Sync, P2P, RPC, and node | interfaces only |
+| Runtime and execution | serial executor demonstration and dependency-preserving greedy wave planner; lease normalization and scheduler equivalence tested; production runtime and parallel execution remain planned |
+| Sync, P2P, RPC, and node | node demonstration pipeline with canonical transaction/receipt leaves; default admission and finality remain demonstrations; authenticated end-to-end integration remains planned |
 | Configuration | pure validation and debug redaction baseline |
 | Telemetry | no-op local sink |
 | Contracts | SDK interface only; no compiler target or runtime |
@@ -59,6 +61,10 @@ Validator-local persistence remains required and is named `storage`; it is not a
 ### M1 — canonical foundations
 
 Canonical encodings, domain tags, hashing, addresses, signatures, checked resource arithmetic, golden vectors, property tests, and fuzz targets.
+
+The codec now rejects alternate length prefixes and non-canonical receipt flags, and validates transaction structure before allocating owned fields. Regression coverage includes golden bytes, every supported sequence length, every receipt flag, truncations, and transaction byte mutations. The standalone fuzz package includes the accepted-input re-encoding invariant for transactions, state keys, and receipts. These changes preserve encoder output; a complete versioned transaction envelope remains open. See [the current codec baseline](04-state-and-transactions.md#current-codec-baseline).
+
+Standard hashing and signing backends, signed transaction IDs, address derivation, and checked resource pricing are implemented with conformance tests. These replace incompatible placeholder cryptographic outputs; see [suite and compatibility details](09-cryptographic-foundations.md). The daemon is not yet a cryptographically authenticated blockchain node.
 
 ### M2 — state and transactions
 

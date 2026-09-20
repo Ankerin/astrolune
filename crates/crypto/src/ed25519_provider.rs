@@ -1,21 +1,18 @@
 // Copyright (c) 2026 Astrolune contributors
 // SPDX-License-Identifier: MIT
 
-//! Ed25519-compatible key management and signing operations.
+//! In-memory Ed25519 key management and signing operations.
 //!
-//! Provides key generation, storage, and signing backed by BLAKE2s-based
-//! key derivation and deterministic signatures. The keystore enforces
-//! anti-equivocation by tracking which positions have been signed.
-//!
-//! **Note**: This is not a production Ed25519 implementation. For real
-//! Ed25519 elliptic curve cryptography, use an audited library once the
-//! build environment supports it.
+//! Uses ed25519-dalek signing keys. Signing positions are retained in memory;
+//! durable anti-equivocation across restarts requires a separate journal.
 
 use std::collections::BTreeMap;
 
+use ed25519_dalek::{Signer, SigningKey};
 use types::ValidatorId;
+use zeroize::Zeroizing;
 
-use crate::blake2s::{blake2s, derive_key, ed25519_sign, ed25519_verify};
+use crate::blake2s::{blake2s, derive_key, ed25519_verify};
 use crate::error::CryptoError;
 
 /// A unique identifier for a key in the keystore.
@@ -35,10 +32,8 @@ impl AsRef<str> for KeyId {
 }
 
 /// Metadata stored alongside each key.
-#[derive(Clone, Debug)]
 pub struct KeyEntry {
-    /// 32-byte secret key material derived from seed + key ID.
-    secret_key: [u8; 32],
+    signing_key: SigningKey,
     /// 32-byte public key derived from the secret key.
     public_key: [u8; 32],
     /// Validator identity derived deterministically from the public key.
@@ -48,7 +43,7 @@ pub struct KeyEntry {
     label: String,
 }
 
-/// Ed25519-compatible keystore with deterministic key generation.
+/// Ed25519 keystore with deterministic key generation.
 ///
 /// Keys are derived from seeds using Blake2s-based key derivation. Each key
 /// is associated with a validator identity and a human-readable label.
@@ -83,18 +78,15 @@ impl Ed25519Keystore {
             return Err(CryptoError::DuplicateKey);
         }
 
-        // Derive the secret key from seed + key_id
-        let secret_key = derive_key(&seed, &format!("ed25519.{key_id}"));
-
-        // Derive the public key from the secret key
-        let public_key = derive_key(&secret_key, "ed25519.pubkey");
-
-        // Derive a deterministic validator identity from the public key
+        let seed = Zeroizing::new(seed);
+        let secret_key = Zeroizing::new(derive_key(seed.as_ref(), &format!("ed25519.{key_id}")));
+        let signing_key = SigningKey::from_bytes(&secret_key);
+        let public_key = signing_key.verifying_key().to_bytes();
         let vid_hash = blake2s(&public_key);
         let validator_id = ValidatorId::from_bytes(*vid_hash.as_bytes());
 
         let entry = KeyEntry {
-            secret_key,
+            signing_key,
             public_key,
             validator_id,
             label: key_id.clone(),
@@ -131,7 +123,7 @@ impl Ed25519Keystore {
     /// Returns [`CryptoError::KeyNotFound`] if the key ID is not registered.
     pub fn sign(&self, key_id: &KeyId, message: &[u8]) -> Result<[u8; 64], CryptoError> {
         let entry = self.keys.get(&key_id.0).ok_or(CryptoError::KeyNotFound)?;
-        Ok(ed25519_sign(&entry.secret_key, message))
+        Ok(entry.signing_key.sign(message).to_bytes())
     }
 
     /// Signs a consensus message at a specific position with equivocation protection.
@@ -160,7 +152,7 @@ impl Ed25519Keystore {
         }
 
         let entry = self.keys.get(&key_id.0).ok_or(CryptoError::KeyNotFound)?;
-        let signature = ed25519_sign(&entry.secret_key, &message_hash);
+        let signature = entry.signing_key.sign(&message_hash).to_bytes();
         self.signed_positions.insert(pos_key, message_hash);
         Ok(signature)
     }

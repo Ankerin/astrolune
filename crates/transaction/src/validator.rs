@@ -9,6 +9,7 @@ use types::{Address, Hash256, Transaction};
 
 use crate::error::TransactionError;
 use crate::lane::TransactionLane;
+pub use crate::signing::compute_tx_id;
 
 /// Context needed for deterministic pre-execution validation.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -55,11 +56,10 @@ pub struct AccountState {
     pub balance: u64,
 }
 
-/// A basic transaction validator that checks envelope shape, chain ID,
-/// resource limits, and lane assignment.
+/// Local demonstration validator with no cryptographic authentication.
 ///
-/// Signature verification is delegated to the crypto provider through the
-/// `SignatureVerifier` callback. This validator does not mutate any state.
+/// Use [`crate::SignedValidator`] for signed transaction admission. This helper
+/// accepts nonzero signature placeholders and permits unknown zero-nonce accounts.
 #[derive(Clone)]
 pub struct BasicValidator {
     /// Known account states keyed by address.
@@ -88,11 +88,19 @@ impl BasicValidator {
         Self::empty()
     }
 
-    /// Advances the nonce for an account after a transaction is committed.
-    pub fn advance_nonce(&mut self, address: &Address) {
+    /// Advances a known account's nonce without wrapping at `u64::MAX`.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`TransactionError::InvalidNonce`] on nonce exhaustion.
+    pub fn advance_nonce(&mut self, address: &Address) -> Result<(), TransactionError> {
         if let Some(acc) = self.accounts.get_mut(address) {
-            acc.nonce += 1;
+            acc.nonce = acc
+                .nonce
+                .checked_add(1)
+                .ok_or(TransactionError::InvalidNonce)?;
         }
+        Ok(())
     }
 }
 
@@ -108,17 +116,13 @@ impl TransactionValidator for BasicValidator {
         transaction: Transaction,
         context: ValidationContext,
     ) -> Result<ValidatedTransaction, TransactionError> {
-        let encoded_len = estimate_encoded_len(&transaction);
-        if encoded_len > context.max_transaction_bytes {
-            return Err(TransactionError::InvalidEnvelope);
-        }
-
-        if transaction.signature == [0; 64] {
-            return Err(TransactionError::InvalidSignature);
-        }
+        validate_shape(&transaction, context.max_transaction_bytes)?;
 
         if transaction.chain_id != context.chain_id {
             return Err(TransactionError::WrongChain);
+        }
+        if transaction.nonce == u64::MAX {
+            return Err(TransactionError::InvalidNonce);
         }
 
         let account = self.accounts.get(&transaction.sender);
@@ -132,14 +136,23 @@ impl TransactionValidator for BasicValidator {
                 if transaction.nonce != acc.nonce {
                     return Err(TransactionError::InvalidNonce);
                 }
-                let cost = transaction.resource_limit.compute
-                    + transaction.resource_limit.memory
-                    + transaction.resource_limit.io
-                    + transaction.resource_limit.bandwidth;
+                let cost = transaction
+                    .resource_limit
+                    .checked_cost(types::Resources {
+                        compute: 1,
+                        memory: 1,
+                        io: 1,
+                        bandwidth: 1,
+                    })
+                    .ok_or(TransactionError::InsufficientResources)?;
                 if cost > acc.balance {
                     return Err(TransactionError::InsufficientResources);
                 }
             }
+        }
+
+        if transaction.signature == [0; 64] {
+            return Err(TransactionError::InvalidSignature);
         }
 
         let lane = TransactionLane::from_payload(&transaction.payload);
@@ -153,34 +166,41 @@ impl TransactionValidator for BasicValidator {
     }
 }
 
-/// Estimates the encoded byte length of a transaction.
-///
-/// This is a simplified estimate for validation; the actual encoding uses
-/// the canonical codec.
+/// Returns the canonical encoded size, or `usize::MAX` on length overflow.
 #[must_use]
 pub fn estimate_encoded_len(tx: &Transaction) -> usize {
-    let base = 4 + 32 + 8 + 8 + 64;
-    let access_list: usize = tx.access_list.iter().map(|k| 1 + k.len()).sum();
-    base + access_list + tx.payload.len()
+    encoded_len(tx).unwrap_or(usize::MAX)
 }
 
-/// Computes a deterministic transaction identifier.
-///
-/// This is a simplified scheme for the baseline. The production implementation
-/// will use a proper canonical hash of the encoded transaction.
-#[must_use]
-pub fn compute_tx_id(tx: &Transaction) -> Hash256 {
-    let mut input = Vec::with_capacity(44);
-    input.extend_from_slice(&tx.chain_id.to_le_bytes());
-    input.extend_from_slice(&tx.sender.0);
-    input.extend_from_slice(&tx.nonce.to_le_bytes());
-
-    let mut hash = [0u8; 32];
-    for (i, byte) in input.iter().enumerate() {
-        hash[i % 32] ^= byte;
-        hash[(i + 7) % 32] = hash[(i + 7) % 32].wrapping_add(*byte);
+fn encoded_len(tx: &Transaction) -> Option<usize> {
+    fn prefix_len(length: usize) -> Option<usize> {
+        u32::try_from(length).ok()?;
+        Some(if length < 128 { 1 } else { 5 })
     }
-    Hash256(hash)
+
+    let mut size = 4usize + 32 + 8 + 32 + 64;
+    size = size.checked_add(prefix_len(tx.access_list.len())?)?;
+    for key in &tx.access_list {
+        size = size
+            .checked_add(prefix_len(key.len())?)?
+            .checked_add(key.len())?;
+    }
+    size.checked_add(prefix_len(tx.payload.len())?)?
+        .checked_add(tx.payload.len())
+}
+
+pub(crate) fn validate_shape(tx: &Transaction, max_bytes: usize) -> Result<(), TransactionError> {
+    if tx.access_list.len() > codec::MAX_LIST_LEN
+        || tx
+            .access_list
+            .iter()
+            .any(|key| key.len() > codec::MAX_STATE_KEY_LEN)
+        || tx.payload.len() > codec::MAX_PAYLOAD
+        || encoded_len(tx).is_none_or(|length| length > max_bytes)
+    {
+        return Err(TransactionError::InvalidEnvelope);
+    }
+    Ok(())
 }
 
 #[cfg(test)]
@@ -419,6 +439,6 @@ mod tests {
             signature: [0; 64],
         };
         let len = estimate_encoded_len(&tx);
-        assert_eq!(len, 130);
+        assert_eq!(len, 156);
     }
 }

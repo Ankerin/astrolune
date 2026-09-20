@@ -59,7 +59,13 @@ pub(crate) fn decode_length(decoder: &mut Decoder<'_>) -> Result<usize, DecodeEr
     if first < 128 {
         return Ok(first as usize);
     }
+    if first != 0x80 {
+        return Err(DecodeError::NonCanonical);
+    }
     let value = decoder.read_u32()?;
+    if value < 128 {
+        return Err(DecodeError::NonCanonical);
+    }
     if value as usize > MAX_LIST_LEN {
         return Err(DecodeError::LimitExceeded);
     }
@@ -73,8 +79,14 @@ pub fn encode_bytes(bytes: &[u8], output: &mut Vec<u8>) {
 }
 
 /// Decodes a length-prefixed byte slice.
-pub(crate) fn decode_bytes<'a>(decoder: &mut Decoder<'a>) -> Result<&'a [u8], DecodeError> {
+pub(crate) fn decode_bytes<'a>(
+    decoder: &mut Decoder<'a>,
+    limit: usize,
+) -> Result<&'a [u8], DecodeError> {
     let len = decode_length(decoder)?;
+    if len > limit {
+        return Err(DecodeError::LimitExceeded);
+    }
     decoder.read_exact(len)
 }
 
@@ -138,6 +150,36 @@ mod tests {
         let len = decode_length(&mut decoder).unwrap();
         assert_eq!(len, 0);
         assert!(decoder.finish().is_ok());
+    }
+
+    #[test]
+    fn length_prefix_golden_vectors() {
+        for (length, expected) in [
+            (0, vec![0]),
+            (127, vec![127]),
+            (128, vec![0x80, 0x80, 0, 0, 0]),
+            (256, vec![0x80, 0, 1, 0, 0]),
+            (MAX_LIST_LEN, vec![0x80, 0, 0, 0x10, 0]),
+        ] {
+            let mut encoded = Vec::new();
+            encode_length(length, &mut encoded);
+            assert_eq!(encoded, expected);
+            let mut decoder = Decoder::new(&expected);
+            assert_eq!(decode_length(&mut decoder), Ok(length));
+            assert_eq!(decoder.finish(), Ok(()));
+        }
+    }
+
+    #[test]
+    fn every_supported_length_roundtrips() {
+        let mut encoded = Vec::with_capacity(5);
+        for length in 0..=MAX_LIST_LEN {
+            encoded.clear();
+            encode_length(length, &mut encoded);
+            let mut decoder = Decoder::new(&encoded);
+            assert_eq!(decode_length(&mut decoder), Ok(length));
+            assert_eq!(decoder.finish(), Ok(()));
+        }
     }
 
     #[test]

@@ -1,9 +1,10 @@
 // Copyright (c) 2026 Astrolune contributors
 // SPDX-License-Identifier: MIT
 
-//! Scheduling traits and the default serial scheduler implementation.
+//! Deterministic serial and dependency-preserving wave scheduling.
 
 use state::{AccessMode, StateLease};
+use std::collections::BTreeMap;
 use types::Transaction;
 
 use crate::wave::{ExecutionPlan, ExecutionWave};
@@ -32,15 +33,56 @@ impl ExecutionScheduler for SerialScheduler {
     }
 
     fn lease(&self, transaction: &Transaction) -> StateLease {
-        let requests = transaction
-            .access_list
-            .iter()
-            .map(|key| state::AccessRequest {
-                key: key.clone(),
-                mode: AccessMode::Write,
-            })
-            .collect();
-        StateLease { requests }
+        StateLease::new(
+            transaction
+                .access_list
+                .iter()
+                .map(|key| state::AccessRequest {
+                    key: key.clone(),
+                    mode: AccessMode::Write,
+                }),
+        )
+    }
+}
+
+/// Places each transaction in the earliest wave after its conflicting predecessors.
+///
+/// Declared keys are conservatively treated as writes until transactions encode
+/// access modes. Transactions from the same sender stay ordered for nonce and
+/// balance effects, even when their declared keys differ.
+pub struct GreedyScheduler;
+
+impl ExecutionScheduler for GreedyScheduler {
+    fn plan(&self, transactions: &[Transaction]) -> ExecutionPlan {
+        let mut last_key_wave = BTreeMap::new();
+        let mut last_sender_wave = BTreeMap::new();
+        let mut waves: Vec<ExecutionWave> = Vec::new();
+
+        for (index, transaction) in transactions.iter().enumerate() {
+            let lease = self.lease(transaction);
+            let predecessor = lease
+                .requests
+                .iter()
+                .filter_map(|request| last_key_wave.get(&request.key).copied())
+                .chain(last_sender_wave.get(&transaction.sender).copied())
+                .max();
+            let wave = predecessor.map_or(0, |previous| previous + 1);
+            if wave == waves.len() {
+                waves.push(ExecutionWave {
+                    transaction_indexes: Vec::new(),
+                });
+            }
+            waves[wave].transaction_indexes.push(index);
+            for request in lease.requests {
+                last_key_wave.insert(request.key, wave);
+            }
+            last_sender_wave.insert(transaction.sender, wave);
+        }
+        ExecutionPlan { waves }
+    }
+
+    fn lease(&self, transaction: &Transaction) -> StateLease {
+        SerialScheduler.lease(transaction)
     }
 }
 

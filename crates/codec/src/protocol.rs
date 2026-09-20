@@ -68,10 +68,7 @@ impl CanonicalEncode for StateKey {
 impl CanonicalDecode for StateKey {
     fn decode(bytes: &[u8]) -> Result<Self, DecodeError> {
         let mut decoder = Decoder::new(bytes);
-        let key = super::decode_bytes(&mut decoder)?;
-        if key.len() > super::MAX_STATE_KEY_LEN {
-            return Err(DecodeError::LimitExceeded);
-        }
+        let key = super::decode_bytes(&mut decoder, super::MAX_STATE_KEY_LEN)?;
         decoder.finish()?;
         Ok(Self(key.to_vec()))
     }
@@ -105,20 +102,22 @@ impl CanonicalDecode for Resources {
 
 impl CanonicalEncode for Transaction {
     fn encode(&self, output: &mut Vec<u8>) {
-        self.chain_id.encode(output);
-        self.sender.encode(output);
-        self.nonce.encode(output);
-
-        // Access list: length-prefixed list of state keys
-        super::encode_length(self.access_list.len(), output);
-        for key in &self.access_list {
-            key.encode(output);
-        }
-
-        self.resource_limit.encode(output);
-        super::encode_bytes(&self.payload, output);
+        encode_unsigned_transaction(self, output);
         output.extend_from_slice(&self.signature);
     }
+}
+
+/// Appends the canonical transaction fields covered by its signature.
+pub fn encode_unsigned_transaction(transaction: &Transaction, output: &mut Vec<u8>) {
+    transaction.chain_id.encode(output);
+    transaction.sender.encode(output);
+    transaction.nonce.encode(output);
+    super::encode_length(transaction.access_list.len(), output);
+    for key in &transaction.access_list {
+        key.encode(output);
+    }
+    transaction.resource_limit.encode(output);
+    super::encode_bytes(&transaction.payload, output);
 }
 
 impl CanonicalDecode for Transaction {
@@ -133,25 +132,28 @@ impl CanonicalDecode for Transaction {
         let nonce = decoder.read_u64()?;
 
         let list_len = super::decode_length(&mut decoder)?;
-        if list_len > super::MAX_LIST_LEN {
-            return Err(DecodeError::LimitExceeded);
+        if list_len > decoder.remaining() {
+            return Err(DecodeError::Truncated);
         }
-        let mut access_list = Vec::with_capacity(list_len.min(super::MAX_LIST_LEN));
+        let mut access_decoder = decoder;
+
+        // Validate the entire envelope before allocating owned keys or payload.
         for _ in 0..list_len {
-            access_list.push(StateKey::decode_at(&mut decoder)?);
+            super::decode_bytes(&mut decoder, super::MAX_STATE_KEY_LEN)?;
         }
 
         let resource_limit = Resources::decode_at(&mut decoder)?;
 
-        let payload_len = super::decode_length(&mut decoder)?;
-        if payload_len > super::MAX_PAYLOAD {
-            return Err(DecodeError::LimitExceeded);
-        }
-        let payload = decoder.read_exact(payload_len)?.to_vec();
+        let payload = super::decode_bytes(&mut decoder, super::MAX_PAYLOAD)?;
 
         let signature: [u8; 64] = decoder.read_fixed::<64>()?;
 
         decoder.finish()?;
+
+        let mut access_list = Vec::with_capacity(list_len);
+        for _ in 0..list_len {
+            access_list.push(StateKey::decode_at(&mut access_decoder)?);
+        }
 
         Ok(Self {
             chain_id,
@@ -159,7 +161,7 @@ impl CanonicalDecode for Transaction {
             nonce,
             access_list,
             resource_limit,
-            payload,
+            payload: payload.to_vec(),
             signature,
         })
     }
@@ -205,10 +207,7 @@ impl CanonicalDecode for BlockHeader {
 
 impl<'a> DecoderExt<'a> for Decoder<'a> {
     fn read_state_key(&mut self) -> Result<StateKey, DecodeError> {
-        let key = super::decode_bytes(self)?;
-        if key.len() > super::MAX_STATE_KEY_LEN {
-            return Err(DecodeError::LimitExceeded);
-        }
+        let key = super::decode_bytes(self, super::MAX_STATE_KEY_LEN)?;
         Ok(StateKey(key.to_vec()))
     }
 
@@ -251,7 +250,11 @@ impl CanonicalDecode for ExecutionReceipt {
     fn decode(bytes: &[u8]) -> Result<Self, DecodeError> {
         let mut dec = Decoder::new(bytes);
         let transaction = Hash256(dec.read_fixed::<32>()?);
-        let succeeded = dec.read_u8()? != 0;
+        let succeeded = match dec.read_u8()? {
+            0 => false,
+            1 => true,
+            _ => return Err(DecodeError::NonCanonical),
+        };
         let resources = Resources::decode_at(&mut dec)?;
         let output_root = Hash256(dec.read_fixed::<32>()?);
         dec.finish()?;

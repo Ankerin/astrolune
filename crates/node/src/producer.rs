@@ -240,10 +240,8 @@ impl BlockProducer {
 
         let validated = self.validator.validate(tx, context)?;
 
-        // Advance the sender's nonce after successful admission to the mempool.
-        self.validator.advance_nonce(&validated.transaction.sender);
-
         let id = validated.id;
+        let sender = validated.transaction.sender;
         let encoded_len = transaction::estimate_encoded_len(&validated.transaction);
 
         let entry = PoolEntry {
@@ -252,9 +250,13 @@ impl BlockProducer {
             priority: 0,
             sequence: self.admission_sequence,
         };
-        self.admission_sequence += 1;
-
+        let next_sequence = self
+            .admission_sequence
+            .checked_add(1)
+            .ok_or_else(|| ProducerError::Assembly("admission sequence exhausted".into()))?;
         self.mempool.insert(entry, encoded_len)?;
+        self.validator.advance_nonce(&sender)?;
+        self.admission_sequence = next_sequence;
         Ok(id)
     }
 
@@ -378,72 +380,80 @@ impl BlockProducer {
     }
 }
 
-/// Computes a deterministic transactions root hash from a list of transactions.
-///
-/// Uses XOR-fold over transaction identifiers to produce a commitment
-/// that binds the exact transaction order.
+/// Computes a Merkle root over canonical signed transaction identifiers.
 #[must_use]
 pub fn compute_transactions_root(transactions: &[Transaction]) -> Hash256 {
-    if transactions.is_empty() {
-        return Hash256::ZERO;
-    }
-
-    let mut hash = [0u8; 32];
-    for (i, tx) in transactions.iter().enumerate() {
-        let tx_hash = hash_transaction(tx);
-        for (j, byte) in tx_hash.0.iter().enumerate() {
-            hash[(i + j) % 32] ^= byte;
-        }
-    }
-    Hash256(hash)
+    let hashes: Vec<_> = transactions.iter().map(hash_transaction).collect();
+    crypto::compute_transactions_root(&hashes)
 }
 
-/// Computes a deterministic receipts root hash from execution receipts.
-///
-/// Uses XOR-fold over receipt commitments to produce a commitment
-/// that binds the execution results.
+/// Computes a Merkle root over domain-separated canonical receipt hashes.
 #[must_use]
 pub fn compute_receipts_root(receipts: &[types::ExecutionReceipt]) -> Hash256 {
-    if receipts.is_empty() {
-        return Hash256::ZERO;
-    }
+    use codec::CanonicalEncode;
 
-    let mut hash = [0u8; 32];
-    for (i, receipt) in receipts.iter().enumerate() {
-        let commitment = receipt.commitment();
-        for (j, byte) in commitment.0.iter().enumerate() {
-            hash[(i + j) % 32] ^= byte;
-        }
-    }
-    Hash256(hash)
+    let hashes: Vec<_> = receipts
+        .iter()
+        .map(|receipt| crypto::blake2s::domain_hash(types::domain::RECEIPT, &receipt.to_bytes()))
+        .collect();
+    crypto::compute_receipts_root(&hashes)
 }
 
-/// Computes a simple deterministic hash of a transaction.
-///
-/// The hash covers all canonical fields except the signature.
+/// Returns the canonical signed transaction identifier used by admission.
 #[must_use]
 pub fn hash_transaction(tx: &Transaction) -> Hash256 {
-    let mut data = Vec::new();
-    data.extend_from_slice(&tx.chain_id.to_le_bytes());
-    data.extend_from_slice(tx.sender.as_bytes());
-    data.extend_from_slice(&tx.nonce.to_le_bytes());
-    data.extend_from_slice(&tx.resource_limit.compute.to_le_bytes());
-    data.extend_from_slice(&tx.resource_limit.memory.to_le_bytes());
-    data.extend_from_slice(&tx.resource_limit.io.to_le_bytes());
-    data.extend_from_slice(&tx.resource_limit.bandwidth.to_le_bytes());
-    data.extend_from_slice(&tx.payload);
-
-    let mut hash = [0u8; 32];
-    for (i, byte) in data.iter().enumerate() {
-        hash[i % 32] ^= byte;
-    }
-    Hash256(hash)
+    transaction::compute_tx_id(tx)
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use types::{Address, Resources};
+
+    #[test]
+    fn rejected_pool_admission_preserves_sender_nonce() {
+        let mut config = test_config();
+        config.pool_limits.max_transactions = 1;
+        let mut producer = BlockProducer::with_account(sender(), 0, 1000, config);
+        producer.submit_transaction(make_tx(0, vec![1])).unwrap();
+        assert!(matches!(
+            producer.submit_transaction(make_tx(1, vec![2])),
+            Err(ProducerError::Mempool(_))
+        ));
+        assert!(matches!(
+            producer.submit_transaction(make_tx(1, vec![2])),
+            Err(ProducerError::Mempool(_))
+        ));
+        assert_eq!(producer.pending_count(), 1);
+        assert_eq!(producer.admission_sequence, 1);
+    }
+
+    #[test]
+    fn producer_and_admission_use_the_same_transaction_commitment() {
+        let tx = make_tx(0, vec![1]);
+        assert_eq!(hash_transaction(&tx), transaction::compute_tx_id(&tx));
+        let original = compute_transactions_root(std::slice::from_ref(&tx));
+        let mut changed = tx.clone();
+        changed.access_list.push(types::StateKey(vec![1]));
+        assert_ne!(compute_transactions_root(&[changed]), original);
+        let mut changed = tx;
+        changed.signature[0] ^= 1;
+        assert_ne!(compute_transactions_root(&[changed]), original);
+    }
+
+    #[test]
+    fn transaction_root_binds_order_and_duplicate_count() {
+        let first = make_tx(0, vec![1]);
+        let second = make_tx(0, vec![2]);
+        assert_ne!(
+            compute_transactions_root(&[first.clone(), second.clone()]),
+            compute_transactions_root(&[second, first.clone()])
+        );
+        assert_ne!(
+            compute_transactions_root(std::slice::from_ref(&first)),
+            compute_transactions_root(&[first.clone(), first])
+        );
+    }
 
     fn sender() -> Address {
         Address([1u8; 32])

@@ -16,9 +16,17 @@ Dates are intentionally absent until maintainers publish resourced release targe
 
 Canonical encodings, protocol domains, hashes, addresses, signatures, checked resource arithmetic, golden vectors, property tests, and decoder fuzzing.
 
+- [x] Strict primitive/current-transaction codecs and canonical-byte regression tests.
+- [x] Standard BLAKE2s-256, strict Ed25519, transaction signing/ID domains, and address derivation.
+- [x] Checked resource pricing and cryptographic conformance vectors.
+- [ ] Complete versioned protocol envelopes and replace remaining placeholder commitments.
+- [ ] Long fuzz campaigns, dependency/security review, and cross-platform suite qualification.
+
 ## M2 — transactions and state
 
 Signed envelopes, validation order, account/state commitments, immutable snapshots, proofs, state diffs, atomic commit, recovery, pruning, and snapshot exchange.
+
+Current progress: signed admission validates existing transaction fields against an account view. Finalized account overlays, the complete versioned envelope, and production persistence remain open.
 
 ## M3 — deterministic Rust contracts
 

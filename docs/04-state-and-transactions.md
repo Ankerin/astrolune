@@ -8,6 +8,18 @@ A transaction contains a version, chain ID, sender, nonce, expiry, lane, declare
 
 Validation follows a fixed order: shape and bounds, chain and expiry, sender and nonce, declared resources and balance, signature, lane-specific payload, then execution eligibility. Invalid pre-admission transactions do not enter execution.
 
+### Current codec baseline
+
+The current `types::Transaction` encoding contains chain ID, sender, nonce, access list, resource limits, payload, and signature, in that order. Version, expiry, lane, and resource prices from the target model above are not yet encoded. Adding them requires an explicit versioned format change.
+
+All integers use fixed-width little-endian bytes. A sequence length below 128 uses one byte. Larger lengths use exactly `0x80` followed by a little-endian `u32`; markers `0x81` through `0xff` and five-byte encodings of lengths below 128 are rejected as non-canonical. Booleans accept only `0` and `1`, including receipt success flags.
+
+The decoder limits access lists to 1,048,576 entries, each state key to 256 bytes, and payloads to 1,048,576 bytes. It validates the full transaction, including signature length and absence of trailing bytes, before allocating owned keys or payload. These are structural codec limits, not production block-capacity recommendations or signature verification.
+
+Canonical encoder output is unchanged by strict decoding. Previously accepted alternate length encodings and receipt flags are now rejected. Golden vectors, exhaustive prefix and flag checks, transaction mutation checks, and truncation tests are in `crates/codec`; fuzz targets for transactions, state keys, and receipts assert that every accepted input re-encodes to identical bytes.
+
+The current cryptographic suite, signing bytes, transaction IDs, and `SignedValidator` behavior are specified in [cryptographic foundations](09-cryptographic-foundations.md). The demonstration validator remains separate from cryptographic admission.
+
 ## 4.2 Adaptive Execution Leasing
 
 A transaction reserves the state keys it declares for the duration of its wave. Read leases are shareable; write leases are exclusive. Keys are normalized, sorted, and deduplicated before scheduling.
@@ -20,7 +32,11 @@ Access lists may be supplied by the sender, derived from a contract manifest, or
 
 The scheduler constructs a conflict graph from leases and partitions transactions into ordered execution waves. Transactions in one wave have no declared write/read or write/write conflict. Wave construction uses original block position as the stable tie-breaker.
 
-The baseline reference scheduler is deterministic greedy coloring in block order. More sophisticated schedulers may replace it only if the chosen plan is itself committed or if they provably produce the same outputs and replay behavior.
+The implemented `GreedyScheduler` visits transactions in block order and chooses the earliest wave strictly after every earlier conflicting transaction. Transactions from the same sender also remain ordered for nonce and balance effects. The current access list has no mode field, so all declared keys are conservatively treated as writes.
+
+Choosing the first conflict-free wave alone is insufficient: for access sets `{A}`, `{A,B}`, `{B}`, placing the third transaction back in the first wave reverses its dependency on the second. The scheduler therefore preserves directed conflict order. `StateLease::new` sorts and deduplicates requests with write access taking precedence; write leases permit reads, and read-only leases may be shared.
+
+Generated conflict graphs are checked for complete transaction coverage, conflict-free waves, dependency order, and equivalence to serial writes. The plan is not yet connected to a parallel runtime; `SerialScheduler` remains available. More sophisticated schedulers may replace the reference only if the chosen plan is itself committed or if they provably produce the same outputs and replay behavior.
 
 ## 4.4 Predictive execution
 

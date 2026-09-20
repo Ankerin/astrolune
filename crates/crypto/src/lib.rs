@@ -4,9 +4,9 @@
 //! Cryptographic operations for consensus, transactions, and `AstroLune` ID.
 //!
 //! This crate provides domain-separated hashing, digital signature interfaces,
-//! and Merkle tree construction. The production hash function is a BLAKE2s-like
-//! construction implemented in pure Rust. The `MockCryptoProvider` remains
-//! available for lightweight testing.
+//! and Merkle tree construction. Hashing uses `RustCrypto` BLAKE2s-256 and
+//! signatures use ed25519-dalek strict verification. The `MockCryptoProvider`
+//! is only for tests and local demonstrations. VRF remains unimplemented.
 
 #![forbid(unsafe_code)]
 #![allow(clippy::missing_errors_doc)]

@@ -14,6 +14,8 @@ pub enum TransactionError {
     WrongChain,
     /// Transaction is no longer valid at the next height.
     Expired,
+    /// Sender has no account bound to its signing key.
+    UnknownSender,
     /// Sender nonce is not the exact expected value.
     InvalidNonce,
     /// Declared limits or available balance are insufficient.
@@ -30,6 +32,7 @@ impl fmt::Display for TransactionError {
             Self::InvalidEnvelope => write!(f, "invalid transaction envelope"),
             Self::WrongChain => write!(f, "wrong chain identifier"),
             Self::Expired => write!(f, "transaction expired"),
+            Self::UnknownSender => write!(f, "unknown sender"),
             Self::InvalidNonce => write!(f, "invalid nonce"),
             Self::InsufficientResources => write!(f, "insufficient resources"),
             Self::InvalidSignature => write!(f, "invalid signature"),

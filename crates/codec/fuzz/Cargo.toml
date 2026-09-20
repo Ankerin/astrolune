@@ -7,11 +7,23 @@ version = "0.0.0"
 publish = false
 edition = "2021"
 
+[package.metadata]
+cargo-fuzz = true
+
+[workspace]
+
 [dependencies]
 libfuzzer-sys = "0.4"
+types = { path = "../../types" }
 
 [dependencies.codec]
 path = ".."
+
+[[bin]]
+name = "decode_execution_receipt"
+path = "fuzz_targets/decode_execution_receipt.rs"
+test = false
+doc = false
 
 [[bin]]
 name = "decode_transaction"

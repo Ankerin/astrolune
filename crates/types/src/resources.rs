@@ -73,6 +73,18 @@ impl Resources {
         })
     }
 
+    /// Returns the total charge at the supplied per-class unit prices.
+    ///
+    /// Returns `None` if any product or the total exceeds `u64::MAX`.
+    #[must_use]
+    pub fn checked_cost(self, prices: Self) -> Option<u64> {
+        self.compute
+            .checked_mul(prices.compute)?
+            .checked_add(self.memory.checked_mul(prices.memory)?)?
+            .checked_add(self.io.checked_mul(prices.io)?)?
+            .checked_add(self.bandwidth.checked_mul(prices.bandwidth)?)
+    }
+
     /// Returns the number of non-zero resource classes.
     #[must_use]
     pub fn count(self) -> u32 {

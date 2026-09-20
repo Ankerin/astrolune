@@ -1,302 +1,102 @@
 // Copyright (c) 2026 Astrolune contributors
 // SPDX-License-Identifier: MIT
 
-//! BLAKE2s-like hash function implementation in pure Rust.
-//!
-//! This is a domain-separated hashing backend based on the BLAKE2s construction.
-//! It provides 256-bit output, preimage resistance, and collision resistance
-//! suitable for protocol hashing. The implementation uses no external
-//! dependencies and is designed for auditability.
+//! Standard BLAKE2s-256 hashing and strict Ed25519 verification.
 
-use types::Hash256;
+use std::collections::BTreeMap;
 
-/// BLAKE2s IV (initialization vector) derived from the fractional parts of
-/// the square roots of the first 8 primes.
-const IV: [u32; 8] = [
-    0x6A09_E667,
-    0xBB67_AE85,
-    0x3C6E_F372,
-    0xA54F_F53A,
-    0x510E_527F,
-    0x9B05_688C,
-    0x1F83_D9AB,
-    0x5BE0_CD19,
-];
+use blake2::{Blake2s256, Digest};
+use ed25519_dalek::{Signature, Signer, SigningKey, VerifyingKey};
+use types::{Hash256, ValidatorId};
 
-/// BLAKE2s sigma permutation schedule (10 rounds).
-const SIGMA: [[usize; 16]; 10] = [
-    [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15],
-    [14, 10, 4, 8, 9, 15, 13, 6, 1, 12, 0, 2, 11, 7, 5, 3],
-    [11, 8, 12, 0, 5, 2, 15, 13, 10, 14, 3, 6, 7, 1, 9, 4],
-    [7, 9, 3, 1, 13, 12, 11, 14, 2, 6, 5, 10, 4, 0, 15, 8],
-    [9, 0, 5, 7, 2, 4, 10, 15, 14, 1, 11, 12, 6, 8, 3, 13],
-    [2, 12, 6, 10, 0, 11, 8, 3, 4, 13, 7, 5, 15, 14, 1, 9],
-    [12, 5, 1, 15, 14, 13, 4, 10, 0, 7, 6, 3, 9, 2, 8, 11],
-    [13, 11, 7, 14, 12, 1, 3, 9, 5, 0, 15, 4, 8, 6, 2, 10],
-    [6, 15, 14, 9, 11, 3, 0, 8, 12, 2, 13, 7, 1, 4, 10, 5],
-    [10, 2, 8, 4, 7, 6, 1, 5, 15, 11, 9, 14, 3, 12, 13, 0],
-];
-
-/// The BLAKE2s compression function G mixing.
-///
-/// Mixes four 32-bit words with two message words and returns updated values.
-/// This avoids borrow-checker issues with mutable array references.
-#[allow(clippy::many_single_char_names)]
-#[inline]
-fn g(a: u32, b: u32, c: u32, d: u32, x: u32, y: u32) -> (u32, u32, u32, u32) {
-    let a = a.wrapping_add(b).wrapping_add(x);
-    let d = (d ^ a).rotate_right(16);
-    let c = c.wrapping_add(d);
-    let b = (b ^ c).rotate_right(12);
-    let a = a.wrapping_add(b).wrapping_add(y);
-    let d = (d ^ a).rotate_right(8);
-    let c = c.wrapping_add(d);
-    let b = (b ^ c).rotate_right(7);
-    (a, b, c, d)
-}
-
-/// The BLAKE2s compression function.
-///
-/// Compresses a single 512-bit message block into the 256-bit state.
-fn compress(state: &mut [u32; 8], block: &[u8; 64], t0: u32, t1: u32, last: bool) {
-    // Working vector initialized from state + IV
-    let mut v = [0u32; 16];
-    v[0] = state[0];
-    v[1] = state[1];
-    v[2] = state[2];
-    v[3] = state[3];
-    v[4] = state[4];
-    v[5] = state[5];
-    v[6] = state[6];
-    v[7] = state[7];
-    v[8] = IV[0];
-    v[9] = IV[1];
-    v[10] = IV[2];
-    v[11] = IV[3];
-    v[12] = IV[4];
-    v[13] = IV[5];
-    v[14] = IV[6];
-    v[15] = IV[7];
-
-    // Mix in the byte counters
-    v[12] ^= t0;
-    v[13] ^= t1;
-
-    if last {
-        v[14] = !v[14];
-    }
-
-    // Load the 16 message words (little-endian)
-    let mut m = [0u32; 16];
-    for (i, chunk) in block.chunks_exact(4).enumerate() {
-        m[i] = u32::from_le_bytes([chunk[0], chunk[1], chunk[2], chunk[3]]);
-    }
-
-    // 10 rounds of mixing
-    for s in &SIGMA {
-        // Column step: apply G to (v[0],v[4],v[8],v[12]), (v[1],v[5],v[9],v[13]), etc.
-        let (a0, b0, c0, d0) = g(v[0], v[4], v[8], v[12], m[s[0]], m[s[1]]);
-        v[0] = a0;
-        v[4] = b0;
-        v[8] = c0;
-        v[12] = d0;
-
-        let (a1, b1, c1, d1) = g(v[1], v[5], v[9], v[13], m[s[2]], m[s[3]]);
-        v[1] = a1;
-        v[5] = b1;
-        v[9] = c1;
-        v[13] = d1;
-
-        let (a2, b2, c2, d2) = g(v[2], v[6], v[10], v[14], m[s[4]], m[s[5]]);
-        v[2] = a2;
-        v[6] = b2;
-        v[10] = c2;
-        v[14] = d2;
-
-        let (a3, b3, c3, d3) = g(v[3], v[7], v[11], v[15], m[s[6]], m[s[7]]);
-        v[3] = a3;
-        v[7] = b3;
-        v[11] = c3;
-        v[15] = d3;
-
-        // Diagonal step
-        let (a4, b4, c4, d4) = g(v[0], v[5], v[10], v[15], m[s[8]], m[s[9]]);
-        v[0] = a4;
-        v[5] = b4;
-        v[10] = c4;
-        v[15] = d4;
-
-        let (a5, b5, c5, d5) = g(v[1], v[6], v[11], v[12], m[s[10]], m[s[11]]);
-        v[1] = a5;
-        v[6] = b5;
-        v[11] = c5;
-        v[12] = d5;
-
-        let (a6, b6, c6, d6) = g(v[2], v[7], v[8], v[13], m[s[12]], m[s[13]]);
-        v[2] = a6;
-        v[7] = b6;
-        v[8] = c6;
-        v[13] = d6;
-
-        let (a7, b7, c7, d7) = g(v[3], v[4], v[9], v[14], m[s[14]], m[s[15]]);
-        v[3] = a7;
-        v[4] = b7;
-        v[9] = c7;
-        v[14] = d7;
-    }
-
-    // Finalize: xor the two halves of the working vector into the state
-    state[0] ^= v[0] ^ v[8];
-    state[1] ^= v[1] ^ v[9];
-    state[2] ^= v[2] ^ v[10];
-    state[3] ^= v[3] ^ v[11];
-    state[4] ^= v[4] ^ v[12];
-    state[5] ^= v[5] ^ v[13];
-    state[6] ^= v[6] ^ v[14];
-    state[7] ^= v[7] ^ v[15];
-}
-
-/// Domain prefix prepended to all hash operations for cross-domain separation.
-const DOMAIN_PREFIX: &[u8] = b"astrolune.v1.";
-
-/// Computes a BLAKE2s-like 256-bit hash of arbitrary input data.
-///
-/// Processes the input in 64-byte blocks using the BLAKE2s compression
-/// function with 10 rounds of mixing. Output is a 32-byte digest.
+/// Computes the standard unkeyed BLAKE2s-256 digest.
 #[must_use]
 pub fn blake2s(data: &[u8]) -> Hash256 {
-    let mut state = IV;
-    let mut t: u32 = 0;
-
-    // Process complete blocks
-    let blocks = data.len() / 64;
-    let mut offset = 0;
-    for _ in 0..blocks {
-        let mut block = [0u8; 64];
-        block.copy_from_slice(&data[offset..offset + 64]);
-        t += 64;
-        compress(&mut state, &block, t, 0, false);
-        offset += 64;
-    }
-
-    // Process the final (possibly partial) block
-    let remaining = data.len() % 64;
-    #[allow(clippy::cast_possible_truncation)]
-    let remaining_u32 = remaining as u32;
-    t += remaining_u32;
-    let mut last_block = [0u8; 64];
-    last_block[..remaining].copy_from_slice(&data[offset..]);
-    compress(&mut state, &last_block, t, 0, true);
-
-    // Produce the output hash
-    let mut output = [0u8; 32];
-    for (i, word) in state.iter().enumerate() {
-        output[i * 4..i * 4 + 4].copy_from_slice(&word.to_le_bytes());
-    }
-    Hash256(output)
+    Hash256(Blake2s256::digest(data).into())
 }
 
-/// Computes a domain-separated BLAKE2s hash.
-///
-/// The domain tag is prepended to the message with length-delimiting to
-/// prevent ambiguity between domain and message boundaries.
+/// Hashes a length-delimited domain followed by the message.
 #[must_use]
 pub fn domain_hash(domain: &[u8], message: &[u8]) -> Hash256 {
-    let mut input = Vec::with_capacity(DOMAIN_PREFIX.len() + domain.len() + 8 + message.len());
-    input.extend_from_slice(DOMAIN_PREFIX);
-    input.extend_from_slice(domain);
-    input.extend_from_slice(&(domain.len() as u64).to_le_bytes());
-    input.extend_from_slice(message);
-    blake2s(&input)
+    let mut hash = Blake2s256::new();
+    hash.update(b"astrolune.v1.");
+    hash.update((domain.len() as u64).to_le_bytes());
+    hash.update(domain);
+    hash.update(message);
+    Hash256(hash.finalize().into())
 }
 
-/// Derives a 32-byte key from a seed and domain context string.
+/// Derives deterministic key material from a high-entropy seed and context.
 ///
-/// Uses the same BLAKE2s primitive with a key-derivation-specific prefix
-/// to produce deterministic key material.
+/// This is not a password-hardening function.
 #[must_use]
 pub fn derive_key(seed: &[u8], domain: &str) -> [u8; 32] {
-    let mut input = Vec::new();
-    input.extend_from_slice(b"astrolune.key.derive.");
-    input.extend_from_slice(domain.as_bytes());
-    input.extend_from_slice(&(seed.len() as u64).to_le_bytes());
-    input.extend_from_slice(seed);
-    let hash = blake2s(&input);
-    *hash.as_bytes()
+    let mut hash = Blake2s256::new();
+    hash.update(b"astrolune.key.derive.v1.");
+    hash.update((domain.len() as u64).to_le_bytes());
+    hash.update(domain.as_bytes());
+    hash.update((seed.len() as u64).to_le_bytes());
+    hash.update(seed);
+    hash.finalize().into()
 }
 
-/// Computes a deterministic signature from a secret key and message.
-///
-/// Produces a 64-byte signature where the first 32 bytes are a nonce
-/// commitment and the last 32 bytes are a response derived from the
-/// secret key, nonce, and message.
+/// Derives an Ed25519 public key from a 32-byte secret seed.
+#[must_use]
+pub fn ed25519_public_key(secret_key: &[u8; 32]) -> [u8; 32] {
+    SigningKey::from_bytes(secret_key)
+        .verifying_key()
+        .to_bytes()
+}
+
+/// Signs a message using Ed25519 and a 32-byte secret seed.
 #[must_use]
 pub fn ed25519_sign(secret_key: &[u8; 32], message: &[u8]) -> [u8; 64] {
-    // Step 1: Derive the nonce from secret key + message
-    let nonce_hash = {
-        let mut input = Vec::new();
-        input.extend_from_slice(b"astrolune.ed25519.nonce.");
-        input.extend_from_slice(secret_key);
-        input.extend_from_slice(message);
-        blake2s(&input)
-    };
-
-    // Step 2: Derive the public key from the secret key
-    let pubkey = derive_key(secret_key, "ed25519.pubkey");
-
-    // Step 3: Compute the response from public key + nonce + message
-    let response = {
-        let mut input = Vec::new();
-        input.extend_from_slice(b"astrolune.ed25519.response.");
-        input.extend_from_slice(&pubkey);
-        input.extend_from_slice(nonce_hash.as_bytes());
-        input.extend_from_slice(message);
-        blake2s(&input)
-    };
-
-    // Step 4: Compose the signature
-    let mut signature = [0u8; 64];
-    signature[..32].copy_from_slice(nonce_hash.as_bytes());
-    signature[32..].copy_from_slice(response.as_bytes());
-    signature
+    SigningKey::from_bytes(secret_key).sign(message).to_bytes()
 }
 
-/// Verifies a deterministic signature against a public key and message.
-///
-/// Re-derives the expected response from the public key, message, and
-/// signature nonce commitment. Returns true if the signature is valid.
+/// Verifies Ed25519 with weak-key and signature-malleability rejection.
 #[must_use]
 pub fn ed25519_verify(public_key: &[u8; 32], message: &[u8], signature: &[u8; 64]) -> bool {
-    let nonce_commitment = &signature[..32];
-    let response = &signature[32..];
-
-    // Re-derive the expected response
-    let expected = {
-        let mut input = Vec::new();
-        input.extend_from_slice(b"astrolune.ed25519.response.");
-        input.extend_from_slice(public_key);
-        input.extend_from_slice(nonce_commitment);
-        input.extend_from_slice(message);
-        blake2s(&input)
-    };
-
-    expected.as_bytes() == response
+    VerifyingKey::from_bytes(public_key).is_ok_and(|key| {
+        key.to_edwards().compress().to_bytes() == *public_key
+            && key
+                .verify_strict(message, &Signature::from_bytes(signature))
+                .is_ok()
+    })
 }
 
-/// A domain-separated BLAKE2s crypto provider implementing the `CryptoProvider` trait.
-pub struct Blake2sProvider;
+/// BLAKE2s hashing and signature verification against registered validator keys.
+///
+/// VRF verification fails closed until a protocol VRF suite is selected.
+#[derive(Default)]
+pub struct Blake2sProvider {
+    keys: BTreeMap<ValidatorId, VerifyingKey>,
+}
 
 impl Blake2sProvider {
-    /// Creates a new BLAKE2s provider.
+    /// Creates a provider without registered validators.
     #[must_use]
     pub fn new() -> Self {
-        Self
+        Self::default()
     }
-}
 
-impl Default for Blake2sProvider {
-    fn default() -> Self {
-        Self::new()
+    /// Registers a public key under its BLAKE2s-256 validator identity.
+    ///
+    /// # Errors
+    ///
+    /// Rejects malformed or weak Ed25519 keys.
+    pub fn register_validator(
+        &mut self,
+        public_key: [u8; 32],
+    ) -> Result<ValidatorId, crate::CryptoError> {
+        let key = VerifyingKey::from_bytes(&public_key)
+            .map_err(|_| crate::CryptoError::InvalidPublicKey)?;
+        if key.is_weak() || key.to_edwards().compress().to_bytes() != public_key {
+            return Err(crate::CryptoError::InvalidPublicKey);
+        }
+        let id = ValidatorId(blake2s(&public_key).0);
+        self.keys.insert(id, key);
+        Ok(id)
     }
 }
 
@@ -305,25 +105,20 @@ impl crate::CryptoProvider for Blake2sProvider {
         domain_hash(domain, message)
     }
 
-    fn verify_signature(
-        &self,
-        _signer: types::ValidatorId,
-        _message: &[u8],
-        signature: &[u8; 64],
-    ) -> bool {
-        // Signature verification requires the public key, which is not available
-        // at the CryptoProvider level. Accept any non-zero signature as placeholder.
-        *signature != [0u8; 64]
+    fn verify_signature(&self, signer: ValidatorId, message: &[u8], signature: &[u8; 64]) -> bool {
+        self.keys.get(&signer).is_some_and(|key| {
+            key.verify_strict(message, &Signature::from_bytes(signature))
+                .is_ok()
+        })
     }
 
     fn verify_vrf(
         &self,
-        _validator: types::ValidatorId,
+        _validator: ValidatorId,
         _seed: Hash256,
         _output: &crate::VrfOutput,
     ) -> bool {
-        // VRF verification not yet implemented with pure Rust
-        true
+        false
     }
 }
 
@@ -398,7 +193,7 @@ mod tests {
     #[test]
     fn ed25519_sign_verify_roundtrip() {
         let secret = [42u8; 32];
-        let pubkey = derive_key(&secret, "ed25519.pubkey");
+        let pubkey = ed25519_public_key(&secret);
         let message = b"hello astrolune";
         let sig = ed25519_sign(&secret, message);
         assert!(ed25519_verify(&pubkey, message, &sig));
@@ -407,7 +202,7 @@ mod tests {
     #[test]
     fn ed25519_rejects_wrong_message() {
         let secret = [1u8; 32];
-        let pubkey = derive_key(&secret, "ed25519.pubkey");
+        let pubkey = ed25519_public_key(&secret);
         let sig = ed25519_sign(&secret, b"correct");
         assert!(!ed25519_verify(&pubkey, b"wrong", &sig));
     }

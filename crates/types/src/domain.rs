@@ -10,6 +10,12 @@
 /// Transaction signing domain.
 pub const TRANSACTION: &[u8] = b"astrolune.tx.v1";
 
+/// Signed transaction identifier domain.
+pub const TRANSACTION_ID: &[u8] = b"astrolune.tx.id.v1";
+
+/// Ed25519 wallet address derivation domain.
+pub const ACCOUNT_ADDRESS: &[u8] = b"astrolune.account.ed25519.v1";
+
 /// Block header signing domain.
 pub const BLOCK_HEADER: &[u8] = b"astrolune.block.v1";
 

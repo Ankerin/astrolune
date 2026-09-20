@@ -18,6 +18,8 @@ pub enum CryptoError {
     EquivocationDetected,
     /// Signature verification failed.
     InvalidSignature,
+    /// Public key is malformed or has weak order.
+    InvalidPublicKey,
     /// Key derivation failed due to invalid seed material.
     InvalidSeed,
 }
@@ -30,6 +32,7 @@ impl fmt::Display for CryptoError {
             Self::WrongPurpose => write!(f, "wrong purpose"),
             Self::EquivocationDetected => write!(f, "equivocation detected"),
             Self::InvalidSignature => write!(f, "invalid signature"),
+            Self::InvalidPublicKey => write!(f, "invalid public key"),
             Self::InvalidSeed => write!(f, "invalid seed"),
         }
     }

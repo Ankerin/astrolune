@@ -18,14 +18,18 @@
 pub mod envelope;
 pub mod error;
 pub mod lane;
+pub mod signed_validator;
+pub mod signing;
 pub mod validator;
 
 pub use envelope::Envelope;
 pub use error::TransactionError;
 pub use lane::TransactionLane;
+pub use signed_validator::{RegisteredAccount, SignedValidator};
+pub use signing::{address_from_public_key, compute_tx_id, signing_hash};
 pub use validator::{
     AccountState, BasicValidator, TransactionValidator, ValidatedTransaction, ValidationContext,
-    compute_tx_id, estimate_encoded_len,
+    estimate_encoded_len,
 };
 
 #[cfg(test)]
@@ -299,6 +303,6 @@ mod integration_tests {
             signature: [0; 64],
         };
         let len = estimate_encoded_len(&tx);
-        assert_eq!(len, 130);
+        assert_eq!(len, 156);
     }
 }

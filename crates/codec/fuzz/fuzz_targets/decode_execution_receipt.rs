@@ -1,16 +1,16 @@
 // Copyright (c) 2026 Astrolune contributors
 // SPDX-License-Identifier: MIT
 
-//! Fuzz target for `StateKey` decoding.
+//! Accepted receipts must re-encode to the exact input bytes.
 
 #![no_main]
 
 use codec::{CanonicalDecode, CanonicalEncode};
 use libfuzzer_sys::fuzz_target;
-use types::StateKey;
+use types::ExecutionReceipt;
 
 fuzz_target!(|data: &[u8]| {
-    if let Ok(value) = StateKey::decode(data) {
+    if let Ok(value) = ExecutionReceipt::decode(data) {
         assert_eq!(value.to_bytes(), data);
     }
 });
