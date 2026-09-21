@@ -6,28 +6,148 @@ name: CI
 on:
   push:
   pull_request:
+  workflow_dispatch:
 
 permissions:
   contents: read
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+  CARGO_INCREMENTAL: "0"
+  RUST_BACKTRACE: "1"
+
 jobs:
-  quality:
+  formatting:
+    name: Formatting
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install pinned Rust toolchain
+        run: rustup show
+      - run: cargo fmt --all --check
+
+  clippy:
+    name: Clippy (${{ matrix.os }})
     strategy:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, windows-latest]
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
       - name: Install pinned Rust toolchain
         run: rustup show
-      - name: Check formatting
-        run: cargo fmt --all --check
-      - name: Run Clippy
-        run: cargo clippy --workspace --all-targets -- -D warnings
-      - name: Run tests
-        run: cargo test --workspace
-      - name: Build documentation
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo clippy --locked --workspace --all-targets --all-features -- -D warnings
+
+  tests:
+    name: Tests (${{ matrix.os }}, ${{ matrix.profile }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+        profile: [dev, release]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install pinned Rust toolchain
+        run: rustup show
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: ${{ matrix.profile }}
+      - name: Unit, integration, and documentation tests
+        run: cargo test --locked --workspace --all-features --profile ${{ matrix.profile }}
+
+  docs:
+    name: Documentation
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      RUSTDOCFLAGS: -D warnings
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install pinned Rust toolchain
+        run: rustup show
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo doc --locked --workspace --all-features --no-deps
+
+  build:
+    name: Release build (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install pinned Rust toolchain
+        run: rustup show
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: ${{ matrix.target }}
+      - name: Build release workspace
+        run: cargo build --locked --workspace --all-features --release --target ${{ matrix.target }}
+      - name: Smoke-test release binaries and daemon recovery
+        shell: bash
         env:
-          RUSTDOCFLAGS: -D warnings
-        run: cargo doc --workspace --no-deps
+          BUILD_TARGET: ${{ matrix.target }}
+        run: |
+          bin="target/$BUILD_TARGET/release"
+          "$bin/cli" --help
+          "$bin/cargo-contract" --help
+          "$bin/daemon" --help
+          "$bin/daemon" --dry-run
+          data_dir="$RUNNER_TEMP/astrolune-smoke"
+          "$bin/daemon" --data-dir "$data_dir" --blocks 3 --p2p-listen 127.0.0.1:0 --rpc-listen 127.0.0.2:0
+          "$bin/daemon" --data-dir "$data_dir" --blocks 2 --p2p-listen 127.0.0.1:0 --rpc-listen 127.0.0.2:0
+          "$bin/daemon" --data-dir "$data_dir" --blocks 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Package binaries with checksums and build metadata
+        run: python .github/scripts/package-build.py ${{ matrix.target }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: astrolune-${{ matrix.target }}
+          path: target/ci-artifacts/*
+          if-no-files-found: error
+          retention-days: 14
+
+  workflows:
+    name: Workflow validation
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.24.x"
+          cache: false
+      - name: Install actionlint
+        run: go install github.com/rhysd/actionlint/cmd/actionlint@v1.7.7
+      - run: actionlint -color
+
+  quality:
+    name: CI required checks
+    if: ${{ always() }}
+    needs: [formatting, clippy, tests, docs, build, workflows]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Require all CI jobs to pass
+        env:
+          NEEDS_JSON: ${{ toJSON(needs) }}
+        run: |
+          echo "$NEEDS_JSON" | jq -e 'all(.[]; .result == "success")'
