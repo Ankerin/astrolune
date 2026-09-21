@@ -495,6 +495,7 @@ impl BlockProducer {
             .collect();
         self.mempool.remove_batch(&selected_keys);
         self.height = next_height;
+        self.mempool.remove_expired(next_height);
         self.parent_hash = proposal.block.header.compute_hash();
 
         Ok(checkpoint)
@@ -740,6 +741,13 @@ mod tests {
 
     fn make_tx(nonce: u64, payload: Vec<u8>) -> Transaction {
         Transaction {
+            version: types::TRANSACTION_VERSION,
+            expires_at: u64::MAX,
+            lane: types::TransactionLane::Payments,
+            resource_prices: types::Resources {
+                compute: 1,
+                ..types::Resources::ZERO
+            },
             chain_id: 7,
             sender: sender(),
             nonce,

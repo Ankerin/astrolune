@@ -113,6 +113,9 @@ impl TransactionValidator for BasicValidator {
         if transaction.chain_id != context.chain_id {
             return Err(TransactionError::WrongChain);
         }
+        if context.next_height > transaction.expires_at {
+            return Err(TransactionError::Expired);
+        }
         if transaction.nonce == u64::MAX {
             return Err(TransactionError::InvalidNonce);
         }
@@ -130,12 +133,7 @@ impl TransactionValidator for BasicValidator {
                 }
                 let cost = transaction
                     .resource_limit
-                    .checked_cost(types::Resources {
-                        compute: 1,
-                        memory: 1,
-                        io: 1,
-                        bandwidth: 1,
-                    })
+                    .checked_cost(transaction.resource_prices)
                     .ok_or(TransactionError::InsufficientResources)?;
                 if cost > acc.balance {
                     return Err(TransactionError::InsufficientResources);
@@ -147,7 +145,7 @@ impl TransactionValidator for BasicValidator {
             return Err(TransactionError::InvalidSignature);
         }
 
-        let lane = TransactionLane::from_payload(&transaction.payload);
+        let lane = transaction.lane;
         let id = compute_tx_id(&transaction);
 
         Ok(ValidatedTransaction {
@@ -170,7 +168,7 @@ fn encoded_len(tx: &Transaction) -> Option<usize> {
         Some(if length < 128 { 1 } else { 5 })
     }
 
-    let mut size = 4usize + 32 + 8 + 32 + 64;
+    let mut size = 8usize + 4 + 32 + 8 + 8 + 1 + 32 + 32 + 64;
     size = size.checked_add(prefix_len(tx.access_list.len())?)?;
     for key in &tx.access_list {
         size = size
@@ -182,7 +180,8 @@ fn encoded_len(tx: &Transaction) -> Option<usize> {
 }
 
 pub(crate) fn validate_shape(tx: &Transaction, max_bytes: usize) -> Result<(), TransactionError> {
-    if tx.access_list.len() > codec::MAX_LIST_LEN
+    if tx.version != types::TRANSACTION_VERSION
+        || tx.access_list.len() > codec::MAX_LIST_LEN
         || tx
             .access_list
             .iter()
@@ -207,6 +206,13 @@ mod tests {
 
     fn make_tx(nonce: u64, payload: Vec<u8>, resources: Resources) -> Transaction {
         Transaction {
+            version: types::TRANSACTION_VERSION,
+            expires_at: u64::MAX,
+            lane: types::TransactionLane::from_payload(&payload),
+            resource_prices: types::Resources {
+                compute: 1,
+                ..types::Resources::ZERO
+            },
             chain_id: 7,
             sender: sender(),
             nonce,
@@ -381,6 +387,13 @@ mod tests {
         let validator = BasicValidator::empty();
 
         let tx0 = Transaction {
+            version: types::TRANSACTION_VERSION,
+            expires_at: u64::MAX,
+            lane: types::TransactionLane::Payments,
+            resource_prices: types::Resources {
+                compute: 1,
+                ..types::Resources::ZERO
+            },
             chain_id: 7,
             sender: Address([1u8; 32]),
             nonce: 0,
@@ -395,6 +408,13 @@ mod tests {
             signature: [0xFF; 64],
         };
         let tx1 = Transaction {
+            version: types::TRANSACTION_VERSION,
+            expires_at: u64::MAX,
+            lane: types::TransactionLane::Payments,
+            resource_prices: types::Resources {
+                compute: 1,
+                ..types::Resources::ZERO
+            },
             chain_id: 7,
             sender: Address([2u8; 32]),
             nonce: 0,
@@ -417,6 +437,13 @@ mod tests {
     #[test]
     fn estimate_encoded_len_basic() {
         let tx = Transaction {
+            version: types::TRANSACTION_VERSION,
+            expires_at: u64::MAX,
+            lane: types::TransactionLane::Payments,
+            resource_prices: types::Resources {
+                compute: 1,
+                ..types::Resources::ZERO
+            },
             chain_id: 1,
             sender: Address([0; 32]),
             nonce: 0,
@@ -431,6 +458,6 @@ mod tests {
             signature: [0; 64],
         };
         let len = estimate_encoded_len(&tx);
-        assert_eq!(len, 156);
+        assert_eq!(len, 205);
     }
 }

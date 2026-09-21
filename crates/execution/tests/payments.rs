@@ -39,6 +39,13 @@ fn transfer(seed: u8, recipient: Address, nonce: u64, amount: u64) -> Transactio
     keys.sort();
     keys.dedup();
     let mut tx = Transaction {
+        version: types::TRANSACTION_VERSION,
+        expires_at: u64::MAX,
+        lane: types::TransactionLane::Payments,
+        resource_prices: types::Resources {
+            compute: 1,
+            ..types::Resources::ZERO
+        },
         chain_id: 7,
         sender: address(seed),
         nonce,
@@ -298,4 +305,49 @@ fn payment_payload_has_fixed_canonical_bytes_and_rejects_every_truncation() {
         )
         .is_err()
     );
+}
+
+#[test]
+fn changed_height_lane_or_prices_reject_the_entire_block() {
+    for (field, expected) in [
+        (0, TransactionError::Expired),
+        (1, TransactionError::UnsupportedPayload),
+        (2, TransactionError::InsufficientResources),
+    ] {
+        let mut state = funded(&[(1, 0, 100), (2, 0, 100)]);
+        let root = state.root();
+        let first = transfer(1, address(3), 0, 5);
+        let mut second = transfer(2, address(3), 0, 5);
+        match field {
+            0 => second.expires_at = 0,
+            1 => second.lane = types::TransactionLane::Contracts,
+            _ => second.resource_prices = Resources::ZERO,
+        }
+        assert_eq!(
+            execute(&mut state, &[first, signed(second, 2)]),
+            Err(ExecutionError::TransactionValidation(expected))
+        );
+        assert_eq!(state.root(), root);
+        assert_eq!(account(&state, 1).nonce, 0);
+        assert_eq!(account(&state, 2).nonce, 0);
+    }
+    let mut state = funded(&[(1, 0, 100)]);
+    let root = state.root();
+    let mut tx = transfer(1, address(2), 0, 5);
+    tx.expires_at = 1;
+    let tx = signed(tx, 1);
+    let mut later = context();
+    later.next_height = 2;
+    assert!(
+        execute_payments(
+            &mut state,
+            std::slice::from_ref(&tx),
+            root,
+            later,
+            capacity()
+        )
+        .is_err()
+    );
+    assert_eq!(state.root(), root);
+    execute(&mut state, &[tx]).unwrap();
 }

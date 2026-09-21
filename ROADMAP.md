@@ -21,14 +21,15 @@ Canonical encodings, protocol domains, hashes, addresses, signatures, checked re
 - [x] Checked resource pricing and cryptographic conformance vectors.
 - [x] Bounded version-1 genesis, validated commitments, initial account/validator state, and CLI verification.
 - [x] Atomic daemon genesis activation, restart identity checks, and preserved initial account state.
-- [ ] Complete versioned protocol envelopes and replace remaining placeholder commitments.
+- [x] Version-1 signed transactions with expiry, explicit lanes, signed prices, and strict decoding.
+- [ ] Complete remaining versioned protocol envelopes and replace placeholder consensus commitments.
 - [ ] Long fuzz campaigns, dependency/security review, and cross-platform suite qualification.
 
 ## M2 — transactions and state
 
 Signed envelopes, validation order, account/state commitments, immutable snapshots, proofs, state diffs, atomic commit, recovery, pruning, and snapshot exchange.
 
-Current progress: signed admission validates existing transaction fields against an account view. Merkle state commitments, membership and absence proofs, immutable snapshots, bounded transitions, atomic state/whole-chain archive recovery, and verified snapshot exchange are implemented with rollback tests. Proposal execution stays private until successful commit. Sequential signed payment overlays, balance/nonce transitions, fixed reference fees, execution revalidation, and daemon account/submission RPC are implemented. The complete versioned transaction envelope, production fee governance, and production-scale persistence remain open. Local daemon block/state restart integration is implemented; consensus signing state and independent authentication of recovered history remain open. See [state and recovery](docs/10-state-and-recovery.md) and [chain archives](docs/11-chain-archives.md).
+Current progress: signed admission validates existing transaction fields against an account view. Merkle state commitments, membership and absence proofs, immutable snapshots, bounded transitions, atomic state/whole-chain archive recovery, and verified snapshot exchange are implemented with rollback tests. Proposal execution stays private until successful commit. Sequential signed payment overlays, balance/nonce transitions, fixed reference fees, execution revalidation, and daemon account/submission RPC are implemented. The [versioned transaction envelope](docs/14-versioned-transactions.md), expiry enforcement, and post-commit expiry eviction are implemented. Production fee governance and production-scale persistence remain open. Local daemon block/state restart integration is implemented; consensus signing state and independent authentication of recovered history remain open. See [state and recovery](docs/10-state-and-recovery.md) and [chain archives](docs/11-chain-archives.md).
 
 ## M3 — deterministic Rust contracts
 
@@ -48,7 +49,7 @@ Authenticated encrypted transport, peer discovery, rate limiting, compact blocks
 
 ## M7 — ecosystem
 
-Wallet integration, AstroLune ID, DNS registry and resolver, access Proxy, and static Pages publishing and serving.
+Wallet integration and DNS registry and resolver.
 
 ## M8 — public testnet and production gates
 

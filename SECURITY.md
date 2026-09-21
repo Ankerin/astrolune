@@ -50,8 +50,7 @@ Reports are especially valuable for:
 - non-deterministic contract or parallel execution;
 - state commitment, snapshot, recovery, or sync verification bypasses;
 - canonical decoder confusion, memory exhaustion, and P2P denial of service;
-- AstroLune ID replay, origin/audience confusion, or wallet authorization bypasses;
-- DNS ownership/proof failures, Pages integrity bypasses, and Proxy boundary violations.
+- DNS ownership and proof failures.
 
 ## Out of scope for security guarantees
 

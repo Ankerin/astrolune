@@ -43,6 +43,13 @@ mod tests {
 
     fn sample_tx(nonce: u64) -> types::Transaction {
         types::Transaction {
+            version: types::TRANSACTION_VERSION,
+            expires_at: u64::MAX,
+            lane: types::TransactionLane::Payments,
+            resource_prices: types::Resources {
+                compute: 1,
+                ..types::Resources::ZERO
+            },
             chain_id: 1,
             sender: types::Address([0x10; 32]),
             nonce,

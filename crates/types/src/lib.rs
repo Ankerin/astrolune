@@ -18,7 +18,7 @@ pub use block::{Block, BlockHeader, ExecutionReceipt};
 pub use hash::Hash256;
 pub use resources::Resources;
 pub use state_key::StateKey;
-pub use transaction::Transaction;
+pub use transaction::{TRANSACTION_VERSION, Transaction, TransactionLane};
 
 /// A wallet or contract address.
 pub use crate::address::Address;

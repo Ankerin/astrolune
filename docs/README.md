@@ -16,7 +16,7 @@ For a concise source-tree map, read [`../ARCHITECTURE.md`](../ARCHITECTURE.md).
 | [03-vm-and-gas.md](03-vm-and-gas.md) | deterministic Rust runtime, AOT/JIT, lanes, metering |
 | [04-state-and-transactions.md](04-state-and-transactions.md) | transactions, leasing, parallel scheduling, snapshots, state commit |
 | [05-contract-languages.md](05-contract-languages.md) | Rust smart-contract model and SDK boundary |
-| [06-deferred-services.md](06-deferred-services.md) | AstroLune DNS, Proxy, Pages, and ID |
+| [06-deferred-services.md](06-deferred-services.md) | AstroLune DNS |
 | [07-validator-requirements.md](07-validator-requirements.md) | validator behavior and preliminary requirements |
 | [08-implementation-status.md](08-implementation-status.md) | baseline, roadmap, gates, and open risks |
 | [09-cryptographic-foundations.md](09-cryptographic-foundations.md) | implemented hash/signature suite, signed admission, and compatibility |
@@ -24,6 +24,7 @@ For a concise source-tree map, read [`../ARCHITECTURE.md`](../ARCHITECTURE.md).
 | [11-chain-archives.md](11-chain-archives.md) | atomic whole-chain archives, historical recovery, pruning, bounds, and compatibility |
 | [12-genesis-and-accounts.md](12-genesis-and-accounts.md) | bounded genesis, initial account/validator state, commitments, and operator verification |
 | [13-native-payments.md](13-native-payments.md) | signed transfers, sequential account overlays, fees, atomic commits, and daemon RPC |
+| [14-versioned-transactions.md](14-versioned-transactions.md) | signed expiry, explicit lanes, resource prices, canonical format, and compatibility |
 
 Legacy-shaped filenames such as `03-vm-and-gas.md`, `05-contract-languages.md`, and `06-deferred-services.md` are retained temporarily to preserve links. Their contents describe the current Rust architecture.
 
@@ -49,7 +50,7 @@ The key words **MUST**, **MUST NOT**, **SHOULD**, and **MAY** express intended p
 - Finality uses prevote/precommit and voting power strictly greater than two thirds.
 - Consensus orders transactions; execution independently verifies state transitions.
 - Contracts use a deterministic Rust subset; custom languages and ALVM are removed.
-- AstroLune DNS, Proxy, Pages, and wallet authorization through AstroLune ID are ecosystem services.
+- AstroLune DNS is an ecosystem service.
 - General-purpose user storage or file sharing is outside scope; validator-local chain persistence remains required.
 
 ## License

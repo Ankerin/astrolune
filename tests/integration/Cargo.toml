@@ -20,13 +20,10 @@ crypto = { path = "../../crates/crypto" }
 dns = { path = "../../services/dns" }
 execution = { path = "../../crates/execution" }
 genesis = { path = "../../crates/genesis" }
-id = { path = "../../services/id" }
 keystore = { path = "../../crates/keystore" }
 mempool = { path = "../../crates/mempool" }
 node = { path = "../../crates/node" }
-pages = { path = "../../services/pages" }
 p2p = { path = "../../crates/p2p" }
-proxy = { path = "../../services/proxy" }
 rpc = { path = "../../crates/rpc" }
 state = { path = "../../crates/state" }
 storage = { path = "../../crates/storage" }

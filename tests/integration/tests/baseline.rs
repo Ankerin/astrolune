@@ -12,17 +12,13 @@ use consensus::{
     Committee, CommitteeMember, CommitteeSelector, FinalityEngine, PotbWeight, WeightedSampler,
     quorum_power,
 };
-use crypto::MockCryptoProvider;
 use dns::{InMemoryResolver, Record, Resolver};
 use execution::{ExecutorConfig, SimpleExecutor};
 use genesis::{Genesis, GenesisValidator};
-use id::{AuthorizationChallenge, AuthorizationVerifier, InMemoryVerifier, Scope};
 use keystore::{KeyHandle, KeyPurpose, MockKeystore, Signer};
 use mempool::{Mempool, PoolEntry, PoolLimits};
 use node::NodeService;
 use p2p::{BoundedFrameDecoder, FrameDecoder, FrameEncoder, MAX_FRAME_SIZE, MessageKind};
-use pages::{InMemoryPageSource, PageManifest, PageSource};
-use proxy::{EchoHandler, InMemoryProxyGateway, ProxyGateway, ProxyRequest};
 use rpc::{InMemoryRpcService, RpcRequest, RpcResponse, RpcService};
 use state::{InMemoryState, StateDatabase, StateDiff};
 use storage::{CommitBatch, InMemoryStorage, NodeStorage};
@@ -371,102 +367,22 @@ fn rpc_service_full_workflow() {
     assert_eq!(resp, RpcResponse::Account(None));
 }
 
-// DNS + Proxy service integration
+// DNS service resolution
 
 #[test]
-fn dns_proxy_service_chain() {
+fn dns_service_resolution() {
     let mut resolver = InMemoryResolver::new();
+    let record = Record::Service(b"application".to_vec());
     resolver
         .register(
             "appastro",
             Address::default(),
-            Record::Service(b"gateway".to_vec()),
+            record.clone(),
             0,
             dns::DEFAULT_LEASE_SECS,
         )
-        .expect("register dns");
-
-    let record = resolver.resolve("appastro").expect("resolves");
-    assert!(record.is_some());
-
-    let handler = EchoHandler;
-    let mut gateway = InMemoryProxyGateway::new(10);
-    gateway
-        .register_service("appastro", Box::new(handler))
-        .expect("register proxy");
-
-    let request = ProxyRequest {
-        name: "appastro".into(),
-        payload: vec![0x01, 0x02, 0x03],
-    };
-    let response = gateway.forward(&request).expect("forwards");
-    assert_eq!(response, vec![0x01, 0x02, 0x03]);
-}
-
-// ID service challenge + verification
-
-#[test]
-fn id_challenge_and_verification() {
-    let crypto = MockCryptoProvider::new();
-    let mut verifier = InMemoryVerifier::new(Box::new(crypto));
-
-    let challenge = AuthorizationChallenge::new(
-        7,
-        "https://app.example",
-        "backend.example",
-        &[Scope::Address],
-        1000,
-        2000,
-    );
-
-    assert!(!challenge.is_expired(1500));
-    assert!(challenge.is_expired(2500));
-
-    let proof = id::AuthorizationProof {
-        address: Address([1u8; 32]),
-        challenge,
-        signature: [0xFF; 64],
-    };
-
-    let (scopes, _session) = verifier.verify(&proof).expect("valid proof");
-    assert_eq!(scopes, vec![Scope::Address]);
-
-    let err = verifier.verify(&proof);
-    assert_eq!(err, Err(id::IdError::Replay));
-}
-
-// Pages service content verification
-
-#[test]
-fn pages_content_integrity() {
-    let mut source = InMemoryPageSource::new();
-    let owner = Address([1u8; 32]);
-
-    source
-        .register(owner, "index.html", b"<h1>Hello</h1>".to_vec())
-        .expect("register index");
-    source
-        .register(owner, "style.css", b"body{}".to_vec())
-        .expect("register css");
-
-    let root = source.content_root(owner).expect("root exists");
-    assert_ne!(root, Hash256::ZERO);
-
-    let manifest = PageManifest {
-        owner,
-        content_root: root,
-        entrypoint: "index.html".into(),
-        revision: 1,
-    };
-
-    let content = source.load(&manifest, "index.html").expect("loads");
-    assert_eq!(content, b"<h1>Hello</h1>");
-
-    let bad_manifest = PageManifest {
-        content_root: Hash256([0xFF; 32]),
-        ..manifest
-    };
-    assert!(source.load(&bad_manifest, "index.html").is_err());
+        .unwrap();
+    assert_eq!(resolver.resolve("appastro").unwrap(), Some(record));
 }
 
 // Telemetry + node capacity integration
@@ -683,6 +599,13 @@ fn block_producer_submit_and_produce() {
     let mut producer = producer;
 
     let tx = types::Transaction {
+        version: types::TRANSACTION_VERSION,
+        expires_at: u64::MAX,
+        lane: types::TransactionLane::Payments,
+        resource_prices: types::Resources {
+            compute: 1,
+            ..types::Resources::ZERO
+        },
         chain_id: 7,
         sender,
         nonce: 0,
@@ -725,6 +648,13 @@ fn block_producer_multiple_blocks() {
     for h in 0u64..5 {
         #[allow(clippy::cast_possible_truncation)]
         let tx = types::Transaction {
+            version: types::TRANSACTION_VERSION,
+            expires_at: u64::MAX,
+            lane: types::TransactionLane::Payments,
+            resource_prices: types::Resources {
+                compute: 1,
+                ..types::Resources::ZERO
+            },
             chain_id: 7,
             sender,
             nonce: h,
@@ -771,6 +701,13 @@ fn full_node_service_with_transactions() {
 
     let sender = Address([1u8; 32]);
     let tx = types::Transaction {
+        version: types::TRANSACTION_VERSION,
+        expires_at: u64::MAX,
+        lane: types::TransactionLane::Payments,
+        resource_prices: types::Resources {
+            compute: 1,
+            ..types::Resources::ZERO
+        },
         chain_id: 7,
         sender,
         nonce: 0,

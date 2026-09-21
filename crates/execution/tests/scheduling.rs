@@ -10,6 +10,13 @@ use types::{Address, Resources, StateKey, Transaction};
 
 fn transaction(sender: u8, keys: &[u8]) -> Transaction {
     Transaction {
+        version: types::TRANSACTION_VERSION,
+        expires_at: u64::MAX,
+        lane: types::TransactionLane::Payments,
+        resource_prices: types::Resources {
+            compute: 1,
+            ..types::Resources::ZERO
+        },
         chain_id: 7,
         sender: Address([sender; 32]),
         nonce: 0,

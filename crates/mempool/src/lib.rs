@@ -140,6 +140,18 @@ impl Mempool {
         }
     }
 
+    /// Releases entries and their byte budget once their last valid height has passed.
+    pub fn remove_expired(&mut self, next_height: u64) {
+        self.entries.retain(|_, (entry, bytes)| {
+            if entry.transaction.expires_at < next_height {
+                self.bytes -= *bytes;
+                false
+            } else {
+                true
+            }
+        });
+    }
+
     /// Removes multiple transactions by sender and nonce pairs.
     pub fn remove_batch(&mut self, keys: &[(Address, u64)]) {
         for (sender, nonce) in keys {
@@ -202,6 +214,13 @@ mod tests {
         PoolEntry {
             id: Hash256([id; 32]),
             transaction: Transaction {
+                version: types::TRANSACTION_VERSION,
+                expires_at: u64::MAX,
+                lane: types::TransactionLane::Payments,
+                resource_prices: types::Resources {
+                    compute: 1,
+                    ..types::Resources::ZERO
+                },
                 chain_id: 1,
                 sender: Address([sender; 32]),
                 nonce,
@@ -235,6 +254,27 @@ mod tests {
         pool.insert(entry(1, 10, 1, 0, 10), 30).unwrap();
         pool.remove(&Address([1; 32]), 10);
         assert_eq!(pool.bytes, 0);
+    }
+
+    #[test]
+    fn expiry_releases_item_and_byte_capacity_at_the_next_height() {
+        let mut pool = Mempool::new(PoolLimits {
+            max_transactions: 1,
+            max_bytes: 30,
+        })
+        .unwrap();
+        let mut expiring = entry(1, 0, 1, 0, 0);
+        expiring.transaction.expires_at = 10;
+        pool.insert(expiring, 30).unwrap();
+        pool.remove_expired(10);
+        assert_eq!(pool.len(), 1);
+        assert_eq!(pool.bytes, 30);
+        pool.remove_expired(11);
+        assert!(pool.is_empty());
+        assert_eq!(pool.bytes, 0);
+        pool.insert(entry(2, 0, 1, 0, 1), 30).unwrap();
+        pool.remove_expired(u64::MAX);
+        assert_eq!(pool.len(), 1);
     }
 
     #[test]

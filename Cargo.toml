@@ -27,9 +27,6 @@ members = [
     "crates/transaction",
     "crates/types",
     "services/dns",
-    "services/id",
-    "services/pages",
-    "services/proxy",
     "tests/integration",
     "tools/cargo-contract",
 ]

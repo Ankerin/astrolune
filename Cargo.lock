@@ -255,14 +255,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "id"
-version = "0.1.0"
-dependencies = [
- "crypto",
- "types",
-]
-
-[[package]]
 name = "integration"
 version = "0.1.0"
 dependencies = [
@@ -273,13 +265,10 @@ dependencies = [
  "dns",
  "execution",
  "genesis",
- "id",
  "keystore",
  "mempool",
  "node",
  "p2p",
- "pages",
- "proxy",
  "rpc",
  "state",
  "storage",
@@ -335,13 +324,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "pages"
-version = "0.1.0"
-dependencies = [
- "types",
-]
-
-[[package]]
 name = "pkcs8"
 version = "0.10.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -358,13 +340,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "985e7ec9bb745e6ce6535b544d84d6cd6f7ad8bd711c398938ae983b91a766d9"
 dependencies = [
  "unicode-ident",
-]
-
-[[package]]
-name = "proxy"
-version = "0.1.0"
-dependencies = [
- "types",
 ]
 
 [[package]]

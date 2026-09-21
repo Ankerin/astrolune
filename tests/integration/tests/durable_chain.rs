@@ -32,6 +32,13 @@ fn restarted_service_matches_uninterrupted_execution() {
         assert_eq!(service.pending_transactions(), 0);
         assert_eq!(service.finalized_block(), reference.finalized_block());
         let transaction = Transaction {
+            version: types::TRANSACTION_VERSION,
+            expires_at: u64::MAX,
+            lane: types::TransactionLane::Payments,
+            resource_prices: types::Resources {
+                compute: 1,
+                ..types::Resources::ZERO
+            },
             chain_id: 7,
             sender: Address([height; 32]),
             nonce: 0,
@@ -103,6 +110,13 @@ fn produced_blocks_recover_with_identical_bodies_certificates_and_state() {
     for height in 0..4 {
         producer
             .submit_transaction(Transaction {
+                version: types::TRANSACTION_VERSION,
+                expires_at: u64::MAX,
+                lane: types::TransactionLane::Payments,
+                resource_prices: types::Resources {
+                    compute: 1,
+                    ..types::Resources::ZERO
+                },
                 chain_id: 7,
                 sender: Address([1; 32]),
                 nonce: height,

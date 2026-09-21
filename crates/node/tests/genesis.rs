@@ -277,6 +277,13 @@ fn payment(seed: u8, recipient: u8, nonce: u64, amount: u64) -> types::Transacti
     access_list.sort();
     access_list.dedup();
     let mut tx = types::Transaction {
+        version: types::TRANSACTION_VERSION,
+        expires_at: u64::MAX,
+        lane: types::TransactionLane::Payments,
+        resource_prices: types::Resources {
+            compute: 1,
+            ..types::Resources::ZERO
+        },
         chain_id: 42,
         sender: payment_address(seed),
         nonce,
@@ -490,4 +497,56 @@ fn conflicting_pool_payments_do_not_reserve_capacity_or_block_later_candidates()
         .commit_block(&proposal, vec![1], &mut storage)
         .unwrap();
     assert_eq!(producer.pending_count(), 0);
+}
+
+#[test]
+fn expired_pool_entries_are_removed_only_after_successful_commit() {
+    let fixture = Fixture::new();
+    let mut genesis = payment_genesis();
+    genesis.allocations.push(Allocation {
+        address: payment_address(2),
+        amount: 100,
+    });
+    genesis
+        .allocations
+        .sort_by_key(|allocation| allocation.address);
+    let mut storage = FileBackedStorage::open(fixture.path()).unwrap();
+    storage
+        .initialize_genesis(
+            genesis.commitment().unwrap(),
+            genesis.materialize().unwrap(),
+        )
+        .unwrap();
+    let mut config = config(&genesis);
+    config.max_block_transactions = 1;
+    let mut producer = node::BlockProducer::from_checkpoint(
+        config,
+        storage.checkpoint().copied(),
+        storage.state().clone(),
+    )
+    .unwrap();
+    producer.submit_transaction(payment(1, 3, 0, 1)).unwrap();
+    let mut expiring = payment(2, 3, 0, 1);
+    expiring.expires_at = 1;
+    expiring.signature =
+        crypto::blake2s::ed25519_sign(&[2; 32], transaction::signing_hash(&expiring).as_bytes());
+    producer.submit_transaction(expiring.clone()).unwrap();
+    let proposal = producer.produce_block().unwrap();
+    assert_eq!(producer.pending_count(), 2);
+    let pending = fixture.0.join("chain.bin.pending");
+    fs::create_dir(&pending).unwrap();
+    assert!(
+        producer
+            .commit_block(&proposal, vec![1], &mut storage)
+            .is_err()
+    );
+    assert_eq!(producer.pending_count(), 2);
+    assert_eq!(producer.height(), 1);
+    fs::remove_dir(pending).unwrap();
+    producer
+        .commit_block(&proposal, vec![1], &mut storage)
+        .unwrap();
+    assert_eq!(producer.pending_count(), 0);
+    assert!(producer.submit_transaction(expiring).is_err());
+    producer.submit_transaction(payment(2, 3, 0, 1)).unwrap();
 }

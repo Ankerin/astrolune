@@ -10,13 +10,13 @@ Validation follows a fixed order: shape and bounds, chain and expiry, sender and
 
 ### Current codec baseline
 
-The current `types::Transaction` encoding contains chain ID, sender, nonce, access list, resource limits, payload, and signature, in that order. Version, expiry, lane, and resource prices from the target model above are not yet encoded. Adding them requires an explicit versioned format change.
+The current `types::Transaction` uses the [version-1 envelope](14-versioned-transactions.md): magic, version, chain ID, sender, nonce, inclusive expiry height, explicit lane, access list, resource limits, signed resource prices, payload, and signature. Unknown versions and lane tags are rejected.
 
 All integers use fixed-width little-endian bytes. A sequence length below 128 uses one byte. Larger lengths use exactly `0x80` followed by a little-endian `u32`; markers `0x81` through `0xff` and five-byte encodings of lengths below 128 are rejected as non-canonical. Booleans accept only `0` and `1`, including receipt success flags.
 
 The decoder limits access lists to 1,048,576 entries, each state key to 256 bytes, and payloads to 1,048,576 bytes. It validates the full transaction, including signature length and absence of trailing bytes, before allocating owned keys or payload. These are structural codec limits, not production block-capacity recommendations or signature verification.
 
-Canonical encoder output is unchanged by strict decoding. Previously accepted alternate length encodings and receipt flags are now rejected. Golden vectors, exhaustive prefix and flag checks, transaction mutation checks, and truncation tests are in `crates/codec`; fuzz targets for transactions, state keys, and receipts assert that every accepted input re-encodes to identical bytes.
+The versioned envelope changes transaction bytes and commitments; unversioned transactions are not accepted. Alternate length encodings and receipt flags are rejected. Golden vectors, exhaustive prefix and flag checks, transaction mutation checks, and truncation tests are in `crates/codec`; fuzz targets for transactions, state keys, and receipts assert that every accepted input re-encodes to identical bytes.
 
 The current cryptographic suite, signing bytes, transaction IDs, and `SignedValidator` behavior are specified in [cryptographic foundations](09-cryptographic-foundations.md). The demonstration validator remains separate from cryptographic admission.
 

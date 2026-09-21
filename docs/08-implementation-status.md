@@ -12,7 +12,7 @@ As of 2026-09-21, this repository contains a Rust 2024 workspace with:
 - compileable interfaces for cryptography, genesis, transactions, PoTB committees, BFT votes, state, runtime, execution, persistence, synchronization, P2P, RPC, configuration, keystore, telemetry, and node coordination;
 - a tested in-memory mempool reference policy, genesis validation, configuration secret redaction, quorum arithmetic, decoder boundary helpers, and workspace integration invariants;
 - a Rust contract SDK boundary;
-- library and executable scaffolds for DNS, Proxy, Pages, and ID;
+- library and executable scaffolds for DNS;
 - intentionally minimal `cli`, `daemon`, and `cargo-contract` entry points;
 - CI, dependency-policy automation, contribution templates, project governance documents, and engineering specifications;
 - a block production pipeline (`BlockProducer`) that coordinates mempool selection, deterministic execution, and storage commitment;
@@ -25,13 +25,13 @@ This is predominantly an **interface baseline**. It is not a functioning blockch
 
 | Area | State |
 |---|---|
-| Canonical codec | primitive, transaction, block-header, and receipt codecs implemented; strict length/boolean decoding and transaction preflight validation with regression tests; complete versioned protocol codecs planned |
+| Canonical codec | primitive, version-1 transaction, block-header, and receipt codecs implemented; strict lengths/flags, version/lane rejection, and transaction preflight validation tested; remaining protocol envelopes planned |
 | Shared protocol types | interface baseline |
 | Genesis | bounded version-1 decoding, validated BLAKE2s commitment, account/validator state materialization, CLI verification, atomic daemon activation and restart identity checks implemented; validator-key registration planned |
 | Cryptography and VRF | standard BLAKE2s-256 and strict Ed25519 implemented/tested; registered validator-key verification; VRF remains unimplemented and fails closed |
 | PoTB and BFT | type/state-machine interfaces and quorum helper; protocol implementation/formal work planned |
 | Keystore | non-exporting signer and anti-equivocation interface only |
-| Transactions | canonical signing/ID commitments and state-aware signed validator implemented/tested; native signed payment transitions and fixed reference fees implemented/tested; full versioned envelope remains planned |
+| Transactions | canonical signing/ID commitments and state-aware signed validator implemented/tested; native signed payment transitions and fixed reference fees implemented/tested; version-1 envelope, inclusive expiry, signed lane/prices, and expiry eviction implemented/tested |
 | Mempool | bounded in-memory reference admission and deterministic selection implemented/tested |
 | State and storage | bounded Merkle state, membership and absence proofs, immutable snapshots, atomic transitions, file-backed state and whole-chain archive recovery, and authenticated snapshot exchange implemented/tested; daemon block/state restart recovery implemented/tested; native payment account transitions implemented/tested; production-scale indexing remains planned |
 | Runtime and execution | signed sequential native payment executor, serial contract demonstration, and dependency-preserving greedy wave planner; lease normalization and scheduler equivalence tested; production runtime and parallel execution remain planned |
@@ -39,7 +39,7 @@ This is predominantly an **interface baseline**. It is not a functioning blockch
 | Configuration | pure validation and debug redaction baseline |
 | Telemetry | no-op local sink |
 | Contracts | SDK interface only; no compiler target or runtime |
-| DNS, Proxy, Pages, ID | service data models and placeholder binaries |
+| DNS | service data models and placeholder binaries |
 | CLI and daemon | CLI genesis verification; local daemon with file-backed block/state recovery, genesis activation, strict arguments, startup failure propagation, and durable RPC head; signed native payments and committed account/submission RPC implemented/tested; consensus remains a demonstration |
 
 ## 8.3 Removed architecture
@@ -62,7 +62,7 @@ Validator-local persistence remains required and is named `storage`; it is not a
 
 Canonical encodings, domain tags, hashing, addresses, signatures, checked resource arithmetic, golden vectors, property tests, and fuzz targets.
 
-The codec now rejects alternate length prefixes and non-canonical receipt flags, and validates transaction structure before allocating owned fields. Regression coverage includes golden bytes, every supported sequence length, every receipt flag, truncations, and transaction byte mutations. The standalone fuzz package includes the accepted-input re-encoding invariant for transactions, state keys, and receipts. These changes preserve encoder output; a complete versioned transaction envelope remains open. See [the current codec baseline](04-state-and-transactions.md#current-codec-baseline).
+The codec now rejects alternate length prefixes and non-canonical receipt flags, and validates transaction structure before allocating owned fields. Regression coverage includes golden bytes, every supported sequence length, every receipt flag, truncations, and transaction byte mutations. The standalone fuzz package includes the accepted-input re-encoding invariant for transactions, state keys, and receipts. The [version-1 transaction envelope](14-versioned-transactions.md) adds signed expiry, explicit lane, and prices; transaction encoder output changes and old archives fail closed. See [the current codec baseline](04-state-and-transactions.md#current-codec-baseline).
 
 Standard hashing and signing backends, signed transaction IDs, address derivation, and checked resource pricing are implemented with conformance tests. These replace incompatible placeholder cryptographic outputs; see [suite and compatibility details](09-cryptographic-foundations.md). The daemon is not yet a cryptographically authenticated blockchain node.
 
@@ -70,7 +70,7 @@ Standard hashing and signing backends, signed transaction IDs, address derivatio
 
 Signed envelopes, validation order, account/state commitments, immutable snapshots, proofs, diffs, sequential atomic commit, crash recovery, pruning, receipts, and snapshot exchange.
 
-Implemented reference state commitments, membership and absence proofs, bounded versioned snapshots, atomic file-backed state publication, writer locks, recovery, verified snapshot exchange, and proposal rollback are described in [state and recovery](10-state-and-recovery.md). [Whole-chain archives](11-chain-archives.md) now persist blocks, certificates, checkpoints, and historical state atomically. Local daemon block/state restart integration is implemented with process and differential recovery tests. [Genesis activation](12-genesis-and-accounts.md) creates committed account balances/nonces and validator weights, installs a durable height-zero anchor, and validates genesis identity on restart. Recovered accounts are tested against signed admission. [Native payments](13-native-payments.md) implement sequential account transitions, fixed reference fees, atomic revalidation/publication, and daemon account/submission RPC with process restart tests. General execution/fee policy, consensus signing-state recovery, and production-scale indexing remain open.
+Implemented reference state commitments, membership and absence proofs, bounded versioned snapshots, atomic file-backed state publication, writer locks, recovery, verified snapshot exchange, and proposal rollback are described in [state and recovery](10-state-and-recovery.md). [Whole-chain archives](11-chain-archives.md) now persist blocks, certificates, checkpoints, and historical state atomically. Local daemon block/state restart integration is implemented with process and differential recovery tests. [Genesis activation](12-genesis-and-accounts.md) creates committed account balances/nonces and validator weights, installs a durable height-zero anchor, and validates genesis identity on restart. Recovered accounts are tested against signed admission. [Native payments](13-native-payments.md) implement sequential account transitions, fixed reference fees, atomic revalidation/publication, and daemon account/submission RPC with process restart tests. Versioned transaction policy is enforced at admission, proposal execution, and commit; expiry eviction follows successful durable publication. General execution/fee policy, consensus signing-state recovery, and production-scale indexing remain open.
 
 ### M3 — deterministic runtime
 
@@ -90,7 +90,7 @@ Authenticated encrypted transport, peer discovery, rate limits, compact blocks, 
 
 ### M7 — ecosystem
 
-Wallet integration, AstroLune ID, DNS registry/resolver, Proxy gateway, and static Pages publishing and serving.
+Wallet integration and DNS registry/resolver.
 
 ### M8 — production gates
 
@@ -118,10 +118,7 @@ Before production implementation, resolve:
 8. Adaptive-capacity observation, manipulation resistance, and activation.
 9. P2P transport, discovery, topology, identities, and denial-of-service bounds.
 10. DNS naming policy and registry economics.
-11. Proxy threat model and precise non-anonymity or anonymity claims.
-12. Pages availability without adding a general storage/share marketplace.
-13. AstroLune ID canonical messages, wallet UX, sessions, and revocation.
-14. Supported platforms, compatibility lifecycle, release signing, and maintainer authority.
+11. Supported platforms, compatibility lifecycle, release signing, and maintainer authority.
 
 ## 8.7 Non-negotiable correctness properties
 

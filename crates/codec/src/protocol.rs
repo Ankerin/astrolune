@@ -129,14 +129,19 @@ impl CanonicalEncode for Transaction {
 
 /// Appends the canonical transaction fields covered by its signature.
 pub fn encode_unsigned_transaction(transaction: &Transaction, output: &mut Vec<u8>) {
+    output.extend_from_slice(b"ALTX");
+    transaction.version.encode(output);
     transaction.chain_id.encode(output);
     transaction.sender.encode(output);
     transaction.nonce.encode(output);
+    transaction.expires_at.encode(output);
+    output.push(transaction.lane as u8);
     super::encode_length(transaction.access_list.len(), output);
     for key in &transaction.access_list {
         key.encode(output);
     }
     transaction.resource_limit.encode(output);
+    transaction.resource_prices.encode(output);
     super::encode_bytes(&transaction.payload, output);
 }
 
@@ -144,12 +149,26 @@ impl CanonicalDecode for Transaction {
     fn decode(bytes: &[u8]) -> Result<Self, DecodeError> {
         let mut decoder = Decoder::new(bytes);
 
+        if decoder.read_fixed::<4>()? != *b"ALTX" {
+            return Err(DecodeError::Unsupported);
+        }
+        let version = decoder.read_u32()?;
+        if version != types::TRANSACTION_VERSION {
+            return Err(DecodeError::Unsupported);
+        }
         let chain_id = decoder.read_u32()?;
 
         let sender_bytes = decoder.read_fixed::<32>()?;
         let sender = Address(sender_bytes);
 
         let nonce = decoder.read_u64()?;
+        let expires_at = decoder.read_u64()?;
+        let lane = match decoder.read_u8()? {
+            0 => types::TransactionLane::Payments,
+            1 => types::TransactionLane::Contracts,
+            2 => types::TransactionLane::System,
+            _ => return Err(DecodeError::Unsupported),
+        };
 
         let list_len = super::decode_length(&mut decoder)?;
         if list_len > super::MAX_LIST_LEN {
@@ -166,6 +185,7 @@ impl CanonicalDecode for Transaction {
         }
 
         let resource_limit = Resources::decode_at(&mut decoder)?;
+        let resource_prices = Resources::decode_at(&mut decoder)?;
 
         let payload = super::decode_bytes(&mut decoder, super::MAX_PAYLOAD)?;
 
@@ -179,6 +199,10 @@ impl CanonicalDecode for Transaction {
         }
 
         Ok(Self {
+            version,
+            expires_at,
+            lane,
+            resource_prices,
             chain_id,
             sender,
             nonce,
@@ -288,7 +312,9 @@ mod tests {
 
     #[test]
     fn oversized_access_count_fails_before_reading_or_allocating_keys() {
-        let mut bytes = vec![0; 44];
+        let mut bytes = b"ALTX".to_vec();
+        bytes.extend_from_slice(&types::TRANSACTION_VERSION.to_le_bytes());
+        bytes.resize(61, 0);
         crate::encode_length(crate::MAX_LIST_LEN + 1, &mut bytes);
         assert_eq!(Transaction::decode(&bytes), Err(DecodeError::LimitExceeded));
     }
@@ -367,6 +393,13 @@ mod tests {
     #[test]
     fn transaction_roundtrip() {
         let tx = Transaction {
+            version: types::TRANSACTION_VERSION,
+            expires_at: u64::MAX,
+            lane: types::TransactionLane::Payments,
+            resource_prices: types::Resources {
+                compute: 1,
+                ..types::Resources::ZERO
+            },
             chain_id: 7,
             sender: Address([1u8; 32]),
             nonce: 42,
@@ -388,6 +421,13 @@ mod tests {
     #[test]
     fn transaction_empty_access_list() {
         let tx = Transaction {
+            version: types::TRANSACTION_VERSION,
+            expires_at: u64::MAX,
+            lane: types::TransactionLane::Payments,
+            resource_prices: types::Resources {
+                compute: 1,
+                ..types::Resources::ZERO
+            },
             chain_id: 1,
             sender: Address::ZERO,
             nonce: 0,
@@ -405,6 +445,13 @@ mod tests {
     fn transaction_roundtrip_many_access_list_entries() {
         let access_list: Vec<StateKey> = (0u8..100).map(|i| StateKey(vec![i; 10])).collect();
         let tx = Transaction {
+            version: types::TRANSACTION_VERSION,
+            expires_at: u64::MAX,
+            lane: types::TransactionLane::Payments,
+            resource_prices: types::Resources {
+                compute: 1,
+                ..types::Resources::ZERO
+            },
             chain_id: u32::MAX,
             sender: Address([0xFF; 32]),
             nonce: u64::MAX,
@@ -475,6 +522,13 @@ mod tests {
     #[test]
     fn golden_transaction_minimal() {
         let tx = Transaction {
+            version: types::TRANSACTION_VERSION,
+            expires_at: u64::MAX,
+            lane: types::TransactionLane::Payments,
+            resource_prices: types::Resources {
+                compute: 1,
+                ..types::Resources::ZERO
+            },
             chain_id: 1,
             sender: Address([0xAA; 32]),
             nonce: 0,
@@ -484,9 +538,9 @@ mod tests {
             signature: [0xBB; 64],
         };
         let encoded = tx.to_bytes();
-        // 4 (chain_id) + 32 (sender) + 8 (nonce) + 1 (list len)
-        //   + 32 (resource_limit) + 1 (payload len) + 64 (signature) = 142
-        assert_eq!(encoded.len(), 142);
+        // 8 (magic/version) + 4 (chain) + 32 (sender) + 8 (nonce) + 8 (expiry)
+        //   + 1 (lane) + 1 (list) + 64 (limits/prices) + 1 (payload) + 64 (signature).
+        assert_eq!(encoded.len(), 191);
         let decoded = Transaction::decode(&encoded).unwrap();
         assert_eq!(tx, decoded);
     }
@@ -494,6 +548,13 @@ mod tests {
     #[test]
     fn golden_transaction_with_access_list() {
         let tx = Transaction {
+            version: types::TRANSACTION_VERSION,
+            expires_at: u64::MAX,
+            lane: types::TransactionLane::Payments,
+            resource_prices: types::Resources {
+                compute: 1,
+                ..types::Resources::ZERO
+            },
             chain_id: 42,
             sender: Address([0x11; 32]),
             nonce: 99,
@@ -511,7 +572,7 @@ mod tests {
         let decoded = Transaction::decode(&encoded).unwrap();
         assert_eq!(tx, decoded);
         // Access list: list prefix (1) + key1 (1+3) + key2 (1+2) = 8
-        assert!(encoded.len() > 142);
+        assert!(encoded.len() > 191);
     }
 
     #[test]
@@ -706,6 +767,13 @@ mod tests {
     #[test]
     fn golden_transaction_zero_nonce() {
         let tx = Transaction {
+            version: types::TRANSACTION_VERSION,
+            expires_at: u64::MAX,
+            lane: types::TransactionLane::Payments,
+            resource_prices: types::Resources {
+                compute: 1,
+                ..types::Resources::ZERO
+            },
             chain_id: 0,
             sender: Address::ZERO,
             nonce: 0,
@@ -722,6 +790,13 @@ mod tests {
     #[test]
     fn golden_transaction_max_nonce() {
         let tx = Transaction {
+            version: types::TRANSACTION_VERSION,
+            expires_at: u64::MAX,
+            lane: types::TransactionLane::Payments,
+            resource_prices: types::Resources {
+                compute: 1,
+                ..types::Resources::ZERO
+            },
             chain_id: u32::MAX,
             sender: Address([0xFF; 32]),
             nonce: u64::MAX,
@@ -830,6 +905,13 @@ mod tests {
     #[test]
     fn transaction_decode_truncated_signature() {
         let tx = Transaction {
+            version: types::TRANSACTION_VERSION,
+            expires_at: u64::MAX,
+            lane: types::TransactionLane::Payments,
+            resource_prices: types::Resources {
+                compute: 1,
+                ..types::Resources::ZERO
+            },
             chain_id: 1,
             sender: Address([0xAA; 32]),
             nonce: 0,
@@ -924,6 +1006,13 @@ mod tests {
     #[test]
     fn transaction_roundtrip_with_large_payload() {
         let tx = Transaction {
+            version: types::TRANSACTION_VERSION,
+            expires_at: u64::MAX,
+            lane: types::TransactionLane::Payments,
+            resource_prices: types::Resources {
+                compute: 1,
+                ..types::Resources::ZERO
+            },
             chain_id: 1,
             sender: Address([0xAA; 32]),
             nonce: 100,
@@ -946,6 +1035,13 @@ mod tests {
     fn transaction_roundtrip_with_multiple_access_list_entries() {
         let access_list: Vec<StateKey> = (0..10).map(|i| StateKey(vec![i; 5])).collect();
         let tx = Transaction {
+            version: types::TRANSACTION_VERSION,
+            expires_at: u64::MAX,
+            lane: types::TransactionLane::Payments,
+            resource_prices: types::Resources {
+                compute: 1,
+                ..types::Resources::ZERO
+            },
             chain_id: 42,
             sender: Address([0x11; 32]),
             nonce: 99,

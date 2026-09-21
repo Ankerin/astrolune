@@ -49,9 +49,6 @@ Rust ownership prevents many memory bugs but does not create consensus determini
 | `cli` | operator and developer CLI |
 | `cargo-contract` | planned contract workflow |
 | `dns` | authenticated in-network names |
-| `proxy` | internal access gateway |
-| `pages` | static manifests and site serving |
-| `id` | wallet-mediated application authorization |
 
 Dependency direction flows from products and orchestration toward narrow primitives. Consensus does not depend on a database engine, socket runtime, RPC transport, telemetry sink, or native compiler. P2P moves canonical messages and does not execute blocks.
 
@@ -111,4 +108,4 @@ Network buffers flow through framing, canonical validation, hashing, and decodin
 
 ## 2.10 API, configuration, keys, and observability
 
-External RPC, administration, DNS, Proxy, Pages, and ID use separately bounded listeners. Configuration contains references to secrets rather than secret values. Consensus, network, service, and wallet keys have distinct purposes. Telemetry is best-effort local output and cannot feed consensus decisions.
+External RPC, administration, DNS use separately bounded listeners. Configuration contains references to secrets rather than secret values. Consensus, network, service, and wallet keys have distinct purposes. Telemetry is best-effort local output and cannot feed consensus decisions.

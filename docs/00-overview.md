@@ -70,7 +70,7 @@ Optimizations may alter latency, never accepted results. Every optimized path ne
 
 The first engineering phase provides compileable Rust interfaces and a coherent repository layout. It does not implement consensus cryptography, a production state database, a VM, networking, or services.
 
-AstroLune includes DNS, an access Proxy, static Pages, and wallet authorization through AstroLune ID. It explicitly excludes a general-purpose distributed storage or file-sharing product. Validator state persistence remains necessary node infrastructure and is not the removed storage service.
+AstroLune includes DNS for authenticated in-network names. It explicitly excludes a general-purpose distributed storage or file-sharing product. Validator state persistence remains necessary node infrastructure and is not the removed storage service.
 
 ## 0.5 Names
 

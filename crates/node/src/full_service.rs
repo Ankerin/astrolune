@@ -451,6 +451,13 @@ mod tests {
     fn submit_transaction_increases_pending() {
         let mut service = FullNodeService::new(test_config());
         let tx = types::Transaction {
+            version: types::TRANSACTION_VERSION,
+            expires_at: u64::MAX,
+            lane: types::TransactionLane::Payments,
+            resource_prices: types::Resources {
+                compute: 1,
+                ..types::Resources::ZERO
+            },
             chain_id: 7,
             sender: sender(),
             nonce: 0,

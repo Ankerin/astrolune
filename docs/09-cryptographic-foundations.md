@@ -26,7 +26,7 @@ Wallet addresses are `H("astrolune.account.ed25519.v1", public_key)`. Validator 
 
 `codec::protocol::encode_unsigned_transaction` encodes all current transaction fields in canonical wire order except the signature. The signed message is the 32-byte digest `H("astrolune.tx.v1", unsigned_bytes)`. This uses ordinary Ed25519 over that digest, not the distinct Ed25519ph construction.
 
-The transaction ID is `H("astrolune.tx.id.v1", signed_canonical_bytes)`. It includes the signature, access list, resource limits, and payload. Envelope IDs, admission IDs, execution receipt transaction IDs, and node transaction leaves use this same function.
+The transaction ID is `H("astrolune.tx.id.v1", signed_canonical_bytes)`. It includes the signature, version, expiry, lane, access list, resource limits, prices, and payload. Envelope IDs, admission IDs, execution receipt transaction IDs, and node transaction leaves use this same function.
 
 The node constructs transaction roots with the shared binary Merkle builder. Receipt leaves and `ExecutionReceipt::commitment()` both use `H("astrolune.receipt.v1", canonical_receipt_bytes)`. `BlockHeader::compute_hash()` uses `H("astrolune.block.v1", canonical_header_bytes)`. Canonical headers are exactly 200 bytes and receipts are 97 bytes, without padding. The domain helper lives in `types::hash` and is re-exported by `crypto::blake2s`, avoiding a cyclic dependency. State commitments are specified in [state and recovery](10-state-and-recovery.md).
 
@@ -35,19 +35,19 @@ The node constructs transaction roots with the shared binary Merkle builder. Rec
 `SignedValidator` receives an account snapshot containing public keys, expected nonces, and balances, plus explicit resource limits and unit prices. It applies checks in this order:
 
 1. Codec bounds and exact canonical size, before hashing or allocating encoded bytes.
-2. Chain identity.
+2. Chain identity and inclusive expiry at the proposed inclusion height.
 3. Sender existence, address/public-key binding, and exact nonce; exhausted nonces are rejected.
-4. Per-resource limits and available balance; every price multiplication and total addition is checked.
+4. Exact equality of signed and finalized resource prices, per-resource limits, and available balance; every multiplication and addition is checked.
 5. Strict Ed25519 verification of the signing digest.
-6. Current payload-length lane classification.
+6. Explicit payment lane, valid version-1 payment payload, and matching sender public key. Reserved contract/system lanes fail closed.
 
-Validation does not mutate accounts or reserve balances. Callers must maintain a consistent overlay when admitting or executing multiple transactions from one sender. Fees and account state transitions are not implemented by this validator. Version, expiry, explicit lane tags, and signed resource prices still require the versioned transaction envelope.
+Validation does not mutate accounts or reserve balances. Callers must maintain a consistent overlay when admitting or executing multiple transactions from one sender. Fees and account state transitions are not implemented by this validator. Version, expiry, lane, and resource prices are signed fields in the [version-1 transaction envelope](14-versioned-transactions.md).
 
 `BasicValidator`, genesis-free producers, and `SimpleExecutor` remain demonstration components. Genesis-backed producers and the daemon now use `SignedValidator` over committed accounts and sequential execution overlays for [native payments](13-native-payments.md), including execution revalidation and durable balance/nonce updates. Authenticated consensus finality remains unfinished. The workspace integration test exercises signed decoding, validation, mempool selection, and planning explicitly.
 
 ## Compatibility
 
-This change preserves canonical transaction byte encoding but changes cryptographic outputs: raw and domain hashes, derived keys, validator IDs, transaction IDs, signatures, and roots using those functions. Old experimental signatures and commitments are incompatible. Existing data cannot be silently treated as data from the new suite; no database migration or network upgrade is implied.
+The original cryptographic backend change preserved transaction bytes but changed cryptographic outputs: raw and domain hashes, derived keys, validator IDs, transaction IDs, signatures, and roots using those functions. Old experimental signatures and commitments are incompatible. Existing data cannot be silently treated as data from the new suite; no database migration or network upgrade is implied. The subsequent version-1 transaction envelope changes canonical transaction bytes and commitments again, and requires archive version 2.
 
 The in-memory signing-position guard does not survive restarts. Durable anti-equivocation, production key generation and custody, authenticated networking, VRF, finality verification, and independent review remain required before deployment.
 

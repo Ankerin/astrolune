@@ -29,6 +29,9 @@ All notable changes to AstroLune will be documented in this file. The format fol
 
 ### Added
 
+- Version-1 canonical transaction envelopes with signed expiry, explicit lanes, and resource prices; enforce policy during admission and execution and release expired pool entries after durable commit.
+- Reject unsupported transaction versions before storage publication; archive version 2 rejects incompatible version-1 files without rewriting.
+
 - Version-1 signed native payments on genesis-backed chains: sequential account overlays, balance/nonce transitions, deterministic one-unit burned fees, declared access/resource checks, execution revalidation, atomic rollback and recovery.
 - Daemon RPC submission and committed account reads connected to the node, with real TCP/restart tests and replay rejection.
 - Daemon `--genesis PATH` activation with atomic height-zero state installation, genesis identity checks on restart, configured chain/capacity and demonstration committee, plus recovery/failure conformance tests.
@@ -50,7 +53,7 @@ All notable changes to AstroLune will be documented in this file. The format fol
 - Rust 2024 workspace with protocol, execution, state, networking, node, service, and tooling boundaries.
 - PoTB weighted committee and fast BFT finality interfaces.
 - Deterministic Rust contract SDK and runtime architecture.
-- AstroLune DNS, Proxy, Pages, and ID service baselines.
+- AstroLune DNS service baseline.
 - Validator-local persistence, finalized sync, configuration, keystore, telemetry, RPC, mempool, genesis, and canonical codec crates.
 - Workspace integration tests, CI, dependency checks, contribution templates, and project documentation.
 

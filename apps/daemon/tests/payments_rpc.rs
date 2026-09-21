@@ -127,6 +127,13 @@ fn transfer(recipient: Address, nonce: u64) -> Transaction {
     let mut access_list = vec![state::account_key(sender), state::account_key(recipient)];
     access_list.sort();
     let mut tx = Transaction {
+        version: types::TRANSACTION_VERSION,
+        expires_at: u64::MAX,
+        lane: types::TransactionLane::Payments,
+        resource_prices: types::Resources {
+            compute: 1,
+            ..types::Resources::ZERO
+        },
         chain_id: 42,
         sender,
         nonce,
@@ -157,6 +164,19 @@ fn await_account(address: &str, wallet: Address, expected: &AccountState) {
             "unexpected account response: {response:?}"
         );
         std::thread::sleep(Duration::from_millis(20));
+    }
+}
+
+fn reject_invalid_envelopes(address: &str, tx: &Transaction) {
+    for field in 0..3 {
+        let mut invalid = tx.clone();
+        match field {
+            0 => invalid.expires_at = 0,
+            1 => invalid.resource_prices = Resources::ZERO,
+            _ => invalid.lane = types::TransactionLane::Contracts,
+        }
+        invalid.signature = ed25519_sign(&[1; 32], signing_hash(&invalid).as_bytes());
+        assert!(submit(address, &invalid).get("error").is_some());
     }
 }
 
@@ -205,6 +225,7 @@ fn rpc_payments_commit_recover_and_reject_replay() {
             .get("error")
             .is_some()
     );
+    reject_invalid_envelopes(&address, &tx);
     let accepted = submit(&address, &tx);
     assert_eq!(
         accepted.get("result"),

@@ -131,6 +131,13 @@ mod tests {
 
     fn make_tx(nonce: u64, payload: Vec<u8>) -> Transaction {
         Transaction {
+            version: types::TRANSACTION_VERSION,
+            expires_at: u64::MAX,
+            lane: types::TransactionLane::Payments,
+            resource_prices: types::Resources {
+                compute: 1,
+                ..types::Resources::ZERO
+            },
             chain_id: 7,
             sender: sender(),
             nonce,

@@ -6,7 +6,7 @@
 
 Genesis-backed node services and `daemon --genesis genesis.bin` execute native payments against committed account state. The sender's public key travels inside the signed payment payload, and its derived address must match the transaction sender. No separate key registration is required for wallet accounts. Validator-key registration and authenticated consensus remain separate work.
 
-The existing transaction envelope, account encoding, genesis commitment, and archive encoding are unchanged. Native payment payloads have their own version tag. Genesis-backed proposals containing the previous arbitrary demonstration payloads are now rejected. Existing archives can be recovered, but historical demonstration blocks are not retroactively authenticated or re-executed. Genesis-free demonstration chains retain their previous behavior and expose no account or submission RPC.
+Payments use the [version-1 transaction envelope](14-versioned-transactions.md), with signed expiry, an explicit payment lane, and prices equal to `PAYMENT_PRICES`. Account encoding and genesis commitments are unchanged. Native payment payloads have their own version tag. Genesis-backed proposals containing the previous arbitrary demonstration payloads are now rejected. Archive version 2 is required; version-1 archives are rejected without rewriting. Recovered history is not retroactively authenticated or re-executed. Genesis-free demonstration chains retain their previous behavior and expose no account or submission RPC.
 
 ## Payload version 1
 
@@ -19,7 +19,7 @@ The existing transaction envelope, account encoding, genesis commitment, and arc
 | 40 | 32 | Nonzero recipient address |
 | 72 | 8 | Positive native amount, little-endian `u64` |
 
-Unknown tags, zero amounts, zero recipients, truncations, and trailing bytes are rejected. The enclosing transaction signs all fields, including the complete payload, chain ID, nonce, access list, and resource limits, using the existing signing domain. `address_from_public_key`, `signing_hash`, and `compute_tx_id` retain their specified cryptographic behavior.
+Unknown tags, zero amounts, zero recipients, truncations, and trailing bytes are rejected. The enclosing transaction signs all fields, including the complete payload, version, chain ID, nonce, expiry, lane, access list, resource limits, and prices, using the existing signing domain with new canonical bytes. `address_from_public_key`, `signing_hash`, and `compute_tx_id` retain their specified cryptographic behavior.
 
 The access list must contain both `state::account_key(sender)` and `state::account_key(recipient)`. A self-transfer requires one key. Additional declared keys do not authorize arbitrary writes. The observed lease is the normalized set of account keys actually accessed. Payments cannot change genesis metadata, validator weights, or unrelated state keys.
 
@@ -46,7 +46,7 @@ Admission authenticates the signature against the durable account view without a
 
 `PaymentSession` executes sequentially against an immutable snapshot plus a private account overlay. Later transactions see earlier credits and nonce changes. Failed execution changes neither the overlay nor accumulated resources. A received block is revalidated in order regardless of whether its transactions were admitted locally. Any invalid transaction rejects the complete block before publication; version 1 has no fee-charging failed receipts.
 
-Proposal construction skips pool entries invalidated by earlier transfers and scans later candidates without reserving capacity for skipped entries. Skipped entries remain pending and can become valid again after later account changes. Repeated proposal construction preserves the committed state and pool. Commit re-executes signatures and transitions, verifies output/state/receipt commitments, then atomically publishes the archive. A failed storage write preserves the proposal, pool, balances, nonce, and checkpoint for retry.
+Proposal construction skips pool entries invalidated by earlier transfers and scans later candidates without reserving capacity for skipped entries. Skipped entries remain pending and can become valid again after later account changes while their expiry permits inclusion. Once a successful commit advances the next height past an entry's expiry, that entry is removed and its byte budget is released. Repeated proposal construction preserves the committed state and pool. Commit re-executes signatures and transitions, verifies output/state/receipt commitments, then atomically publishes the archive. A failed storage write preserves the proposal, pool, balances, nonce, and checkpoint for retry.
 
 ## Daemon RPC
 
@@ -66,4 +66,4 @@ The transport bounds JSON to 1 MiB, so hex transactions must fit within that fra
 
 Executable signing, TCP, and restart examples are exercised by [`payments_rpc.rs`](../apps/daemon/tests/payments_rpc.rs); sequential transitions and rejection cases by [`payments.rs`](../crates/execution/tests/payments.rs).
 
-Consensus certificates remain demonstrations. Network authentication, general contracts, the complete versioned envelope/expiry model, dynamic fee governance, durable pending queues, and production-scale storage remain unfinished.
+Consensus certificates remain demonstrations. Network authentication, general contracts, dynamic fee governance, durable pending queues, and production-scale storage remain unfinished.

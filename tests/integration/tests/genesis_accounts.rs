@@ -31,6 +31,36 @@ fn allocated_genesis(address: Address, capacity: Resources) -> Genesis {
     }
 }
 
+fn signed_payment(seed: &[u8; 32], chain_id: u32, resources: Resources) -> Transaction {
+    let public_key = ed25519_public_key(seed);
+    let address = transaction::address_from_public_key(&public_key);
+    let mut transaction = Transaction {
+        version: types::TRANSACTION_VERSION,
+        expires_at: u64::MAX,
+        lane: types::TransactionLane::Payments,
+        resource_prices: Resources {
+            compute: 1,
+            memory: 1,
+            io: 1,
+            bandwidth: 1,
+        },
+        chain_id,
+        sender: address,
+        nonce: 0,
+        access_list: Vec::new(),
+        resource_limit: resources,
+        payload: transaction::Payment {
+            public_key,
+            recipient: Address([9; 32]),
+            amount: 1,
+        }
+        .to_bytes(),
+        signature: [0; 64],
+    };
+    transaction.signature = ed25519_sign(seed, transaction::signing_hash(&transaction).as_bytes());
+    transaction
+}
+
 #[test]
 fn recovered_genesis_account_authenticates_signed_admission() {
     let seed = [11; 32];
@@ -81,17 +111,7 @@ fn recovered_genesis_account_authenticates_signed_admission() {
                 bandwidth: 1,
             },
         );
-        let mut transaction = Transaction {
-            chain_id: genesis.chain_id,
-            sender: address,
-            nonce: 0,
-            access_list: Vec::new(),
-            resource_limit: resources,
-            payload: vec![1],
-            signature: [0; 64],
-        };
-        transaction.signature =
-            ed25519_sign(&seed, transaction::signing_hash(&transaction).as_bytes());
+        let mut transaction = signed_payment(&seed, genesis.chain_id, resources);
         let context = ValidationContext {
             chain_id: 7,
             next_height: 0,

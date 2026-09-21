@@ -15,8 +15,10 @@ use transaction::{
 };
 use types::{Resources, StateKey, Transaction};
 
-#[test]
-fn signed_wire_transactions_keep_identity_through_selection_and_scheduling() {
+fn signed_fixture() -> (
+    BTreeMap<types::Address, RegisteredAccount>,
+    Vec<Transaction>,
+) {
     let mut accounts = BTreeMap::new();
     let mut transactions = Vec::new();
     for seed_byte in 1..=2 {
@@ -34,6 +36,13 @@ fn signed_wire_transactions_keep_identity_through_selection_and_scheduling() {
             },
         );
         let mut tx = Transaction {
+            version: types::TRANSACTION_VERSION,
+            expires_at: u64::MAX,
+            lane: types::TransactionLane::Payments,
+            resource_prices: types::Resources {
+                compute: 1,
+                ..types::Resources::ZERO
+            },
             chain_id: 7,
             sender,
             nonce: 0,
@@ -42,12 +51,23 @@ fn signed_wire_transactions_keep_identity_through_selection_and_scheduling() {
                 compute: 1,
                 ..Resources::ZERO
             },
-            payload: vec![seed_byte],
+            payload: transaction::Payment {
+                public_key,
+                recipient: types::Address([9; 32]),
+                amount: 1,
+            }
+            .to_bytes(),
             signature: [0; 64],
         };
         tx.signature = ed25519_sign(&seed, signing_hash(&tx).as_bytes());
         transactions.push(Transaction::decode(&tx.to_bytes()).unwrap());
     }
+    (accounts, transactions)
+}
+
+#[test]
+fn signed_wire_transactions_keep_identity_through_selection_and_scheduling() {
+    let (accounts, transactions) = signed_fixture();
     let limits = Resources {
         compute: 100,
         ..Resources::ZERO

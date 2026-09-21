@@ -45,6 +45,13 @@ mod integration_tests {
 
     fn make_tx(nonce: u64, payload: Vec<u8>, resources: Resources) -> types::Transaction {
         types::Transaction {
+            version: types::TRANSACTION_VERSION,
+            expires_at: u64::MAX,
+            lane: types::TransactionLane::from_payload(&payload),
+            resource_prices: types::Resources {
+                compute: 1,
+                ..types::Resources::ZERO
+            },
             chain_id: 7,
             sender: sender(),
             nonce,
@@ -240,6 +247,13 @@ mod integration_tests {
         let validator = BasicValidator::empty();
 
         let tx0 = types::Transaction {
+            version: types::TRANSACTION_VERSION,
+            expires_at: u64::MAX,
+            lane: types::TransactionLane::Payments,
+            resource_prices: types::Resources {
+                compute: 1,
+                ..types::Resources::ZERO
+            },
             chain_id: 7,
             sender: types::Address([1u8; 32]),
             nonce: 0,
@@ -254,6 +268,13 @@ mod integration_tests {
             signature: [0xFF; 64],
         };
         let tx1 = types::Transaction {
+            version: types::TRANSACTION_VERSION,
+            expires_at: u64::MAX,
+            lane: types::TransactionLane::Payments,
+            resource_prices: types::Resources {
+                compute: 1,
+                ..types::Resources::ZERO
+            },
             chain_id: 7,
             sender: types::Address([2u8; 32]),
             nonce: 0,
@@ -291,6 +312,13 @@ mod integration_tests {
     #[test]
     fn estimate_encoded_len_basic() {
         let tx = types::Transaction {
+            version: types::TRANSACTION_VERSION,
+            expires_at: u64::MAX,
+            lane: types::TransactionLane::Payments,
+            resource_prices: types::Resources {
+                compute: 1,
+                ..types::Resources::ZERO
+            },
             chain_id: 1,
             sender: types::Address([0; 32]),
             nonce: 0,
@@ -305,6 +333,6 @@ mod integration_tests {
             signature: [0; 64],
         };
         let len = estimate_encoded_len(&tx);
-        assert_eq!(len, 156);
+        assert_eq!(len, 205);
     }
 }

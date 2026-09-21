@@ -9,7 +9,7 @@
 use core::fmt;
 use std::collections::BTreeMap;
 
-use types::{Address, Hash256};
+use types::Address;
 
 /// Default lease duration of 30 days in seconds.
 pub const DEFAULT_LEASE_SECS: u64 = 30 * 24 * 60 * 60;
@@ -19,9 +19,7 @@ pub const DEFAULT_LEASE_SECS: u64 = 30 * 24 * 60 * 60;
 pub enum Record {
     /// Wallet or contract destination.
     Address(Address),
-    /// Static `AstroLune` Pages manifest.
-    Page(Hash256),
-    /// Service endpoint interpreted by the access proxy.
+    /// Application service endpoint.
     Service(Vec<u8>),
 }
 
@@ -438,7 +436,7 @@ mod tests {
             .register(
                 "alice",
                 addr,
-                Record::Page(Hash256::default()),
+                Record::Address(Address::default()),
                 100,
                 DEFAULT_LEASE_SECS,
             )
@@ -458,7 +456,7 @@ mod tests {
             .register(
                 "alice",
                 owner,
-                Record::Page(Hash256::default()),
+                Record::Address(Address::default()),
                 100,
                 DEFAULT_LEASE_SECS,
             )
@@ -510,13 +508,19 @@ mod tests {
     fn multiple_records() {
         let mut resolver = InMemoryResolver::new();
         let a1 = Address::default();
-        let h = Hash256::default();
+        let endpoint = b"application".to_vec();
 
         resolver
             .register("alice", a1, Record::Address(a1), 100, DEFAULT_LEASE_SECS)
             .unwrap();
         resolver
-            .register("bob", a1, Record::Page(h), 100, DEFAULT_LEASE_SECS)
+            .register(
+                "bob",
+                a1,
+                Record::Service(endpoint.clone()),
+                100,
+                DEFAULT_LEASE_SECS,
+            )
             .unwrap();
         resolver
             .register(
@@ -534,7 +538,10 @@ mod tests {
             resolver.resolve("alice").unwrap(),
             Some(Record::Address(a1))
         );
-        assert_eq!(resolver.resolve("bob").unwrap(), Some(Record::Page(h)));
+        assert_eq!(
+            resolver.resolve("bob").unwrap(),
+            Some(Record::Service(endpoint.clone()))
+        );
         assert_eq!(
             resolver.resolve("carol").unwrap(),
             Some(Record::Service(vec![42]))

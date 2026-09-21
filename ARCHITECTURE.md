@@ -12,7 +12,7 @@ This document is the short repository map. The detailed engineering specificatio
 4. **State and execution:** `state`, `runtime`, and `execution` define snapshots, Rust contract semantics, scheduling, and diffs.
 5. **Node policy and persistence:** `mempool`, `storage`, and `sync` remain outside core validity rules where possible.
 6. **Transport and orchestration:** `p2p`, `rpc`, `config`, `telemetry`, and `node` connect bounded subsystems.
-7. **Products:** `daemon`, `cli`, `cargo-contract`, DNS, Proxy, Pages, and ID are executable integration surfaces.
+7. **Products:** `daemon`, `cli`, `cargo-contract`, DNS are executable integration surfaces.
 
 ## Dependency rules
 

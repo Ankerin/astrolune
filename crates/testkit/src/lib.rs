@@ -42,6 +42,13 @@ pub fn transaction(sender: u8, nonce: u64) -> Transaction {
     let mut sig = [0u8; 64];
     sig[0] = sender; // non-zero signature for validation
     Transaction {
+        version: types::TRANSACTION_VERSION,
+        expires_at: u64::MAX,
+        lane: types::TransactionLane::Payments,
+        resource_prices: types::Resources {
+            compute: 1,
+            ..types::Resources::ZERO
+        },
         chain_id: 7,
         sender: address(sender),
         nonce,

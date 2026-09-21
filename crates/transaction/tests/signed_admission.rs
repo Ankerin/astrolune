@@ -56,6 +56,10 @@ fn validator(account: RegisteredAccount, limits: Resources, prices: Resources) -
 
 fn signed_transaction() -> Transaction {
     let mut tx = Transaction {
+        version: types::TRANSACTION_VERSION,
+        expires_at: u64::MAX,
+        lane: types::TransactionLane::Payments,
+        resource_prices: PRICES,
         chain_id: 7,
         sender: address_from_public_key(&ed25519_public_key(&SEED)),
         nonce: 5,
@@ -66,7 +70,12 @@ fn signed_transaction() -> Transaction {
             io: 3,
             bandwidth: 4,
         },
-        payload: vec![1, 2, 3],
+        payload: transaction::Payment {
+            public_key: ed25519_public_key(&SEED),
+            recipient: Address([9; 32]),
+            amount: 1,
+        }
+        .to_bytes(),
         signature: [0; 64],
     };
     tx.signature = ed25519_sign(&SEED, signing_hash(&tx).as_bytes());
@@ -85,7 +94,7 @@ fn admits_valid_signature_without_mutating_account_state() {
 #[test]
 fn signatures_and_ids_bind_every_transaction_field() {
     let original = signed_transaction();
-    let mut variants = vec![original.clone(); 10];
+    let mut variants = vec![original.clone(); 17];
     variants[0].chain_id += 1;
     variants[1].sender.0[0] ^= 1;
     variants[2].nonce += 1;
@@ -96,6 +105,13 @@ fn signatures_and_ids_bind_every_transaction_field() {
     variants[7].resource_limit.bandwidth += 1;
     variants[8].payload.push(4);
     variants[9].signature[0] ^= 1;
+    variants[10].version += 1;
+    variants[11].expires_at -= 1;
+    variants[12].lane = types::TransactionLane::Contracts;
+    variants[13].resource_prices.compute += 1;
+    variants[14].resource_prices.memory += 1;
+    variants[15].resource_prices.io += 1;
+    variants[16].resource_prices.bandwidth += 1;
     for tx in variants {
         assert_ne!(compute_tx_id(&tx), compute_tx_id(&original));
         assert!(!ed25519_verify(
@@ -113,6 +129,10 @@ fn signatures_and_ids_bind_every_transaction_field() {
 #[test]
 fn commitments_match_independent_blake2s_vectors() {
     let tx = Transaction {
+        version: types::TRANSACTION_VERSION,
+        expires_at: u64::MAX,
+        lane: types::TransactionLane::Payments,
+        resource_prices: PRICES,
         chain_id: 0x0403_0201,
         sender: Address([0x11; 32]),
         nonce: 0x0807_0605_0403_0201,
@@ -131,11 +151,11 @@ fn commitments_match_independent_blake2s_vectors() {
     };
     assert_eq!(
         signing_hash(&tx).0,
-        hex("1f8fafab5f28c47181f4b6f5ed206f4a618dc2d6ec72fbafcdbe7731fa2bd5fd")
+        hex("a99fec6b1c1a412cd189591de9921873a7692c6b81b10665042e724e26217be3")
     );
     assert_eq!(
         compute_tx_id(&tx).0,
-        hex("bc39fb54ae957395b2db8840ad932d1cc9f408bf6ae40f991c80ff606a79bad4")
+        hex("a7e9b9208d12c9ad8d33b19b679992064ce5d279ed3e1dfb913cf1c73666c112")
     );
 }
 
@@ -336,4 +356,75 @@ fn envelope_uses_the_same_signature_and_identifier() {
     assert_eq!(envelope.id(), compute_tx_id(&tx));
     envelope.transaction.signature[0] ^= 1;
     assert!(!envelope.is_well_formed());
+}
+
+#[test]
+fn expiry_is_inclusive_and_checked_before_account_or_signature() {
+    let validator = validator(account(), MAX_RESOURCES, PRICES);
+    let mut tx = signed_transaction();
+    tx.expires_at = context().next_height;
+    tx.signature = ed25519_sign(&SEED, signing_hash(&tx).as_bytes());
+    assert!(validator.validate(tx.clone(), context()).is_ok());
+    let mut later = context();
+    later.next_height += 1;
+    tx.sender = Address::ZERO;
+    tx.signature = [0; 64];
+    assert_eq!(
+        validator.validate(tx.clone(), later),
+        Err(TransactionError::Expired)
+    );
+    tx.chain_id += 1;
+    assert_eq!(
+        validator.validate(tx, later),
+        Err(TransactionError::WrongChain)
+    );
+}
+
+#[test]
+fn unsupported_versions_lanes_payloads_and_prices_are_rejected() {
+    let validator = validator(account(), MAX_RESOURCES, PRICES);
+    let mut tx = signed_transaction();
+    tx.version = 2;
+    assert_eq!(
+        validator.validate(tx, context()),
+        Err(TransactionError::InvalidEnvelope)
+    );
+    for lane in [
+        types::TransactionLane::Contracts,
+        types::TransactionLane::System,
+    ] {
+        let mut tx = signed_transaction();
+        tx.lane = lane;
+        tx.signature = ed25519_sign(&SEED, signing_hash(&tx).as_bytes());
+        assert_eq!(
+            validator.validate(tx, context()),
+            Err(TransactionError::UnsupportedPayload)
+        );
+    }
+    for price in [Resources::ZERO, MAX_RESOURCES] {
+        let mut tx = signed_transaction();
+        tx.resource_prices = price;
+        tx.signature = ed25519_sign(&SEED, signing_hash(&tx).as_bytes());
+        assert_eq!(
+            validator.validate(tx, context()),
+            Err(TransactionError::InsufficientResources)
+        );
+    }
+    for payload in [
+        vec![1],
+        transaction::Payment {
+            public_key: ed25519_public_key(&[8; 32]),
+            recipient: Address([9; 32]),
+            amount: 1,
+        }
+        .to_bytes(),
+    ] {
+        let mut tx = signed_transaction();
+        tx.payload = payload;
+        tx.signature = ed25519_sign(&SEED, signing_hash(&tx).as_bytes());
+        assert_eq!(
+            validator.validate(tx, context()),
+            Err(TransactionError::UnsupportedPayload)
+        );
+    }
 }

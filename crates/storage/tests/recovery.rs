@@ -49,6 +49,13 @@ fn batch(state: &InMemoryState, previous: Option<Checkpoint>) -> CommitBatch {
     diff.put(StateKey(vec![1]), height.to_le_bytes().to_vec());
     let root = state.prepare(state.root(), &[diff.clone()]).unwrap().root();
     let tx = Transaction {
+        version: types::TRANSACTION_VERSION,
+        expires_at: u64::MAX,
+        lane: types::TransactionLane::Payments,
+        resource_prices: types::Resources {
+            compute: 1,
+            ..types::Resources::ZERO
+        },
         chain_id: 7,
         sender: Address([1; 32]),
         nonce: height,
@@ -306,4 +313,33 @@ fn rename_failure_retains_the_published_version_for_retry() {
     drop(storage);
     let mut storage = FileBackedStorage::open(fixture.path()).unwrap();
     assert_eq!(storage.recover().unwrap().unwrap().height, 0);
+}
+
+#[test]
+fn unsupported_transaction_version_cannot_publish_an_unrecoverable_archive() {
+    let fixture = Fixture::new();
+    let mut storage = FileBackedStorage::open(fixture.path()).unwrap();
+    let before = fs::read(fixture.path()).unwrap();
+    let mut invalid = batch(storage.state(), None);
+    invalid.block.transactions[0].version = 2;
+    invalid.block.header.transactions_root =
+        crypto::compute_transactions_root(&[transaction::compute_tx_id(
+            &invalid.block.transactions[0],
+        )]);
+    assert!(storage.commit(&invalid).is_err());
+    assert_eq!(fs::read(fixture.path()).unwrap(), before);
+    assert!(storage.checkpoint().is_none());
+}
+
+#[test]
+fn legacy_empty_archive_is_rejected_without_rewriting() {
+    let fixture = Fixture::new();
+    let mut legacy = b"ASTSTORE".to_vec();
+    legacy.extend_from_slice(&1_u16.to_le_bytes());
+    legacy.extend_from_slice(&0_u64.to_le_bytes());
+    let checksum = types::hash::domain_hash(b"astrolune.storage.archive.v1", &legacy);
+    legacy.extend_from_slice(checksum.as_bytes());
+    fs::write(fixture.path(), &legacy).unwrap();
+    assert!(FileBackedStorage::open(fixture.path()).is_err());
+    assert_eq!(fs::read(fixture.path()).unwrap(), legacy);
 }

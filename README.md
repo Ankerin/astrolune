@@ -15,7 +15,7 @@ AstroLune is a Rust-first blockchain engineering project centered on Proof of Tr
 - **Parallel performance:** state leasing, execution waves, optimistic replay, lanes, batching, locality, and prefetch.
 - **Deterministic Rust contracts:** restricted Rust source compiled to a versioned canonical runtime target, with interpreter/AOT/JIT parity.
 - **Lean networking:** bounded binary P2P frames and compact-block reconstruction.
-- **Independent ecosystem services:** DNS, Proxy, Pages, and wallet-mediated ID.
+- **Independent ecosystem services:** DNS registry and resolution.
 
 ## Repository map
 
@@ -46,9 +46,6 @@ crates/
   types                 canonical shared protocol types
 services/
   dns                   authenticated in-network naming
-  id                    wallet authorization
-  pages                 static site manifests and serving
-  proxy                 internal access gateway
 tests/
   integration           workspace-level conformance tests
 tools/
@@ -100,7 +97,7 @@ This read-only command implements [genesis verification and materialization](doc
 cargo run -p daemon -- --genesis genesis.bin --data-dir node-data --blocks 3
 ```
 
-Genesis initializes a durable height-zero anchor with account balances and validator weights; produced blocks start at height one. A different or missing genesis is rejected on restart. Native signed payments update balances and nonces; consensus remains a demonstration. See [payment rules and RPC](docs/13-native-payments.md).
+Genesis initializes a durable height-zero anchor with account balances and validator weights; produced blocks start at height one. A different or missing genesis is rejected on restart. Native signed payments update balances and nonces; consensus remains a demonstration. See [payment rules and RPC](docs/13-native-payments.md) and the [versioned transaction format](docs/14-versioned-transactions.md). Archive version 2 is required; old version-1 archives are rejected without migration or rewriting.
 
 Run the local demonstration chain, then resume it with two additional blocks:
 

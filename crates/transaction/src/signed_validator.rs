@@ -26,8 +26,7 @@ pub struct RegisteredAccount {
 /// Validates signed transactions against an immutable account view.
 ///
 /// Resource limits and unit prices must come from finalized chain parameters.
-/// Expiry and explicit lane validation require the future versioned envelope;
-/// this validator supports the current transaction fields only.
+/// Signed expiry, lane, and prices are enforced against this finalized policy.
 pub struct SignedValidator {
     accounts: BTreeMap<Address, RegisteredAccount>,
     resource_limits: Resources,
@@ -61,6 +60,10 @@ impl TransactionValidator for SignedValidator {
             return Err(TransactionError::WrongChain);
         }
 
+        if context.next_height > transaction.expires_at {
+            return Err(TransactionError::Expired);
+        }
+
         let account = self
             .accounts
             .get(&transaction.sender)
@@ -72,6 +75,9 @@ impl TransactionValidator for SignedValidator {
             return Err(TransactionError::InvalidNonce);
         }
 
+        if transaction.resource_prices != self.resource_prices {
+            return Err(TransactionError::InsufficientResources);
+        }
         let cost = transaction
             .resource_limit
             .checked_cost(self.resource_prices)
@@ -89,9 +95,17 @@ impl TransactionValidator for SignedValidator {
             return Err(TransactionError::InvalidSignature);
         }
 
+        if transaction.lane != TransactionLane::Payments {
+            return Err(TransactionError::UnsupportedPayload);
+        }
+        let payment = crate::Payment::decode(&transaction.payload)?;
+        if payment.public_key != account.public_key {
+            return Err(TransactionError::UnsupportedPayload);
+        }
+
         Ok(ValidatedTransaction {
             id: compute_tx_id(&transaction),
-            lane: TransactionLane::from_payload(&transaction.payload),
+            lane: transaction.lane,
             transaction,
         })
     }

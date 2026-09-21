@@ -8,6 +8,13 @@ use types::{Address, ExecutionReceipt, Resources, StateKey, Transaction};
 
 fn transaction() -> Transaction {
     Transaction {
+        version: types::TRANSACTION_VERSION,
+        expires_at: u64::MAX,
+        lane: types::TransactionLane::Payments,
+        resource_prices: types::Resources {
+            compute: 1,
+            ..types::Resources::ZERO
+        },
         chain_id: 0x0403_0201,
         sender: Address([0x11; 32]),
         nonce: 0x0807_0605_0403_0201,
@@ -26,14 +33,20 @@ fn transaction() -> Transaction {
 #[test]
 fn transaction_golden_bytes() {
     let expected = [
-        &[1, 2, 3, 4][..],
+        b"ALTX".as_slice(),
+        &[1, 0, 0, 0],
+        &[1, 2, 3, 4],
         &[0x11; 32],
         &[1, 2, 3, 4, 5, 6, 7, 8],
+        &[0xff; 8],
+        &[0],
         &[1, 1, 0x22],
         &[1, 0, 0, 0, 0, 0, 0, 0],
         &[2, 0, 0, 0, 0, 0, 0, 0],
         &[3, 0, 0, 0, 0, 0, 0, 0],
         &[4, 0, 0, 0, 0, 0, 0, 0],
+        &[1, 0, 0, 0, 0, 0, 0, 0],
+        &[0; 24],
         &[1, 0x33],
         &[0x44; 64],
     ]
@@ -68,13 +81,13 @@ fn state_key_limit_is_checked_before_reading_content() {
         Err(DecodeError::LimitExceeded)
     );
     let mut bytes = transaction().to_bytes();
-    bytes.splice(45..46, [0x80, 1, 1, 0, 0]);
+    bytes.splice(62..63, [0x80, 1, 1, 0, 0]);
     assert_eq!(Transaction::decode(&bytes), Err(DecodeError::LimitExceeded));
 }
 
 #[test]
 fn transaction_rejects_noncanonical_lengths_at_every_position() {
-    for position in [44, 45, 79] {
+    for position in [61, 62, 128] {
         let mut bytes = transaction().to_bytes();
         bytes.splice(position..=position, [0x80, 1, 0, 0, 0]);
         assert_eq!(Transaction::decode(&bytes), Err(DecodeError::NonCanonical));
@@ -92,7 +105,7 @@ fn transaction_rejects_unbacked_or_excessive_access_counts() {
         (MAX_LIST_LEN, DecodeError::Truncated),
         (MAX_LIST_LEN + 1, DecodeError::LimitExceeded),
     ] {
-        let mut bytes = transaction().to_bytes()[..44].to_vec();
+        let mut bytes = transaction().to_bytes()[..61].to_vec();
         codec::encode_length(count, &mut bytes);
         assert_eq!(Transaction::decode(&bytes), Err(error));
     }
@@ -104,7 +117,7 @@ fn transaction_payload_limit() {
     tx.payload = vec![0xAA; MAX_PAYLOAD];
     assert_eq!(Transaction::decode(&tx.to_bytes()), Ok(tx));
 
-    let mut bytes = transaction().to_bytes()[..79].to_vec();
+    let mut bytes = transaction().to_bytes()[..128].to_vec();
     codec::encode_length(MAX_PAYLOAD + 1, &mut bytes);
     assert_eq!(Transaction::decode(&bytes), Err(DecodeError::LimitExceeded));
 }
@@ -156,4 +169,25 @@ fn accepted_transaction_mutations_preserve_exact_bytes() {
         }
         bytes[position] = original;
     }
+}
+
+#[test]
+fn transaction_versions_lanes_and_legacy_bytes_fail_closed() {
+    let bytes = transaction().to_bytes();
+    for version in [0u32, 2, u32::MAX] {
+        let mut altered = bytes.clone();
+        altered[4..8].copy_from_slice(&version.to_le_bytes());
+        assert_eq!(Transaction::decode(&altered), Err(DecodeError::Unsupported));
+    }
+    for lane in 0..=u8::MAX {
+        let mut altered = bytes.clone();
+        altered[60] = lane;
+        if lane <= 2 {
+            assert_eq!(Transaction::decode(&altered).unwrap().to_bytes(), altered);
+        } else {
+            assert_eq!(Transaction::decode(&altered), Err(DecodeError::Unsupported));
+        }
+    }
+    let legacy = [&bytes[8..52], &bytes[61..96], &bytes[128..]].concat();
+    assert_eq!(Transaction::decode(&legacy), Err(DecodeError::Unsupported));
 }

@@ -4,7 +4,7 @@
 //! Standalone `AstroLune` DNS service entry point.
 //!
 //! This binary starts the DNS resolver service that maps normalized
-//! in-network names to wallet addresses, Pages manifests, or service
+//! in-network names to wallet addresses or application service
 //! records. The resolver verifies finalized registry state and proofs.
 
 #![forbid(unsafe_code)]

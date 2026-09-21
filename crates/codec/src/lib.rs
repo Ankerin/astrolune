@@ -294,6 +294,13 @@ mod tests {
     #[test]
     fn transaction_roundtrip() {
         let tx = Transaction {
+            version: types::TRANSACTION_VERSION,
+            expires_at: u64::MAX,
+            lane: types::TransactionLane::Payments,
+            resource_prices: types::Resources {
+                compute: 1,
+                ..types::Resources::ZERO
+            },
             chain_id: 7,
             sender: Address([1u8; 32]),
             nonce: 42,
@@ -315,6 +322,13 @@ mod tests {
     #[test]
     fn transaction_empty_access_list() {
         let tx = Transaction {
+            version: types::TRANSACTION_VERSION,
+            expires_at: u64::MAX,
+            lane: types::TransactionLane::Payments,
+            resource_prices: types::Resources {
+                compute: 1,
+                ..types::Resources::ZERO
+            },
             chain_id: 1,
             sender: Address::ZERO,
             nonce: 0,
@@ -332,6 +346,13 @@ mod tests {
     fn transaction_roundtrip_many_access_list_entries() {
         let access_list: Vec<StateKey> = (0u8..100).map(|i| StateKey(vec![i; 10])).collect();
         let tx = Transaction {
+            version: types::TRANSACTION_VERSION,
+            expires_at: u64::MAX,
+            lane: types::TransactionLane::Payments,
+            resource_prices: types::Resources {
+                compute: 1,
+                ..types::Resources::ZERO
+            },
             chain_id: u32::MAX,
             sender: Address([0xFF; 32]),
             nonce: u64::MAX,
@@ -353,6 +374,13 @@ mod tests {
     #[test]
     fn golden_transaction_minimal() {
         let tx = Transaction {
+            version: types::TRANSACTION_VERSION,
+            expires_at: u64::MAX,
+            lane: types::TransactionLane::Payments,
+            resource_prices: types::Resources {
+                compute: 1,
+                ..types::Resources::ZERO
+            },
             chain_id: 1,
             sender: Address([0xAA; 32]),
             nonce: 0,
@@ -362,7 +390,7 @@ mod tests {
             signature: [0xBB; 64],
         };
         let encoded = tx.to_bytes();
-        assert_eq!(encoded.len(), 142);
+        assert_eq!(encoded.len(), 191);
         let decoded = Transaction::decode(&encoded).unwrap();
         assert_eq!(tx, decoded);
     }
@@ -370,6 +398,13 @@ mod tests {
     #[test]
     fn golden_transaction_with_access_list() {
         let tx = Transaction {
+            version: types::TRANSACTION_VERSION,
+            expires_at: u64::MAX,
+            lane: types::TransactionLane::Payments,
+            resource_prices: types::Resources {
+                compute: 1,
+                ..types::Resources::ZERO
+            },
             chain_id: 42,
             sender: Address([0x11; 32]),
             nonce: 99,

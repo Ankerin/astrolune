@@ -85,7 +85,8 @@ impl Envelope {
     /// - Sender is not zero
     #[must_use]
     pub fn is_well_formed(&self) -> bool {
-        self.signature != [0u8; 64]
+        self.transaction.version == types::TRANSACTION_VERSION
+            && self.signature != [0u8; 64]
             && self.signature == self.transaction.signature
             && self.transaction.chain_id != 0
             && !self.transaction.sender.is_zero()
@@ -103,6 +104,13 @@ mod tests {
     fn make_envelope(nonce: u64) -> Envelope {
         Envelope::new(
             Transaction {
+                version: types::TRANSACTION_VERSION,
+                expires_at: u64::MAX,
+                lane: types::TransactionLane::Payments,
+                resource_prices: types::Resources {
+                    compute: 1,
+                    ..types::Resources::ZERO
+                },
                 chain_id: 7,
                 sender: sender(),
                 nonce,
@@ -139,6 +147,13 @@ mod tests {
     fn envelope_id_differs_by_sender() {
         let env_a = Envelope::new(
             Transaction {
+                version: types::TRANSACTION_VERSION,
+                expires_at: u64::MAX,
+                lane: types::TransactionLane::Payments,
+                resource_prices: types::Resources {
+                    compute: 1,
+                    ..types::Resources::ZERO
+                },
                 chain_id: 7,
                 sender: Address([1u8; 32]),
                 nonce: 0,
@@ -151,6 +166,13 @@ mod tests {
         );
         let env_b = Envelope::new(
             Transaction {
+                version: types::TRANSACTION_VERSION,
+                expires_at: u64::MAX,
+                lane: types::TransactionLane::Payments,
+                resource_prices: types::Resources {
+                    compute: 1,
+                    ..types::Resources::ZERO
+                },
                 chain_id: 7,
                 sender: Address([2u8; 32]),
                 nonce: 0,

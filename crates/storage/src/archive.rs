@@ -12,7 +12,7 @@ use crate::{
 };
 
 const MAGIC: &[u8; 8] = b"ASTSTORE";
-const VERSION: u16 = 1;
+const VERSION: u16 = 2;
 const CHECKSUM_DOMAIN: &[u8] = b"astrolune.storage.archive.v1";
 const MAX_TRANSACTIONS: usize = 65_536;
 const MAX_TRANSACTION_BYTES: usize = 4 * 1024 * 1024;
@@ -24,6 +24,9 @@ pub(super) fn validate_block(block: &Block, certificate: &[u8]) -> Result<(), St
     }
     let mut size = 200_usize;
     for tx in &block.transactions {
+        if tx.version != types::TRANSACTION_VERSION {
+            return Err(StorageError::VerificationFailed);
+        }
         if tx.access_list.len() > codec::MAX_LIST_LEN
             || tx
                 .access_list
@@ -264,7 +267,8 @@ mod tests {
         // Header 18, checkpoint 72, snapshot length 8, empty snapshot 50,
         // presence 1, block header 200, transaction count 8, certificate length 8 + 2.
         for (offset, value) in [
-            (8, 2),
+            (8, 1),
+            (8, 3),
             (10, 255),
             (18, 1),
             (90, 255),

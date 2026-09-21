@@ -18,7 +18,7 @@ let recovered = storage.recover()?;
 
 Both memory and file backends reject transaction bodies whose signed canonical IDs do not match the header's transaction root. They also check structural transaction/certificate bounds, parent linkage, consecutive heights, and the resulting state root. The caller must authenticate finality and execution, including receipts and account semantics. The archive checksum detects corruption; it does not authenticate a file rewritten by an adversary.
 
-`FullNodeService::new` retains the memory backend for fixtures. `FullNodeService::open(config, path)` verifies the file archive, restores execution state and the parent hash, and resumes at the next checked height. `BlockProducer::from_checkpoint` rejects state-root mismatches, populated state without a checkpoint, and exhausted heights. The caller still authenticates the checkpoint and chain identity; archive version 1 contains no chain configuration identifier.
+`FullNodeService::new` retains the memory backend for fixtures. `FullNodeService::open(config, path)` verifies the file archive, restores execution state and the parent hash, and resumes at the next checked height. `BlockProducer::from_checkpoint` rejects state-root mismatches, populated state without a checkpoint, and exhausted heights. The caller still authenticates the checkpoint and chain identity; archive version 2 contains no chain configuration identifier in its header.
 
 The daemon creates its data directory and opens `chain.bin` there. Each `--blocks N` invocation produces N additional blocks. `--blocks 0` initializes or recovers without opening listeners; `--dry-run` validates options and optional genesis input without writing files or opening listeners. Unknown, missing, duplicate, overflowing, or malformed arguments fail before opening storage. Both listener sockets bind before block production starts. An occupied listener or locked/corrupt archive stops startup rather than silently continuing.
 
@@ -30,13 +30,13 @@ This is demonstration block/state recovery. Certificates remain placeholders. Ge
 
 Process tests cover repeated daemon runs, recovery-only startup, argument errors, dry runs, writer exclusion, corrupt archives, and listener failures. Differential tests compare 20 service restarts with uninterrupted block production, including nonempty execution state and identical retained block bodies.
 
-## Archive version 1
+## Archive version 2
 
 All integers below use unsigned fixed-width little-endian encoding. A `blob` consists of a `u64` byte length followed by exactly that many bytes.
 
 ```text
 "ASTSTORE"                         8-byte magic
-version = 1                        u16
+version = 2                        u16
 checkpoint_count                   u64
 for each checkpoint in height order:
     height                         u64
@@ -72,6 +72,6 @@ The reference backend clones retained block metadata and rewrites all retained s
 
 ## Compatibility and verification
 
-Block IDs now use `H("astrolune.block.v1", canonical_header_bytes)`, replacing XOR folding. Receipt commitments use `H("astrolune.receipt.v1", canonical_receipt_bytes)`, matching the node's existing receipt leaves. Header/receipt wire bytes are unchanged; old block IDs, parent links, and standalone XOR receipt commitments are incompatible. Unknown archive formats fail closed; no automatic migration is performed.
+Block IDs now use `H("astrolune.block.v1", canonical_header_bytes)`, replacing XOR folding. Receipt commitments use `H("astrolune.receipt.v1", canonical_receipt_bytes)`, matching the node's existing receipt leaves. Header/receipt wire bytes are unchanged; old block IDs, parent links, and standalone XOR receipt commitments are incompatible. The [versioned transaction envelope](14-versioned-transactions.md) requires archive version 2. Version-1 archives are rejected, including empty archives; recovery does not rewrite them. Unknown archive formats fail closed; no automatic migration is performed.
 
 Tests cover independent hash vectors, every header/receipt byte, former XOR cancellation attacks, height exhaustion, all archive truncations and byte mutations, malformed structures with recomputed checksums, repeated reopen, retained historical exports, pruning, failed commit/import/rename rollback, second-process exclusion, and abrupt exit after publication.
