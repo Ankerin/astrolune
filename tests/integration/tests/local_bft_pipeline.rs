@@ -9,7 +9,7 @@ use consensus::{
 };
 use genesis::{Allocation, Genesis, GenesisValidator};
 use keystore::{DurableSigner, SigningContext};
-use node::{BlockProducer, ProducerConfig};
+use node::{BlockProducer, ProducerConfig, RoundRobinValidator, ValidatorError};
 use state::{StateDatabase, read_account};
 use std::{
     fs,
@@ -219,4 +219,291 @@ fn payment_is_committed_only_after_validated_local_votes_and_durable_certificate
             balance: 10
         })
     );
+}
+
+fn participant(fixture: &Fixture, seed: u8) -> (RoundRobinValidator, FileBackedStorage) {
+    let genesis = genesis();
+    let genesis_hash = genesis.commitment().unwrap();
+    let namespace = SigningContext {
+        chain_id: 7,
+        genesis: genesis_hash,
+    };
+    let mut storage = FileBackedStorage::open(fixture.0.join(format!("node-{seed}.bin"))).unwrap();
+    let anchor = match storage.checkpoint().copied() {
+        Some(checkpoint) => checkpoint,
+        None => storage
+            .initialize_genesis(genesis_hash, genesis.materialize().unwrap())
+            .unwrap(),
+    };
+    let producer = BlockProducer::from_checkpoint(
+        ProducerConfig::default(),
+        Some(anchor),
+        storage.state().clone(),
+    )
+    .unwrap();
+    let signer = if fixture.journal(seed).exists() {
+        DurableSigner::open(fixture.journal(seed), namespace, [seed; 32]).unwrap()
+    } else {
+        DurableSigner::create_protected(fixture.journal(seed), namespace, [seed; 32]).unwrap()
+    };
+    let local = LocalBft::new(context(&genesis, anchor.height + 1), signer, genesis_hash).unwrap();
+    (
+        RoundRobinValidator::new(producer, local, context(&genesis, anchor.height + 1)).unwrap(),
+        storage,
+    )
+}
+
+fn deliver(nodes: &mut [RoundRobinValidator], votes: &[consensus::Vote]) {
+    for node in nodes {
+        for vote in votes {
+            if node.certificate().is_some() {
+                break;
+            }
+            match node.receive_vote(vote.clone()) {
+                Ok(())
+                | Err(ValidatorError::Voting(consensus::LocalBftError::Consensus(
+                    consensus::ConsensusError::DuplicateVote,
+                ))) => (),
+                result => panic!("vote delivery failed: {result:?}"),
+            }
+        }
+    }
+}
+
+fn proposer_index(nodes: &[RoundRobinValidator]) -> usize {
+    (1..=4)
+        .position(|seed| ValidatorId(crypto::blake2s_hash(&public(seed)).0) == nodes[0].proposer())
+        .unwrap()
+}
+
+#[test]
+fn four_participants_authenticate_proposals_recover_votes_and_commit_payment_atomically() {
+    let fixture = Fixture::new();
+    let (mut nodes, mut archives): (Vec<_>, Vec<_>) =
+        (1..=4).map(|seed| participant(&fixture, seed)).unzip();
+    for node in &mut nodes {
+        node.submit_transaction(payment()).unwrap();
+    }
+    let proposer = proposer_index(&nodes);
+    assert!(nodes[(proposer + 1) % 4].propose().is_err());
+    let proposal = nodes[proposer].propose().unwrap();
+    let before = nodes[0].producer().state().root();
+    let stale = nodes[0].timeout_event().unwrap();
+    let mut forged = proposal.clone();
+    forged.envelope.signature[0] ^= 1;
+    for node in &mut nodes {
+        assert!(node.accept_proposal(&forged).is_err());
+        assert_eq!(node.local().step(), VotingStep::AwaitingProposal);
+    }
+    let prevotes: Vec<_> = nodes
+        .iter_mut()
+        .map(|node| node.accept_proposal(&proposal).unwrap())
+        .collect();
+    assert!(nodes[0].timeout(stale).is_err());
+    let (producer, local) = nodes.remove(0).into_parts();
+    drop(local);
+    let genesis_hash = genesis().commitment().unwrap();
+    let namespace = SigningContext {
+        chain_id: 7,
+        genesis: genesis_hash,
+    };
+    let signer = DurableSigner::open(fixture.journal(1), namespace, [1; 32]).unwrap();
+    let local = LocalBft::new(context(&genesis(), 1), signer, genesis_hash).unwrap();
+    nodes.insert(
+        0,
+        RoundRobinValidator::new(producer, local, context(&genesis(), 1)).unwrap(),
+    );
+    assert_eq!(nodes[0].accept_proposal(&proposal).unwrap(), prevotes[0]);
+    deliver(&mut nodes, &prevotes);
+    let precommits: Vec<_> = nodes
+        .iter_mut()
+        .map(|node| node.precommit().unwrap())
+        .collect();
+    deliver(&mut nodes, &precommits);
+    for node in &nodes {
+        assert!(node.timeout_event().is_none());
+    }
+    for node in &mut nodes {
+        assert!(node.precommit().is_err());
+        assert!(node.accept_proposal(&proposal).is_err());
+        assert!(node.propose().is_err());
+    }
+    let certificate = nodes[0].certificate().unwrap().clone();
+    let pending = fixture.0.join("node-1.bin.pending");
+    fs::create_dir(&pending).unwrap();
+    assert!(nodes[0].commit(&mut archives[0]).is_err());
+    fs::remove_dir(&pending).unwrap();
+    assert_eq!(nodes[0].producer().state().root(), before);
+    assert_eq!(nodes[0].producer().pending_count(), 1);
+    assert!(nodes[0].propose().is_err());
+    for (node, archive) in nodes.iter_mut().zip(&mut archives) {
+        node.commit(archive).unwrap();
+        assert_eq!(node.producer().height(), 2);
+        assert_eq!(node.producer().pending_count(), 0);
+        assert!(node.commit(archive).is_err());
+    }
+    drop(nodes);
+    drop(archives);
+    for seed in 1..=4 {
+        let (mut node, mut archive) = participant(&fixture, seed);
+        assert_eq!(node.local().round(), 0);
+        assert_eq!(node.local().locked(), None);
+        assert_eq!(node.local().committee().height(), 2);
+        let checkpoint = archive.checkpoint().copied().unwrap();
+        context(&genesis(), 1)
+            .verify_certificate(
+                &certificate,
+                &archive.get_block(&checkpoint.block).unwrap().header,
+            )
+            .unwrap();
+        let snapshot = archive.state().snapshot().unwrap();
+        assert_eq!(
+            read_account(snapshot.as_ref(), address(9))
+                .unwrap()
+                .unwrap()
+                .balance,
+            989
+        );
+        assert_eq!(
+            read_account(snapshot.as_ref(), address(10))
+                .unwrap()
+                .unwrap()
+                .balance,
+            10
+        );
+        // Replayed finality from the preceding height cannot alter the new participant.
+        assert!(
+            node.commit_finalized(&proposal.proposal, &certificate, &mut archive)
+                .is_err()
+        );
+    }
+}
+
+#[test]
+fn round_change_reproposes_verified_value_and_rejects_delayed_events() {
+    let fixture = Fixture::new();
+    let (mut nodes, archives): (Vec<_>, Vec<_>) =
+        (1..=4).map(|seed| participant(&fixture, seed)).unzip();
+    for node in &mut nodes {
+        node.submit_transaction(payment()).unwrap();
+    }
+    let proposer = proposer_index(&nodes);
+    let proposal = nodes[proposer].propose().unwrap();
+    let prevotes: Vec<_> = nodes
+        .iter_mut()
+        .map(|node| node.accept_proposal(&proposal).unwrap())
+        .collect();
+    deliver(&mut nodes, &prevotes);
+    let proof = nodes[0].prevote_certificate().unwrap();
+    // Withhold precommit delivery so nobody observes a finality quorum.
+    for node in &mut nodes {
+        node.precommit().unwrap();
+        let event = node.timeout_event().unwrap();
+        let mut wrong_height = event;
+        wrong_height.height += 1;
+        assert!(node.timeout(wrong_height).is_err());
+        assert!(node.timeout(event).unwrap().is_none());
+        assert!(node.timeout(event).is_err());
+        assert_eq!(node.local().round(), 1);
+        assert_eq!(
+            node.local().locked().unwrap().block,
+            proposal.envelope.block
+        );
+        assert!(node.accept_proposal(&proposal).is_err());
+        assert!(node.receive_vote(prevotes[0].clone()).is_err());
+    }
+    let next = proposer_index(&nodes);
+    assert_ne!(next, proposer);
+    let reproposal = nodes[next].repropose(proposal.proposal, proof).unwrap();
+    assert_eq!(reproposal.envelope.valid_round, Some(0));
+    let mut missing_proof = reproposal.clone();
+    missing_proof.valid_round = None;
+    for node in &mut nodes {
+        assert!(node.accept_proposal(&missing_proof).is_err());
+    }
+    let prevotes: Vec<_> = nodes
+        .iter_mut()
+        .map(|node| node.accept_proposal(&reproposal).unwrap())
+        .collect();
+    deliver(&mut nodes, &prevotes);
+    let precommits: Vec<_> = nodes
+        .iter_mut()
+        .map(|node| node.precommit().unwrap())
+        .collect();
+    deliver(&mut nodes, &precommits);
+    assert!(
+        nodes
+            .iter()
+            .all(|node| node.certificate().unwrap().round == 1)
+    );
+    drop(nodes);
+    drop(archives);
+    // Loss of all volatile messages is recovered by independent certificate verification.
+    let certificate = consensus::FinalityCertificate {
+        chain_id: 7,
+        height: 1,
+        round: 1,
+        committee_root: context(&genesis(), 1).root(),
+        block: reproposal.envelope.block,
+        signatures: {
+            let mut entries: Vec<_> = precommits
+                .iter()
+                .map(|vote| consensus::CertificateSignature {
+                    voter: vote.voter,
+                    signature: vote.signature,
+                })
+                .collect();
+            entries.sort_by_key(|entry| entry.voter);
+            entries
+        },
+    };
+    let (mut recovered, mut archive) = participant(&fixture, 1);
+    assert_eq!(recovered.local().step(), VotingStep::Precommitted);
+    assert_eq!(recovered.local().round(), 1);
+    assert!(recovered.certificate().is_none());
+    assert!(recovered.precommit().is_err());
+    recovered.restore_proposal(&reproposal).unwrap();
+    deliver(std::slice::from_mut(&mut recovered), &prevotes);
+    assert_eq!(recovered.precommit().unwrap(), precommits[0]);
+    recovered
+        .commit_finalized(&reproposal.proposal, &certificate, &mut archive)
+        .unwrap();
+    assert_eq!(archive.checkpoint().unwrap().height, 1);
+}
+
+#[test]
+fn invalid_execution_and_nil_timeouts_cannot_publish_or_form_finality() {
+    let fixture = Fixture::new();
+    let (mut nodes, mut archives): (Vec<_>, Vec<_>) =
+        (1..=4).map(|seed| participant(&fixture, seed)).unzip();
+    for node in &mut nodes {
+        node.submit_transaction(payment()).unwrap();
+    }
+    let proposer = proposer_index(&nodes);
+    let mut proposal = nodes[proposer].propose().unwrap();
+    // Envelope/header remain authentic, but this body no longer matches its commitments.
+    proposal.proposal.block.transactions.clear();
+    for (node, archive) in nodes.iter_mut().zip(&mut archives) {
+        assert_eq!(node.accept_proposal(&proposal).unwrap().block, None);
+        assert!(node.precommit().is_err());
+        assert!(node.commit(archive).is_err());
+        assert_eq!(
+            node.timeout(node.timeout_event().unwrap())
+                .unwrap()
+                .unwrap()
+                .block,
+            None
+        );
+        node.timeout(node.timeout_event().unwrap()).unwrap();
+        assert_eq!(node.local().round(), 1);
+        assert_eq!(node.producer().pending_count(), 1);
+        assert_eq!(archive.checkpoint().unwrap().height, 0);
+        assert_eq!(
+            node.timeout(node.timeout_event().unwrap())
+                .unwrap()
+                .unwrap()
+                .block,
+            None
+        );
+    }
 }

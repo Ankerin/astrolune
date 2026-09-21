@@ -5,8 +5,8 @@
 
 use consensus::{
     AuthenticatedCommittee, BftFinalityEngine, Committee, CommitteeMember, ConsensusError,
-    FinalityEngine, LocalBft, LocalBftError, PotbWeight, PrevoteCertificate, Vote, VotePhase,
-    VotingStep,
+    FinalityEngine, LocalBft, LocalBftError, PotbWeight, PrevoteCertificate, Proposal, Vote,
+    VotePhase, VotingStep,
 };
 use keystore::{DurableSigner, KeystoreError, SigningContext, SigningPosition, SigningSafety};
 use std::{
@@ -400,4 +400,197 @@ fn prevote_proofs_reject_duplicates_mixed_contexts_phase_changes_and_tampering()
     let mut trailing = bytes;
     trailing.push(0);
     assert!(PrevoteCertificate::decode(&context, &trailing).is_err());
+}
+
+#[test]
+fn signed_proposals_bind_designation_and_survive_restart_without_double_proposals() {
+    let fixture = Fixture::new();
+    let header = header(3);
+    let proposer = context().round_robin_proposer(0);
+    assert_eq!(proposer, identity(3));
+    let mut local = fixture.create(3);
+    assert!(local.propose(identity(2), &header, None, |_| true).is_err());
+    assert!(local.propose(proposer, &header, None, |_| false).is_err());
+    let proposal = local.propose(proposer, &header, None, |_| true).unwrap();
+    context()
+        .verify_proposal(&proposal, &header, proposer, namespace().genesis)
+        .unwrap();
+    drop(local);
+    let mut local = fixture.reopen(3);
+    assert_eq!(
+        local.propose(proposer, &header, None, |_| true).unwrap(),
+        proposal
+    );
+    let mut other = header;
+    other.state_root = Hash256([4; 32]);
+    assert!(matches!(
+        local.propose(proposer, &other, None, |_| true),
+        Err(LocalBftError::Signing(KeystoreError::ConflictingSign))
+    ));
+    let mut voter = fixture.create(1);
+    for index in 0..proposal.encode().len() {
+        let mut bytes = proposal.encode();
+        bytes[index] ^= 1;
+        if let Ok(altered) = Proposal::decode(&bytes) {
+            let result = voter.prevote_proposal(proposer, &altered, &header, None, |_| {
+                panic!("unauthenticated proposal reached execution")
+            });
+            assert!(result.is_err());
+            assert_eq!(voter.step(), VotingStep::AwaitingProposal);
+        }
+    }
+    assert!(
+        voter
+            .prevote_proposal(identity(2), &proposal, &header, None, |_| true)
+            .is_err()
+    );
+    assert!(
+        context()
+            .verify_proposal(&proposal, &header, proposer, Hash256([9; 32]))
+            .is_err()
+    );
+    let vote = voter
+        .prevote_proposal(proposer, &proposal, &header, None, |_| true)
+        .unwrap();
+    assert_eq!(vote.block, Some(header.compute_hash()));
+    let own_vote = local
+        .prevote_proposal(proposer, &proposal, &header, None, |_| true)
+        .unwrap();
+    context().verify_vote(&own_vote).unwrap();
+    assert!(local.propose(proposer, &header, None, |_| true).is_err());
+}
+
+#[test]
+fn reproposals_require_the_exact_signed_valid_round_and_preserve_locks() {
+    let fixture = Fixture::new();
+    let mut local = fixture.create(1);
+    let first = header(3);
+    lock(&mut local, &first);
+    let retained = local.locked();
+    local.timeout_precommit(0).unwrap();
+    local.timeout_proposal(1).unwrap();
+    local.timeout_prevote(1).unwrap();
+    local.timeout_precommit(1).unwrap();
+    let second = header(4);
+    assert!(local.propose(identity(1), &second, None, |_| true).is_err());
+    assert!(
+        local
+            .propose(identity(1), &second, Some(&proof(&second, 0)), |_| true)
+            .is_err()
+    );
+    assert!(
+        local
+            .propose(identity(1), &second, Some(&proof(&second, 2)), |_| true)
+            .is_err()
+    );
+    assert!(
+        local
+            .propose(identity(1), &second, Some(&proof(&first, 1)), |_| true)
+            .is_err()
+    );
+    let valid = proof(&second, 1);
+    let proposal = local
+        .propose(identity(1), &second, Some(&valid), |_| true)
+        .unwrap();
+    assert_eq!(local.locked(), retained);
+    drop(local);
+    let mut local = fixture.reopen(1);
+    assert_eq!(local.locked(), retained);
+    assert_eq!(local.round(), 2);
+    assert_eq!(
+        local
+            .propose(identity(1), &second, Some(&valid), |_| true)
+            .unwrap(),
+        proposal
+    );
+    assert!(
+        local
+            .prevote_proposal(identity(1), &proposal, &second, None, |_| true)
+            .is_err()
+    );
+    assert!(
+        local
+            .prevote_proposal(
+                identity(1),
+                &proposal,
+                &second,
+                Some(&proof(&second, 0)),
+                |_| true
+            )
+            .is_err()
+    );
+    let vote = local
+        .prevote_proposal(identity(1), &proposal, &second, Some(&valid), |_| true)
+        .unwrap();
+    assert_eq!(vote.block, Some(second.compute_hash()));
+    assert_eq!(local.locked(), retained);
+}
+
+#[test]
+fn round_robin_uses_committed_seat_order_and_full_width_coordinates() {
+    let committee = context_at(7, u64::MAX, 1);
+    for round in [0, 1, 2, 3, 4, u32::MAX] {
+        let expected = ((u64::MAX % 4 + u64::from(round) % 4) % 4) + 1;
+        assert_eq!(
+            committee.round_robin_proposer(round),
+            identity(u8::try_from(expected).unwrap())
+        );
+    }
+    let reordered = Committee {
+        height: 42,
+        members: (1..=4)
+            .rev()
+            .map(|seed| CommitteeMember {
+                id: identity(seed),
+                power: PotbWeight(1),
+            })
+            .collect(),
+    };
+    let reordered =
+        AuthenticatedCommittee::new(7, &reordered, &[public(4), public(2), public(3), public(1)])
+            .unwrap();
+    assert_ne!(reordered.root(), context().root());
+    assert_eq!(reordered.round_robin_proposer(0), identity(2));
+    let collected = BftFinalityEngine::for_round(committee, u32::MAX);
+    assert_eq!(collected.round(), u32::MAX);
+    assert!(collected.certificate().is_none());
+}
+
+#[test]
+fn proposal_codec_is_canonical_and_matches_independent_python_digest() {
+    let proposal = Proposal {
+        chain_id: 7,
+        genesis: Hash256([8; 32]),
+        height: 42,
+        round: 5,
+        committee_root: Hash256([9; 32]),
+        block: Hash256([10; 32]),
+        proposer: ValidatorId([11; 32]),
+        valid_round: Some(3),
+        signature: [12; 64],
+    };
+    assert_eq!(
+        proposal.signing_hash().to_string(),
+        "6336d23270c01333031f143c2a7a97f3cdae777e3665ddff50f984c90fc8f924"
+    );
+    let bytes = proposal.encode();
+    assert_eq!(Proposal::decode(&bytes).unwrap(), proposal);
+    for length in 0..bytes.len() {
+        assert!(Proposal::decode(&bytes[..length]).is_err());
+    }
+    assert!(Proposal::decode(&[bytes.as_slice(), &[0]].concat()).is_err());
+    for flag in 2..=255 {
+        let mut altered = bytes;
+        altered[152] = flag;
+        assert!(Proposal::decode(&altered).is_err());
+    }
+    for (flag, round) in [(0, 3u32), (1, 5), (1, u32::MAX)] {
+        let mut altered = bytes;
+        altered[152] = flag;
+        altered[153..157].copy_from_slice(&round.to_le_bytes());
+        assert!(Proposal::decode(&altered).is_err());
+    }
+    let mut nil = proposal;
+    nil.valid_round = None;
+    assert_eq!(Proposal::decode(&nil.encode()).unwrap(), nil);
 }

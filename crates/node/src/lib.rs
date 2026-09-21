@@ -16,6 +16,7 @@ pub mod full_service;
 pub mod pipeline;
 pub mod producer;
 pub mod service;
+pub mod validator;
 
 pub use capacity::{
     AdaptiveCapacityController, CapacityController, CapacityObservation, DEFAULT_CAPACITY,
@@ -28,6 +29,7 @@ pub use producer::{
     compute_transactions_root, hash_transaction,
 };
 pub use service::{BasicNodeService, NodeService, NodeState};
+pub use validator::{RoundRobinValidator, SignedBlockProposal, TimeoutEvent, ValidatorError};
 
 #[cfg(test)]
 mod tests {

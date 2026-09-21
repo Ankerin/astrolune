@@ -3,7 +3,9 @@
 
 //! Fixed-height committee authentication against independently trusted membership.
 
-use crate::{Committee, ConsensusError, FinalityCertificate, Vote, VotePhase, quorum_power};
+use crate::{
+    Committee, ConsensusError, FinalityCertificate, Proposal, Vote, VotePhase, quorum_power,
+};
 use crypto::{Blake2sProvider, CryptoProvider};
 use std::collections::{BTreeMap, BTreeSet};
 use types::{BlockHeader, Hash256, ValidatorId};
@@ -57,6 +59,7 @@ pub struct AuthenticatedCommittee {
     root: Hash256,
     total: u128,
     powers: BTreeMap<ValidatorId, u128>,
+    seats: Vec<ValidatorId>,
     crypto: Blake2sProvider,
 }
 
@@ -98,6 +101,7 @@ impl AuthenticatedCommittee {
             root,
             total,
             powers,
+            seats: committee.members.iter().map(|member| member.id).collect(),
             crypto,
         })
     }
@@ -124,6 +128,55 @@ impl AuthenticatedCommittee {
     #[must_use]
     pub const fn quorum(&self) -> u128 {
         quorum_power(self.total)
+    }
+
+    /// Reference round-robin designation over committed seat order, ignoring weights.
+    /// This explicit local policy is not the planned weighted VRF producer selection.
+    #[must_use]
+    pub fn round_robin_proposer(&self, round: u32) -> ValidatorId {
+        let count = self.seats.len() as u64;
+        let index = (self.height % count + u64::from(round) % count) % count;
+        // Construction bounds count to 4096, so index fits even a 32-bit usize.
+        #[allow(clippy::cast_possible_truncation)]
+        let index = index as usize;
+        self.seats[index]
+    }
+
+    /// Authenticates a proposal against trusted designation, genesis, and exact header.
+    /// Designation is obtained from a shared trusted policy, never from the message.
+    pub fn verify_proposal(
+        &self,
+        proposal: &Proposal,
+        header: &BlockHeader,
+        expected_proposer: ValidatorId,
+        genesis: Hash256,
+    ) -> Result<(), ConsensusError> {
+        if genesis == Hash256::ZERO
+            || proposal.genesis != genesis
+            || proposal.chain_id != self.chain_id
+            || proposal.height != self.height
+            || proposal.committee_root != self.root
+            || header.height != self.height
+            || header.committee_root != self.root
+            || proposal.block != header.compute_hash()
+            || proposal.proposer != expected_proposer
+            || proposal
+                .valid_round
+                .is_some_and(|round| round >= proposal.round)
+        {
+            return Err(ConsensusError::InvalidTransition);
+        }
+        if !self.powers.contains_key(&expected_proposer) {
+            return Err(ConsensusError::UnknownVoter);
+        }
+        if !self.crypto.verify_signature(
+            proposal.proposer,
+            &proposal.signing_hash().0,
+            &proposal.signature,
+        ) {
+            return Err(ConsensusError::InvalidProof);
+        }
+        Ok(())
     }
 
     /// Verifies all signed context fields and returns this voter's trusted power.

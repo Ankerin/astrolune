@@ -31,6 +31,9 @@ pub const FINALITY: &[u8] = b"astrolune.finality.v1";
 /// Consensus vote signing digest domain.
 pub const CONSENSUS_VOTE: &[u8] = b"astrolune.vote.v1";
 
+/// Consensus proposal signing digest domain.
+pub const CONSENSUS_PROPOSAL: &[u8] = b"astrolune.proposal.v1";
+
 /// VRF evaluation domain for committee selection.
 pub const VRF_COMMITTEE: &[u8] = b"astrolune.vrf.committee.v1";
 

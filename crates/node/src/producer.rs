@@ -597,6 +597,12 @@ impl BlockProducer {
         }
     }
 
+    /// Chain identity used for admission and execution.
+    #[must_use]
+    pub const fn chain_id(&self) -> u32 {
+        self.config.chain_id
+    }
+
     /// Computes a simple deterministic hash for the mempool selection tie-breaking.
     #[allow(dead_code)]
     fn select_priority(entry: &PoolEntry) -> (std::cmp::Reverse<u64>, u64, Hash256) {

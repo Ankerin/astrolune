@@ -8,6 +8,8 @@
 
 Creation is explicit with `DurableSigner::create(path, context, seed)` and refuses to overwrite any existing file. Recovery uses `open` with the same seed, chain ID, and nonzero trusted genesis commitment. It never initializes a missing journal. Invalid namespaces, malformed bytes, and interrupted files are rejected without rewriting or truncating them. The journal contains the public key, not the private seed; it binds the key independently of caller-chosen labels. The consensus handle derives from the validator ID and rejects other purposes.
 
+Protected version-2 journals now also reserve [signed proposals](18-signed-proposals-and-participants.md) in phase 0 through `LocalBft::propose`, preserving lock metadata and checking exact retries after restart.
+
 The original `MockKeystore` and `crypto::Ed25519Keystore` remain in-memory helpers. They do not acquire durable behavior through this change.
 
 ## Decision ordering

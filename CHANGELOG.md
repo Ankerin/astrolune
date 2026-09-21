@@ -33,6 +33,9 @@ All notable changes to AstroLune will be documented in this file. The format fol
 
 ### Added
 
+- Canonical genesis-bound signed proposal envelopes, protected proposal reservations, designated-author verification, valid-round evidence binding, and restart-safe proposal retries.
+- Explicit reference round-robin validator participant connecting proposal execution, authenticated voting, bounded collection, timeout events, atomic commit, and recovery; four-participant payment and round-change conformance tests.
+
 - Fixed-height local prevote/precommit guard, authenticated valid-round proofs, lock-preserving timeout transitions, restart recovery, and bounded canonical prevote certificates.
 - Version-2 signing journals atomically reserve the vote digest, committee, and lock; reject raw signing downgrades and invalid safety transitions while retaining explicit version-1 compatibility.
 - Read-only producer proposal validation and a signed payment/local vote/finality/archive recovery pipeline with failed-write rollback tests.

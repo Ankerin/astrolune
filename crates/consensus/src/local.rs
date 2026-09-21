@@ -4,8 +4,8 @@
 //! Fixed-height local voting rules with atomically durable vote/lock decisions.
 
 use crate::{
-    AuthenticatedCommittee, ConsensusError, FinalityCertificate, PrevoteCertificate, Vote,
-    VotePhase,
+    AuthenticatedCommittee, ConsensusError, FinalityCertificate, PrevoteCertificate, Proposal,
+    Vote, VotePhase,
 };
 use keystore::{
     ChainSigner, DurableSigner, KeyHandle, KeystoreError, Signer, SigningLock, SigningPosition,
@@ -57,10 +57,11 @@ impl From<KeystoreError> for LocalBftError {
 /// Local prevote/precommit guard for one independently trusted committee and height.
 ///
 /// Owns a protected signer so lock state and each outgoing vote are synchronized
-/// together. Proposal callbacks must authenticate the designated proposer and
-/// validate availability, parent linkage, capacity, and deterministic execution.
-/// This component does not implement producer selection, networking, timer policy,
-/// or committee handoff. A valid quorum never substitutes for proposal validation.
+/// together. The low-level `prevote` callback must authenticate the designated
+/// proposer; `prevote_proposal` performs that check against trusted designation.
+/// Callbacks validate availability, parent linkage, capacity, and deterministic
+/// execution. Networking, timer policy, and committee handoff are external.
+/// A valid quorum never substitutes for proposal validation.
 pub struct LocalBft {
     committee: AuthenticatedCommittee,
     signer: DurableSigner,
@@ -158,6 +159,92 @@ impl LocalBft {
     #[must_use]
     pub fn into_signer(self) -> DurableSigner {
         self.signer
+    }
+
+    /// Signs a validated proposal in journal phase zero, preserving the current lock.
+    /// The designation comes from trusted policy shared by all participants.
+    pub fn propose(
+        &mut self,
+        expected_proposer: ValidatorId,
+        header: &BlockHeader,
+        valid_round: Option<&PrevoteCertificate>,
+        validate: impl FnOnce(&BlockHeader) -> bool,
+    ) -> Result<Proposal, LocalBftError> {
+        if self.step != VotingStep::AwaitingProposal
+            || self.voter != expected_proposer
+            || !self.valid_header(header, validate)
+        {
+            return Err(ConsensusError::InvalidTransition.into());
+        }
+        let mut proposal = Proposal {
+            chain_id: self.committee.chain_id(),
+            genesis: self.signer.signing_context().genesis,
+            height: self.committee.height(),
+            round: self.round,
+            committee_root: self.committee.root(),
+            block: header.compute_hash(),
+            proposer: self.voter,
+            valid_round: valid_round.map(PrevoteCertificate::round),
+            signature: [0; 64],
+        };
+        proposal.verify_valid_round(&self.committee, valid_round)?;
+        // A locked proposer must not issue a fresh conflicting value without evidence.
+        if self.locked.is_some_and(|locked| {
+            locked.block != proposal.block
+                && valid_round.is_none_or(|proof| proof.round() <= locked.round)
+        }) {
+            return Err(ConsensusError::InvalidTransition.into());
+        }
+        proposal.signature = self.signer.sign_protected(
+            &self.handle,
+            SigningPosition {
+                height: proposal.height,
+                round: self.round,
+                phase: keystore::PROPOSAL_PHASE,
+            },
+            proposal.signing_hash(),
+            SigningSafety {
+                committee_root: proposal.committee_root,
+                locked: self.locked,
+            },
+        )?;
+        Ok(proposal)
+    }
+
+    /// Authenticates an exact current-round proposal and its proof before prevoting.
+    /// The callback only needs to check block availability and deterministic execution.
+    pub fn prevote_proposal(
+        &mut self,
+        expected_proposer: ValidatorId,
+        proposal: &Proposal,
+        header: &BlockHeader,
+        valid_round: Option<&PrevoteCertificate>,
+        validate: impl FnOnce(&BlockHeader) -> bool,
+    ) -> Result<Vote, LocalBftError> {
+        self.verify_proposal(expected_proposer, proposal, header, valid_round)?;
+        self.prevote(Some(header), valid_round, validate)
+    }
+
+    /// Verifies current-round designation, context, signature, and attached evidence.
+    /// This read-only check permits restoring an available body after a signed precommit.
+    pub fn verify_proposal(
+        &self,
+        expected_proposer: ValidatorId,
+        proposal: &Proposal,
+        header: &BlockHeader,
+        valid_round: Option<&PrevoteCertificate>,
+    ) -> Result<(), LocalBftError> {
+        if proposal.round != self.round {
+            return Err(ConsensusError::InvalidTransition.into());
+        }
+        self.committee.verify_proposal(
+            proposal,
+            header,
+            expected_proposer,
+            self.signer.signing_context().genesis,
+        )?;
+        proposal.verify_valid_round(&self.committee, valid_round)?;
+        Ok(())
     }
 
     fn valid_header(

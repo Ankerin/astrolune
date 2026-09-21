@@ -5,7 +5,7 @@
 
 use consensus::{
     AuthenticatedCommittee, Committee, CommitteeMember, FinalityCertificate, PotbWeight,
-    PrevoteCertificate, Vote,
+    PrevoteCertificate, Proposal, Vote,
 };
 use libfuzzer_sys::fuzz_target;
 use std::sync::OnceLock;
@@ -39,6 +39,9 @@ fn context() -> &'static AuthenticatedCommittee {
 }
 
 fuzz_target!(|data: &[u8]| {
+    if let Ok(proposal) = Proposal::decode(data) {
+        assert_eq!(proposal.encode().as_slice(), data);
+    }
     if let Ok(vote) = Vote::decode(data) {
         assert_eq!(vote.encode().as_slice(), data);
     }

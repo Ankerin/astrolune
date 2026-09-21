@@ -47,9 +47,16 @@ impl BftFinalityEngine {
     /// Starts round zero using a validated immutable verification context.
     #[must_use]
     pub fn new(context: AuthenticatedCommittee) -> Self {
+        Self::for_round(context, 0)
+    }
+
+    /// Starts empty collection at a round restored by a separate durable voter.
+    /// No vote history, lock, or authority to advance local voting is inferred.
+    #[must_use]
+    pub fn for_round(context: AuthenticatedCommittee, round: u32) -> Self {
         Self {
             context,
-            round: 0,
+            round,
             votes: BTreeMap::new(),
             power: BTreeMap::new(),
             certificate: None,
