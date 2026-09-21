@@ -21,6 +21,24 @@ pub struct SigningContext {
     pub genesis: Hash256,
 }
 
+/// Block retained by the local BFT lock across later rounds.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct SigningLock {
+    /// Round whose prevote quorum justified this lock.
+    pub round: u32,
+    /// Locked block header hash.
+    pub block: Hash256,
+}
+
+/// Safety metadata atomically reserved with a protected vote digest.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct SigningSafety {
+    /// Immutable committee commitment for this signing height.
+    pub committee_root: Hash256,
+    /// Latest lock, retained even when signing nil votes.
+    pub locked: Option<SigningLock>,
+}
+
 /// Allowed key purpose.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum KeyPurpose {

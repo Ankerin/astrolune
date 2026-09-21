@@ -3,7 +3,9 @@
 
 //! Append-only, exclusively locked reference signing journal.
 
-use crate::{KeystoreError, PRECOMMIT_PHASE, SigningContext, SigningPosition};
+use crate::{
+    KeystoreError, PRECOMMIT_PHASE, SigningContext, SigningLock, SigningPosition, SigningSafety,
+};
 use std::fs::{self, File, OpenOptions, TryLockError};
 use std::io::{Read, Seek, SeekFrom, Write};
 use std::path::{Path, PathBuf};
@@ -11,6 +13,7 @@ use types::{Hash256, hash::domain_hash};
 
 const HEADER_BYTES: usize = 108;
 const RECORD_BYTES: usize = 85;
+const PROTECTED_RECORD_BYTES: usize = 154;
 const HEADER_DOMAIN: &[u8] = b"astrolune.signing.journal.v1";
 const RECORD_DOMAIN: &[u8] = b"astrolune.signing.decision.v1";
 
@@ -18,6 +21,9 @@ const RECORD_DOMAIN: &[u8] = b"astrolune.signing.decision.v1";
 pub const MAX_JOURNAL_RECORDS: u64 = 100_000;
 /// Maximum reference journal size, including its header and chained checksums.
 pub const MAX_JOURNAL_BYTES: u64 = HEADER_BYTES as u64 + RECORD_BYTES as u64 * MAX_JOURNAL_RECORDS;
+/// Maximum version-2 journal size, including atomically reserved BFT locks.
+pub const MAX_PROTECTED_JOURNAL_BYTES: u64 =
+    HEADER_BYTES as u64 + PROTECTED_RECORD_BYTES as u64 * MAX_JOURNAL_RECORDS;
 
 pub(crate) struct Journal {
     file: File,
@@ -25,12 +31,23 @@ pub(crate) struct Journal {
     tip: Hash256,
     last: Option<(SigningPosition, Hash256)>,
     poisoned: bool,
+    protected: bool,
+    safety: Option<SigningSafety>,
 }
 
+#[cfg(test)]
 fn header(context: SigningContext, public_key: [u8; 32]) -> [u8; HEADER_BYTES] {
+    header_version(context, public_key, false)
+}
+
+fn header_version(
+    context: SigningContext,
+    public_key: [u8; 32],
+    protected: bool,
+) -> [u8; HEADER_BYTES] {
     let mut bytes = [0; HEADER_BYTES];
     bytes[..4].copy_from_slice(b"ALSJ");
-    bytes[4..8].copy_from_slice(&1u32.to_le_bytes());
+    bytes[4..8].copy_from_slice(&(if protected { 2u32 } else { 1u32 }).to_le_bytes());
     bytes[8..12].copy_from_slice(&context.chain_id.to_le_bytes());
     bytes[12..44].copy_from_slice(&context.genesis.0);
     bytes[44..76].copy_from_slice(&public_key);
@@ -57,19 +74,54 @@ fn record(
 }
 
 fn record_hash(tip: Hash256, body: &[u8]) -> Hash256 {
-    let mut input = [0; 85];
-    input[..32].copy_from_slice(&tip.0);
-    input[32..].copy_from_slice(body);
+    let mut input = Vec::with_capacity(32 + body.len());
+    input.extend_from_slice(&tip.0);
+    input.extend_from_slice(body);
     domain_hash(RECORD_DOMAIN, &input)
 }
 
+#[cfg(test)]
 fn decode_record(
     bytes: &[u8; RECORD_BYTES],
     sequence: u64,
     tip: Hash256,
 ) -> Result<(SigningPosition, Hash256, Hash256), KeystoreError> {
-    let mut decoder = codec::Decoder::new(bytes);
-    let fields = (|| -> Result<_, codec::DecodeError> {
+    let (position, message, checksum, _) = decode_entry(bytes, sequence, tip, false)?;
+    Ok((position, message, checksum))
+}
+
+fn protected_record(
+    sequence: u64,
+    position: SigningPosition,
+    message: Hash256,
+    tip: Hash256,
+    safety: SigningSafety,
+) -> Vec<u8> {
+    let base = record(sequence, position, message, tip);
+    let mut bytes = Vec::with_capacity(PROTECTED_RECORD_BYTES);
+    bytes.extend_from_slice(&base[..53]);
+    bytes.extend_from_slice(&safety.committee_root.0);
+    bytes.push(u8::from(safety.locked.is_some()));
+    let locked = safety.locked.unwrap_or(SigningLock {
+        round: 0,
+        block: Hash256::ZERO,
+    });
+    bytes.extend_from_slice(&locked.round.to_le_bytes());
+    bytes.extend_from_slice(&locked.block.0);
+    let checksum = record_hash(tip, &bytes);
+    bytes.extend_from_slice(&checksum.0);
+    bytes
+}
+
+type DecodedEntry = (SigningPosition, Hash256, Hash256, Option<SigningSafety>);
+fn decode_entry(
+    bytes: &[u8],
+    sequence: u64,
+    tip: Hash256,
+    protected: bool,
+) -> Result<DecodedEntry, KeystoreError> {
+    let parsed = (|| -> Result<_, codec::DecodeError> {
+        let mut decoder = codec::Decoder::new(bytes);
         let sequence = decoder.read_u64()?;
         let position = SigningPosition {
             height: decoder.read_u64()?,
@@ -77,18 +129,64 @@ fn decode_record(
             phase: decoder.read_u8()?,
         };
         let message = Hash256(decoder.read_fixed()?);
+        let safety = if protected {
+            let committee_root = Hash256(decoder.read_fixed()?);
+            let flag = decoder.read_u8()?;
+            let round = decoder.read_u32()?;
+            let block = Hash256(decoder.read_fixed()?);
+            let locked = match flag {
+                0 if round == 0 && block == Hash256::ZERO => None,
+                1 => Some(SigningLock { round, block }),
+                _ => return Err(codec::DecodeError::NonCanonical),
+            };
+            Some(SigningSafety {
+                committee_root,
+                locked,
+            })
+        } else {
+            None
+        };
         let checksum = Hash256(decoder.read_fixed()?);
         decoder.finish()?;
-        Ok((sequence, position, message, checksum))
+        Ok((sequence, position, message, checksum, safety))
     })()
     .map_err(|_| KeystoreError::InvalidJournal)?;
-    if fields.0 != sequence
-        || fields.1.phase > PRECOMMIT_PHASE
-        || fields.3 != record_hash(tip, &bytes[..53])
+    if parsed.0 != sequence
+        || parsed.1.phase > PRECOMMIT_PHASE
+        || parsed.3 != record_hash(tip, &bytes[..bytes.len() - 32])
     {
         return Err(KeystoreError::InvalidJournal);
     }
-    Ok((fields.1, fields.2, fields.3))
+    Ok((parsed.1, parsed.2, parsed.3, parsed.4))
+}
+
+fn validate_safety(
+    position: SigningPosition,
+    safety: SigningSafety,
+    previous: Option<(SigningPosition, SigningSafety)>,
+) -> Result<(), KeystoreError> {
+    if safety.committee_root == Hash256::ZERO
+        || safety
+            .locked
+            .is_some_and(|lock| lock.round > position.round)
+    {
+        return Err(KeystoreError::InvalidSafety);
+    }
+    if let Some((old_position, old)) = previous
+        && old_position.height == position.height
+    {
+        if old.committee_root != safety.committee_root {
+            return Err(KeystoreError::InvalidSafety);
+        }
+        if let Some(locked) = old.locked
+            && !safety
+                .locked
+                .is_some_and(|next| next.round > locked.round || next == locked)
+        {
+            return Err(KeystoreError::InvalidSafety);
+        }
+    }
+    Ok(())
 }
 
 fn canonical_path(path: &Path) -> Result<PathBuf, KeystoreError> {
@@ -134,6 +232,23 @@ impl Journal {
         context: SigningContext,
         public_key: [u8; 32],
     ) -> Result<Self, KeystoreError> {
+        Self::create_mode(path, context, public_key, false)
+    }
+
+    pub(crate) fn create_protected(
+        path: &Path,
+        context: SigningContext,
+        public_key: [u8; 32],
+    ) -> Result<Self, KeystoreError> {
+        Self::create_mode(path, context, public_key, true)
+    }
+
+    fn create_mode(
+        path: &Path,
+        context: SigningContext,
+        public_key: [u8; 32],
+        protected: bool,
+    ) -> Result<Self, KeystoreError> {
         let path = canonical_path(path)?;
         let mut file = OpenOptions::new()
             .read(true)
@@ -148,7 +263,7 @@ impl Journal {
                 }
             })?;
         lock(&file)?;
-        let bytes = header(context, public_key);
+        let bytes = header_version(context, public_key, protected);
         // Failure leaves the file in place: never silently reset an interrupted create.
         file.write_all(&bytes)
             .and_then(|()| file.sync_all())
@@ -160,6 +275,8 @@ impl Journal {
             tip: domain_hash(HEADER_DOMAIN, &bytes[..76]),
             last: None,
             poisoned: false,
+            protected,
+            safety: None,
         })
     }
 
@@ -179,8 +296,7 @@ impl Journal {
         let metadata = file.metadata().map_err(|_| KeystoreError::JournalFailure)?;
         let length = metadata.len();
         if !metadata.is_file()
-            || !(HEADER_BYTES as u64..=MAX_JOURNAL_BYTES).contains(&length)
-            || !(length - HEADER_BYTES as u64).is_multiple_of(RECORD_BYTES as u64)
+            || !(HEADER_BYTES as u64..=MAX_PROTECTED_JOURNAL_BYTES).contains(&length)
         {
             return Err(KeystoreError::InvalidJournal);
         }
@@ -190,34 +306,64 @@ impl Journal {
         file.read_exact(&mut bytes)
             .map_err(|_| KeystoreError::InvalidJournal)?;
         let checksum = domain_hash(HEADER_DOMAIN, &bytes[..76]);
-        if &bytes[..4] != b"ALSJ" || bytes[4..8] != 1u32.to_le_bytes() || bytes[76..] != checksum.0
-        {
+        let protected = match bytes[4..8] {
+            [1, 0, 0, 0] => false,
+            [2, 0, 0, 0] => true,
+            _ => return Err(KeystoreError::InvalidJournal),
+        };
+        if &bytes[..4] != b"ALSJ" || bytes[76..] != checksum.0 {
             return Err(KeystoreError::InvalidJournal);
         }
-        if bytes != header(context, public_key) {
+        if bytes != header_version(context, public_key, protected) {
             return Err(KeystoreError::ContextMismatch);
         }
-        let count = (length - HEADER_BYTES as u64) / RECORD_BYTES as u64;
+        let record_size = if protected {
+            PROTECTED_RECORD_BYTES
+        } else {
+            RECORD_BYTES
+        };
+        if !(length - HEADER_BYTES as u64).is_multiple_of(record_size as u64) {
+            return Err(KeystoreError::InvalidJournal);
+        }
+        let count = (length - HEADER_BYTES as u64) / record_size as u64;
+        if count > MAX_JOURNAL_RECORDS {
+            return Err(KeystoreError::InvalidJournal);
+        }
         let mut journal = Self {
             file,
             count,
             tip: checksum,
             last: None,
             poisoned: false,
+            protected,
+            safety: None,
         };
         for sequence in 1..=count {
-            let mut bytes = [0; RECORD_BYTES];
+            let mut bytes = [0; PROTECTED_RECORD_BYTES];
             journal
                 .file
-                .read_exact(&mut bytes)
+                .read_exact(&mut bytes[..record_size])
                 .map_err(|_| KeystoreError::InvalidJournal)?;
-            let (position, message, tip) = decode_record(&bytes, sequence, journal.tip)?;
+            let (position, message, tip, safety) =
+                decode_entry(&bytes[..record_size], sequence, journal.tip, protected)?;
+            if let Some(next) = safety {
+                validate_safety(
+                    position,
+                    next,
+                    journal
+                        .last
+                        .zip(journal.safety)
+                        .map(|((position, _), safety)| (position, safety)),
+                )
+                .map_err(|_| KeystoreError::InvalidJournal)?;
+            }
             if journal
                 .last
                 .is_some_and(|(previous, _)| position <= previous)
             {
                 return Err(KeystoreError::InvalidJournal);
             }
+            journal.safety = safety;
             journal.last = Some((position, message));
             journal.tip = tip;
         }
@@ -240,7 +386,12 @@ impl Journal {
     }
 
     fn check_length(&mut self) -> Result<(), KeystoreError> {
-        let expected = HEADER_BYTES as u64 + self.count * RECORD_BYTES as u64;
+        let record_size = if self.protected {
+            PROTECTED_RECORD_BYTES
+        } else {
+            RECORD_BYTES
+        };
+        let expected = HEADER_BYTES as u64 + self.count * record_size as u64;
         if !self
             .file
             .metadata()
@@ -269,11 +420,43 @@ impl Journal {
         message: Hash256,
         persist: impl FnOnce(&mut File, &[u8]) -> std::io::Result<()>,
     ) -> Result<(), KeystoreError> {
+        self.reserve_entry(position, message, None, persist)
+    }
+
+    pub(crate) const fn is_protected(&self) -> bool {
+        self.protected
+    }
+    pub(crate) const fn safety(&self) -> Option<SigningSafety> {
+        self.safety
+    }
+
+    pub(crate) fn reserve_protected(
+        &mut self,
+        position: SigningPosition,
+        message: Hash256,
+        safety: SigningSafety,
+    ) -> Result<(), KeystoreError> {
+        self.reserve_entry(position, message, Some(safety), |file, bytes| {
+            file.write_all(bytes)?;
+            file.sync_all()
+        })
+    }
+
+    fn reserve_entry(
+        &mut self,
+        position: SigningPosition,
+        message: Hash256,
+        safety: Option<SigningSafety>,
+        persist: impl FnOnce(&mut File, &[u8]) -> std::io::Result<()>,
+    ) -> Result<(), KeystoreError> {
         if self.poisoned {
             return Err(KeystoreError::DurabilityUnknown);
         }
         if position.phase > PRECOMMIT_PHASE {
             return Err(KeystoreError::InvalidPosition);
+        }
+        if self.protected != safety.is_some() {
+            return Err(KeystoreError::InvalidSafety);
         }
         self.check_length()?;
         if let Some((previous, digest)) = self.last {
@@ -281,7 +464,7 @@ impl Journal {
                 return Err(KeystoreError::StalePosition);
             }
             if position == previous {
-                return if message == digest {
+                return if message == digest && safety == self.safety {
                     Ok(())
                 } else {
                     Err(KeystoreError::ConflictingSign)
@@ -291,13 +474,25 @@ impl Journal {
         if self.count == MAX_JOURNAL_RECORDS {
             return Err(KeystoreError::LimitExceeded);
         }
-        let bytes = record(self.count + 1, position, message, self.tip);
+        let bytes = if let Some(next) = safety {
+            validate_safety(
+                position,
+                next,
+                self.last
+                    .zip(self.safety)
+                    .map(|((position, _), safety)| (position, safety)),
+            )?;
+            protected_record(self.count + 1, position, message, self.tip, next)
+        } else {
+            record(self.count + 1, position, message, self.tip).to_vec()
+        };
         // Any uncertain write poisons this instance. No signature can escape until
         // reopening validates the complete prefix and synchronizes it successfully.
         self.poisoned = true;
         persist(&mut self.file, &bytes).map_err(|_| KeystoreError::DurabilityUnknown)?;
         self.last = Some((position, message));
-        self.tip = record_hash(self.tip, &bytes[..53]);
+        self.safety = safety;
+        self.tip = record_hash(self.tip, &bytes[..bytes.len() - 32]);
         self.count += 1;
         self.poisoned = false;
         Ok(())
@@ -336,6 +531,157 @@ mod tests {
             genesis: Hash256([8; 32]),
         }
     }
+
+    #[test]
+    fn protected_lock_and_digest_recover_together_after_uncertain_write() {
+        let safety = SigningSafety {
+            committee_root: Hash256([9; 32]),
+            locked: Some(SigningLock {
+                round: 3,
+                block: Hash256([7; 32]),
+            }),
+        };
+        for written in [0, 53, 122, PROTECTED_RECORD_BYTES] {
+            let fixture = Fixture::new();
+            let mut journal =
+                Journal::create_protected(&fixture.path(), context(), [9; 32]).unwrap();
+            assert_eq!(
+                journal.reserve_entry(
+                    position(42),
+                    Hash256([6; 32]),
+                    Some(safety),
+                    |file, bytes| {
+                        file.write_all(&bytes[..written])?;
+                        Err(std::io::Error::other("injected sync failure"))
+                    }
+                ),
+                Err(KeystoreError::DurabilityUnknown)
+            );
+            assert_eq!(
+                journal.reserve_protected(position(43), Hash256([6; 32]), safety),
+                Err(KeystoreError::DurabilityUnknown)
+            );
+            drop(journal);
+            let before = fs::read(fixture.path()).unwrap();
+            let result = Journal::open(&fixture.path(), context(), [9; 32]);
+            if written == 0 {
+                assert_eq!(result.unwrap().safety(), None);
+            } else if written == PROTECTED_RECORD_BYTES {
+                let mut recovered = result.unwrap();
+                assert_eq!(recovered.safety(), Some(safety));
+                recovered
+                    .reserve_protected(position(42), Hash256([6; 32]), safety)
+                    .unwrap();
+            } else {
+                assert!(matches!(result, Err(KeystoreError::InvalidJournal)));
+            }
+            assert_eq!(fs::read(fixture.path()).unwrap(), before);
+        }
+    }
+
+    #[test]
+    fn protected_checksum_binds_lock_metadata_and_matches_python_vector() {
+        let initial = header_version(context(), [9; 32], true);
+        let tip = domain_hash(HEADER_DOMAIN, &initial[..76]);
+        let safety = SigningSafety {
+            committee_root: Hash256([9; 32]),
+            locked: Some(SigningLock {
+                round: 3,
+                block: Hash256([7; 32]),
+            }),
+        };
+        let bytes = protected_record(
+            1,
+            SigningPosition {
+                phase: 2,
+                ..position(42)
+            },
+            Hash256([6; 32]),
+            tip,
+            safety,
+        );
+        assert_eq!(bytes.len(), PROTECTED_RECORD_BYTES);
+        let (_, _, hash, restored) = decode_entry(&bytes, 1, tip, true).unwrap();
+        assert_eq!(
+            tip.to_string(),
+            "ee1aa8e16d78a18a83505f8c1996452976d496f29b0f4fafc248ba029fdfe0fd"
+        );
+        assert_eq!(
+            hash.to_string(),
+            "44da84a2acf2ea8dbae18a2b11e157b550f6ebab9b294acd2722318bf667b02a"
+        );
+        assert_eq!(restored, Some(safety));
+        assert_eq!(hash, record_hash(tip, &bytes[..122]));
+        for index in 0..bytes.len() {
+            let mut altered = bytes.clone();
+            altered[index] ^= 1;
+            assert!(decode_entry(&altered, 1, tip, true).is_err());
+        }
+    }
+    #[test]
+    fn protected_recovery_rejects_invalid_safety_even_with_valid_checksums() {
+        let fixture = Fixture::new();
+        let initial = header_version(context(), [9; 32], true);
+        let tip = domain_hash(HEADER_DOMAIN, &initial[..76]);
+        let safety = SigningSafety {
+            committee_root: Hash256([9; 32]),
+            locked: Some(SigningLock {
+                round: 3,
+                block: Hash256([7; 32]),
+            }),
+        };
+        let first = protected_record(1, position(42), Hash256([6; 32]), tip, safety);
+        let tip = record_hash(tip, &first[..122]);
+        let next_position = SigningPosition {
+            round: 6,
+            ..position(42)
+        };
+        for next in [
+            SigningSafety {
+                committee_root: Hash256::ZERO,
+                ..safety
+            },
+            SigningSafety {
+                committee_root: Hash256([8; 32]),
+                ..safety
+            },
+            SigningSafety {
+                locked: None,
+                ..safety
+            },
+            SigningSafety {
+                locked: Some(SigningLock {
+                    round: 2,
+                    block: Hash256([7; 32]),
+                }),
+                ..safety
+            },
+            SigningSafety {
+                locked: Some(SigningLock {
+                    round: 3,
+                    block: Hash256([8; 32]),
+                }),
+                ..safety
+            },
+            SigningSafety {
+                locked: Some(SigningLock {
+                    round: 7,
+                    block: Hash256([7; 32]),
+                }),
+                ..safety
+            },
+        ] {
+            let second = protected_record(2, next_position, Hash256([6; 32]), tip, next);
+            let bytes = [initial.as_slice(), first.as_slice(), second.as_slice()].concat();
+            fs::write(fixture.path(), &bytes).unwrap();
+            assert!(matches!(
+                Journal::open(&fixture.path(), context(), [9; 32]),
+                Err(KeystoreError::InvalidJournal)
+            ));
+            assert_eq!(fs::read(fixture.path()).unwrap(), bytes);
+        }
+    }
+
     fn position(height: u64) -> SigningPosition {
         SigningPosition {
             height,

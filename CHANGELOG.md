@@ -33,6 +33,10 @@ All notable changes to AstroLune will be documented in this file. The format fol
 
 ### Added
 
+- Fixed-height local prevote/precommit guard, authenticated valid-round proofs, lock-preserving timeout transitions, restart recovery, and bounded canonical prevote certificates.
+- Version-2 signing journals atomically reserve the vote digest, committee, and lock; reject raw signing downgrades and invalid safety transitions while retaining explicit version-1 compatibility.
+- Read-only producer proposal validation and a signed payment/local vote/finality/archive recovery pipeline with failed-write rollback tests.
+
 - Durable Ed25519 signing with a bounded append-only decision journal, chain/genesis/key binding, process locks, strictly increasing signing positions, and idempotent retries after restart.
 - Typed vote signing with protected phase mapping, fault-injection and process-exit recovery tests, and independent signing-journal checksum vectors.
 

@@ -31,6 +31,19 @@ pub struct BftFinalityEngine {
 }
 
 impl BftFinalityEngine {
+    /// Extracts independently verifiable prevote evidence for the active round.
+    pub fn prevote_certificate(
+        &self,
+        block: Hash256,
+    ) -> Result<crate::PrevoteCertificate, ConsensusError> {
+        let votes = self
+            .votes
+            .values()
+            .filter(|vote| vote.phase == VotePhase::Prevote && vote.block == Some(block))
+            .cloned()
+            .collect();
+        crate::PrevoteCertificate::from_votes(&self.context, votes)
+    }
     /// Starts round zero using a validated immutable verification context.
     #[must_use]
     pub fn new(context: AuthenticatedCommittee) -> Self {

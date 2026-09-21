@@ -14,11 +14,12 @@ pub mod signer;
 
 pub use durable::DurableSigner;
 pub use error::KeystoreError;
-pub use journal::{MAX_JOURNAL_BYTES, MAX_JOURNAL_RECORDS};
+pub use journal::{MAX_JOURNAL_BYTES, MAX_JOURNAL_RECORDS, MAX_PROTECTED_JOURNAL_BYTES};
 pub use key::{
     KeyHandle, KeyPurpose, PRECOMMIT_PHASE, PREVOTE_PHASE, PROPOSAL_PHASE, SigningContext,
     SigningPosition,
 };
+pub use key::{SigningLock, SigningSafety};
 pub use mock::MockKeystore;
 pub use signer::{ChainSigner, Signer};
 

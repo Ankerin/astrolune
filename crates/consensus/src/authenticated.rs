@@ -61,6 +61,11 @@ pub struct AuthenticatedCommittee {
 }
 
 impl AuthenticatedCommittee {
+    /// Returns the trusted voting power of a registered committee member.
+    #[must_use]
+    pub fn voting_power(&self, validator: ValidatorId) -> Option<u128> {
+        self.powers.get(&validator).copied()
+    }
     /// Validates membership and an exact, complete set of strong registered keys.
     pub fn new(
         chain_id: u32,

@@ -5,7 +5,7 @@
 
 use crate::{
     ChainSigner, KeyHandle, KeyPurpose, KeystoreError, Signer, SigningContext, SigningPosition,
-    journal::Journal,
+    SigningSafety, journal::Journal,
 };
 use crypto::blake2s::{blake2s, ed25519_public_key, ed25519_sign};
 use std::path::Path;
@@ -47,7 +47,7 @@ impl DurableSigner {
         context: SigningContext,
         seed: [u8; 32],
     ) -> Result<Self, KeystoreError> {
-        Self::initialize(path.as_ref(), context, Zeroizing::new(seed), true)
+        Self::initialize(path.as_ref(), context, Zeroizing::new(seed), true, false)
     }
 
     /// Opens and verifies an existing journal and resynchronizes it before signing.
@@ -59,7 +59,19 @@ impl DurableSigner {
         context: SigningContext,
         seed: [u8; 32],
     ) -> Result<Self, KeystoreError> {
-        Self::initialize(path.as_ref(), context, Zeroizing::new(seed), false)
+        Self::initialize(path.as_ref(), context, Zeroizing::new(seed), false, false)
+    }
+
+    /// Creates a version-2 journal that requires atomic BFT safety metadata.
+    ///
+    /// # Errors
+    /// Refuses existing files, invalid namespaces, and failed durable initialization.
+    pub fn create_protected(
+        path: impl AsRef<Path>,
+        context: SigningContext,
+        seed: [u8; 32],
+    ) -> Result<Self, KeystoreError> {
+        Self::initialize(path.as_ref(), context, Zeroizing::new(seed), true, true)
     }
 
     fn initialize(
@@ -67,13 +79,16 @@ impl DurableSigner {
         context: SigningContext,
         seed: Zeroizing<[u8; 32]>,
         create: bool,
+        protected: bool,
     ) -> Result<Self, KeystoreError> {
         if context.genesis == Hash256::ZERO {
             return Err(KeystoreError::ContextMismatch);
         }
         let public_key = ed25519_public_key(&seed);
         let validator = ValidatorId(blake2s(&public_key).0);
-        let journal = if create {
+        let journal = if create && protected {
+            Journal::create_protected(path, context, public_key)?
+        } else if create {
             Journal::create(path, context, public_key)?
         } else {
             Journal::open(path, context, public_key)?
@@ -108,6 +123,36 @@ impl DurableSigner {
     #[must_use]
     pub const fn last_position(&self) -> Option<SigningPosition> {
         self.journal.last_position()
+    }
+
+    /// Whether this journal requires safety metadata for every signature.
+    #[must_use]
+    pub const fn is_protected(&self) -> bool {
+        self.journal.is_protected()
+    }
+
+    /// Safety state atomically stored alongside the last reserved digest.
+    #[must_use]
+    pub const fn safety(&self) -> Option<SigningSafety> {
+        self.journal.safety()
+    }
+
+    /// Reserves a digest and its BFT lock together before signing.
+    ///
+    /// The caller must verify the quorum proof authorizing any lock advance.
+    /// # Errors
+    /// Rejects raw journals, missing/invalid safety state, stale or conflicting slots,
+    /// and failed writes. Lock rounds cannot regress or clear within a height.
+    pub fn sign_protected(
+        &mut self,
+        handle: &KeyHandle,
+        position: SigningPosition,
+        message: Hash256,
+        safety: SigningSafety,
+    ) -> Result<[u8; 64], KeystoreError> {
+        self.validator_id(handle)?;
+        self.journal.reserve_protected(position, message, safety)?;
+        Ok(ed25519_sign(&self.seed, &message.0))
     }
 }
 

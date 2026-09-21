@@ -27,6 +27,7 @@ For a concise source-tree map, read [`../ARCHITECTURE.md`](../ARCHITECTURE.md).
 | [14-versioned-transactions.md](14-versioned-transactions.md) | signed expiry, explicit lanes, resource prices, canonical format, and compatibility |
 | [15-authenticated-finality.md](15-authenticated-finality.md) | signed votes, committee commitments, weighted certificates, bounded collection, and certified commits |
 | [16-durable-signing.md](16-durable-signing.md) | persistent signing decisions, monotonic recovery, process locks, failure handling, and typed votes |
+| [17-local-bft-voting.md](17-local-bft-voting.md) | fixed-height voting, verified prevote proofs, timeout transitions, atomic vote/lock recovery, and proposal validation |
 
 Legacy-shaped filenames such as `03-vm-and-gas.md`, `05-contract-languages.md`, and `06-deferred-services.md` are retained temporarily to preserve links. Their contents describe the current Rust architecture.
 

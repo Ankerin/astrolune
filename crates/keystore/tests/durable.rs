@@ -311,6 +311,98 @@ fn journal_child() {
     std::process::exit(0);
 }
 
+#[test]
+fn protected_journal_preserves_lock_and_rejects_mode_or_safety_downgrades() {
+    use keystore::{SigningLock, SigningSafety};
+    let fixture = Fixture::new();
+    let mut signer = DurableSigner::create_protected(fixture.path(), context(), [1; 32]).unwrap();
+    let handle = signer.key_handle();
+    assert!(signer.is_protected());
+    let safety = SigningSafety {
+        committee_root: Hash256([9; 32]),
+        locked: None,
+    };
+    let digest = Hash256([6; 32]);
+    assert_eq!(
+        signer.sign_consensus(&handle, position(1, 0, 1), digest),
+        Err(KeystoreError::InvalidSafety)
+    );
+    signer
+        .sign_protected(&handle, position(1, 0, 1), digest, safety)
+        .unwrap();
+    let locked = SigningSafety {
+        locked: Some(SigningLock {
+            round: 0,
+            block: Hash256([7; 32]),
+        }),
+        ..safety
+    };
+    let signature = signer
+        .sign_protected(&handle, position(1, 0, 2), digest, locked)
+        .unwrap();
+    drop(signer);
+    let mut signer = DurableSigner::open(fixture.path(), context(), [1; 32]).unwrap();
+    assert!(signer.is_protected());
+    assert_eq!(signer.safety(), Some(locked));
+    assert_eq!(
+        signer
+            .sign_protected(&handle, position(1, 0, 2), digest, locked)
+            .unwrap(),
+        signature
+    );
+    assert_eq!(
+        signer.sign_protected(&handle, position(1, 0, 2), digest, safety),
+        Err(KeystoreError::ConflictingSign)
+    );
+    for invalid in [
+        safety,
+        SigningSafety {
+            committee_root: Hash256([10; 32]),
+            ..locked
+        },
+        SigningSafety {
+            locked: Some(SigningLock {
+                round: 0,
+                block: Hash256([8; 32]),
+            }),
+            ..safety
+        },
+        SigningSafety {
+            locked: Some(SigningLock {
+                round: 2,
+                block: Hash256([7; 32]),
+            }),
+            ..safety
+        },
+    ] {
+        assert_eq!(
+            signer.sign_protected(&handle, position(1, 1, 1), digest, invalid),
+            Err(KeystoreError::InvalidSafety)
+        );
+    }
+    assert_eq!(signer.last_position(), Some(position(1, 0, 2)));
+    signer
+        .sign_protected(&handle, position(1, 1, 1), digest, locked)
+        .unwrap();
+    signer
+        .sign_protected(&handle, position(1, 1, 2), digest, locked)
+        .unwrap();
+    // An independently trusted later height can begin without the previous height's lock.
+    signer
+        .sign_protected(&handle, position(2, 0, 1), digest, safety)
+        .unwrap();
+    drop(signer);
+    let signer = DurableSigner::open(fixture.path(), context(), [1; 32]).unwrap();
+    assert_eq!(signer.safety(), Some(safety));
+    drop(signer);
+    let legacy = fixture.0.join("legacy.bin");
+    let mut signer = DurableSigner::create(&legacy, context(), [1; 32]).unwrap();
+    assert_eq!(
+        signer.sign_protected(&handle, position(1, 0, 1), digest, safety),
+        Err(KeystoreError::InvalidSafety)
+    );
+}
+
 #[cfg(unix)]
 #[test]
 fn symbolic_journal_alias_is_rejected() {

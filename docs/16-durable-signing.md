@@ -24,7 +24,7 @@ The latest durable position and digest form a monotonic watermark. A greater pos
 
 `consensus::Vote::sign_with` verifies chain ID and signer identity, derives the position from the vote's actual height/round/phase, and signs its canonical digest. It updates the vote's signature only on success. It does not allow a caller to relabel a prevote as a different journal phase. Nil, block hash, committee commitment, and all other vote fields remain protected by the existing signing digest. The low-level `Signer::sign_consensus` requires its caller to supply the correct digest and coordinates; vote callers should use the typed helper.
 
-Changing height or round does not establish permission to vote for a different block. Local BFT locks, valid-round proofs, proposal checks, and timeouts remain separate, unfinished protocol work. This journal prevents conflicting signatures at one protected coordinate; it is not a complete BFT voting state machine.
+Changing height or round does not establish permission to vote for a different block. The separate [local BFT guard](17-local-bft-voting.md) now implements fixed-height lock and timeout transitions using version-2 protected journals. Version 1 described here protects signing coordinates without lock history and cannot be used by `LocalBft`. Create protected journals explicitly with `create_protected`; no automatic conversion is provided.
 
 ## Version-1 journal bytes
 
@@ -64,7 +64,7 @@ The checksum chain detects accidental corruption; it is not a defense against a 
 
 Genesis binding identifies the journal's namespace; the version-1 vote wire format still carries the chain ID rather than the genesis hash. The protocol must assign chain IDs consistently, and committee trust must come from finalized state. There is no automatic conversion of in-memory signing history or previous experimental signatures into durable history.
 
-The daemon does not yet provision keys or open signing journals, and still simulates finality. Encrypted key custody, authenticated genesis key registration, rollback-resistant anchors, BFT voting rules, committee handoff, daemon integration, and independent review remain open.
+The daemon does not yet provision keys or open signing journals, and still simulates finality. Encrypted key custody, authenticated genesis key registration, rollback-resistant anchors, distributed voting/timer orchestration, committee handoff, daemon integration, and independent review remain open.
 
 ## Verification
 

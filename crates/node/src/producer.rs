@@ -470,6 +470,45 @@ impl BlockProducer {
             .height
             .checked_add(1)
             .ok_or_else(|| ProducerError::Assembly("block height exhausted".into()))?;
+        let (staged, diffs) = self.prepare_verified(proposal)?;
+
+        let batch = CommitBatch {
+            block: proposal.block.clone(),
+            finality_certificate: certificate,
+            state_diffs: diffs,
+        };
+
+        let checkpoint = storage.commit(&batch)?;
+
+        // Publish locally only after the storage transaction succeeds.
+        self.state = staged;
+        let selected_keys: Vec<_> = proposal
+            .block
+            .transactions
+            .iter()
+            .map(|tx| (tx.sender, tx.nonce))
+            .collect();
+        self.mempool.remove_batch(&selected_keys);
+        self.height = next_height;
+        self.mempool.remove_expired(next_height);
+        self.parent_hash = proposal.block.header.compute_hash();
+
+        Ok(checkpoint)
+    }
+
+    /// Re-executes and validates a proposed transition without publishing state,
+    /// consuming the pool, or writing storage. Proposer authorization is external.
+    pub fn validate_proposal(&self, proposal: &BlockProposal) -> Result<(), ProducerError> {
+        self.prepare_verified(proposal).map(|_| ())
+    }
+
+    fn prepare_verified(
+        &self,
+        proposal: &BlockProposal,
+    ) -> Result<(InMemoryState, Vec<StateDiff>), ProducerError> {
+        self.height
+            .checked_add(1)
+            .ok_or_else(|| ProducerError::Assembly("block height exhausted".into()))?;
         let header = &proposal.block.header;
         if proposal.block.transactions.len() > self.config.max_block_transactions
             || proposal.block.transactions.iter().any(|tx| {
@@ -520,28 +559,7 @@ impl BlockProducer {
         }
         let diffs: Vec<StateDiff> = outputs.into_iter().map(|output| output.diff).collect();
 
-        let batch = CommitBatch {
-            block: proposal.block.clone(),
-            finality_certificate: certificate,
-            state_diffs: diffs,
-        };
-
-        let checkpoint = storage.commit(&batch)?;
-
-        // Publish locally only after the storage transaction succeeds.
-        self.state = staged;
-        let selected_keys: Vec<_> = proposal
-            .block
-            .transactions
-            .iter()
-            .map(|tx| (tx.sender, tx.nonce))
-            .collect();
-        self.mempool.remove_batch(&selected_keys);
-        self.height = next_height;
-        self.mempool.remove_expired(next_height);
-        self.parent_hash = proposal.block.header.compute_hash();
-
-        Ok(checkpoint)
+        Ok((staged, diffs))
     }
 
     fn validation_context(&self) -> ValidationContext {

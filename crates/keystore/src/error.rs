@@ -8,6 +8,8 @@ use std::fmt;
 /// Signer and key isolation failures.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum KeystoreError {
+    /// The journal mode or safety metadata cannot protect this operation.
+    InvalidSafety,
     /// Another signer owns the journal's exclusive file lock.
     Locked,
     /// Explicit creation would overwrite an existing journal.
@@ -39,6 +41,7 @@ pub enum KeystoreError {
 impl fmt::Display for KeystoreError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
+            Self::InvalidSafety => write!(f, "invalid or missing signing safety state"),
             Self::Locked => write!(f, "signing journal is locked"),
             Self::AlreadyExists => write!(f, "signing journal already exists"),
             Self::InvalidJournal => write!(f, "invalid signing journal"),
