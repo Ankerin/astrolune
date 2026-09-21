@@ -17,6 +17,13 @@ libfuzzer-sys = "0.4"
 types = { path = "../../types" }
 state = { path = "../../state" }
 genesis = { path = "../../genesis" }
+consensus = { path = "../../consensus" }
+
+[[bin]]
+name = "decode_consensus"
+path = "fuzz_targets/decode_consensus.rs"
+test = false
+doc = false
 
 [dependencies.codec]
 path = ".."

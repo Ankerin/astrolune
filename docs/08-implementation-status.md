@@ -16,7 +16,7 @@ As of 2026-09-21, this repository contains a Rust 2024 workspace with:
 - intentionally minimal `cli`, `daemon`, and `cargo-contract` entry points;
 - CI, dependency-policy automation, contribution templates, project governance documents, and engineering specifications;
 - a block production pipeline (`BlockProducer`) that coordinates mempool selection, deterministic execution, and storage commitment;
-- a full node service (`FullNodeService`) that wires together consensus, execution, and storage into a cohesive pipeline;
+- a local demonstration service (`FullNodeService`) that simulates finality while coordinating execution and storage;
 - a local demonstration daemon with a durable block production loop, restart recovery, validated command-line options, and RPC status tied to durable commits.
 
 This is predominantly an **interface baseline**. It is not a functioning blockchain network, contract runtime, wallet platform, or service deployment.
@@ -25,17 +25,17 @@ This is predominantly an **interface baseline**. It is not a functioning blockch
 
 | Area | State |
 |---|---|
-| Canonical codec | primitive, version-1 transaction, block-header, and receipt codecs implemented; strict lengths/flags, version/lane rejection, and transaction preflight validation tested; remaining protocol envelopes planned |
+| Canonical codec | primitive, version-1 transaction, block-header, and receipt codecs implemented; strict lengths/flags, version/lane rejection, and transaction preflight validation tested; version-1 consensus vote/certificate envelopes implemented/tested; remaining protocol envelopes planned |
 | Shared protocol types | interface baseline |
 | Genesis | bounded version-1 decoding, validated BLAKE2s commitment, account/validator state materialization, CLI verification, atomic daemon activation and restart identity checks implemented; validator-key registration planned |
 | Cryptography and VRF | standard BLAKE2s-256 and strict Ed25519 implemented/tested; registered validator-key verification; VRF remains unimplemented and fails closed |
-| PoTB and BFT | type/state-machine interfaces and quorum helper; protocol implementation/formal work planned |
+| PoTB and BFT | checked committee commitments, registered Ed25519 vote authentication, bounded round-specific quorum collection, and independently verified version-1 certificates implemented/tested; local lock/timeout rules, durable signing, VRF selection, and formal work remain open |
 | Keystore | non-exporting signer and anti-equivocation interface only |
 | Transactions | canonical signing/ID commitments and state-aware signed validator implemented/tested; native signed payment transitions and fixed reference fees implemented/tested; version-1 envelope, inclusive expiry, signed lane/prices, and expiry eviction implemented/tested |
 | Mempool | bounded in-memory reference admission and deterministic selection implemented/tested |
 | State and storage | bounded Merkle state, membership and absence proofs, immutable snapshots, atomic transitions, file-backed state and whole-chain archive recovery, and authenticated snapshot exchange implemented/tested; daemon block/state restart recovery implemented/tested; native payment account transitions implemented/tested; production-scale indexing remains planned |
 | Runtime and execution | signed sequential native payment executor, serial contract demonstration, and dependency-preserving greedy wave planner; lease normalization and scheduler equivalence tested; production runtime and parallel execution remain planned |
-| Sync, P2P, RPC, and node | node demonstration pipeline with staged proposal execution, atomic commit, retry preservation, and canonical transaction/receipt leaves; genesis-backed native payment admission/execution and daemon RPC implemented/tested; genesis-free admission and finality remain demonstrations; authenticated end-to-end integration remains planned |
+| Sync, P2P, RPC, and node | node demonstration pipeline with staged proposal execution, atomic commit, retry preservation, and canonical transaction/receipt leaves; genesis-backed native payment admission/execution and daemon RPC implemented/tested; genesis-free admission and finality remain demonstrations; explicit producer certified proposal/commit APIs and archive roundtrip tests implemented; daemon/network authenticated integration remains planned |
 | Configuration | pure validation and debug redaction baseline |
 | Telemetry | no-op local sink |
 | Contracts | SDK interface only; no compiler target or runtime |
@@ -83,6 +83,8 @@ Deterministic waves, Adaptive Execution Leasing, lanes, optimistic access valida
 ### M5 — consensus
 
 PoTB transitions and evidence, audited VRF provider, unbiased weighted sampler, partial committee rotation, producer selection, prevote/precommit state machine, certificates, durable anti-equivocation, formal models, and adversarial simulations.
+
+The [authenticated finality layer](15-authenticated-finality.md) verifies registered keys, chain/height/committee-bound vote digests, and weighted precommit certificates. The collector retains one round, rejects duplicate nil votes, distinguishes authenticated equivocation, and never combines weights across rounds or phases. Certified producer commits authenticate finality before existing execution/storage checks, with failed-write retry and restart verification tests. The daemon still simulates finality; local vote locks and signing journals are not implemented.
 
 ### M6 — P2P and node
 

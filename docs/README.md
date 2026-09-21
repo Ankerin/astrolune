@@ -25,6 +25,7 @@ For a concise source-tree map, read [`../ARCHITECTURE.md`](../ARCHITECTURE.md).
 | [12-genesis-and-accounts.md](12-genesis-and-accounts.md) | bounded genesis, initial account/validator state, commitments, and operator verification |
 | [13-native-payments.md](13-native-payments.md) | signed transfers, sequential account overlays, fees, atomic commits, and daemon RPC |
 | [14-versioned-transactions.md](14-versioned-transactions.md) | signed expiry, explicit lanes, resource prices, canonical format, and compatibility |
+| [15-authenticated-finality.md](15-authenticated-finality.md) | signed votes, committee commitments, weighted certificates, bounded collection, and certified commits |
 
 Legacy-shaped filenames such as `03-vm-and-gas.md`, `05-contract-languages.md`, and `06-deferred-services.md` are retained temporarily to preserve links. Their contents describe the current Rust architecture.
 

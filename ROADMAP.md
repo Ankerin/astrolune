@@ -22,7 +22,8 @@ Canonical encodings, protocol domains, hashes, addresses, signatures, checked re
 - [x] Bounded version-1 genesis, validated commitments, initial account/validator state, and CLI verification.
 - [x] Atomic daemon genesis activation, restart identity checks, and preserved initial account state.
 - [x] Version-1 signed transactions with expiry, explicit lanes, signed prices, and strict decoding.
-- [ ] Complete remaining versioned protocol envelopes and replace placeholder consensus commitments.
+- [x] Version-1 signed votes and finality certificates, checked committee commitments, and independent Ed25519 quorum verification.
+- [ ] Complete remaining versioned protocol envelopes and replace daemon placeholder finality.
 - [ ] Long fuzz campaigns, dependency/security review, and cross-platform suite qualification.
 
 ## M2 — transactions and state
@@ -42,6 +43,8 @@ Access leasing, execution waves, multiple lanes, optimistic validation, determin
 ## M5 — PoTB and finality
 
 PoTB state transitions and evidence, audited VRF provider, weighted sampler, partial rotation, producer selection, prevote/precommit state machine, certificates, anti-equivocation journal, formal models, and adversarial simulations.
+
+Current progress: authenticated fixed-height vote collection separates rounds/phases/blocks, rejects equivocation and replays, and emits bounded canonical certificates. The producer can verify a trusted committee and certificate before atomic execution/state publication. [Protocol details](docs/15-authenticated-finality.md). Local locking, durable signing, committee selection, and daemon/network integration remain open.
 
 ## M6 — node and networking
 

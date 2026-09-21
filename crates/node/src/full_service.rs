@@ -1,14 +1,14 @@
 // Copyright (c) 2026 Astrolune contributors
 // SPDX-License-Identifier: MIT
 
-//! Full node service with real subsystem integration.
+//! Local demonstration service with execution and storage integration.
 //!
 //! This module provides [`FullNodeService`], a concrete implementation
-//! of the node service trait that wires together the mempool, consensus engine,
+//! of the node service trait that wires together the mempool, simulated finality,
 //! execution pipeline, and persistent storage into a cohesive block
 //! production and finalization workflow.
 
-use consensus::{BftFinalityEngine, Committee, CommitteeMember};
+use consensus::{Committee, CommitteeMember};
 use storage::{FileBackedStorage, InMemoryStorage, NodeStorage};
 use types::{Hash256, Resources};
 
@@ -53,7 +53,7 @@ pub enum FullNodeState {
 ///
 /// Integrates:
 /// - [`BlockProducer`] for transaction selection and block assembly
-/// - [`BftFinalityEngine`] for consensus voting and finalization
+/// - Demonstration committee metadata; finality is simulated
 /// - [`NodeStorage`] for atomic block and state publication
 /// - [`AdaptiveCapacityController`] for dynamic block sizing
 pub struct FullNodeService<S = InMemoryStorage> {
@@ -61,8 +61,6 @@ pub struct FullNodeService<S = InMemoryStorage> {
     state: FullNodeState,
     /// Block production pipeline.
     producer: BlockProducer,
-    /// BFT finality engine for consensus.
-    finality_engine: Option<BftFinalityEngine>,
     /// Current committee for the active height.
     committee: Option<Committee>,
     /// Persistent storage backend.
@@ -175,7 +173,6 @@ impl<S: NodeStorage> FullNodeService<S> {
         Self {
             state: FullNodeState::Idle,
             producer,
-            finality_engine: None,
             committee: None,
             storage,
             capacity_controller: AdaptiveCapacityController::new(DEFAULT_CAPACITY, LATENCY_WINDOW),
@@ -226,12 +223,11 @@ impl<S: NodeStorage> FullNodeService<S> {
 
     /// Sets up the committee for the current height.
     ///
-    /// In production, this would receive committee data from the network.
-    /// For now, it creates a simple single-member committee for testing.
+    /// Stores demonstration metadata only. Authenticated membership must be
+    /// derived from trusted finalized state before using the certified producer API.
     pub fn setup_committee(&mut self, members: Vec<CommitteeMember>) {
         let height = self.producer.height();
         let committee = Committee { height, members };
-        self.finality_engine = Some(BftFinalityEngine::new(committee.clone()));
         self.committee = Some(committee);
     }
 

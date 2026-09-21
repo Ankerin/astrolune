@@ -82,6 +82,8 @@ pub struct BlockProposal {
 /// Errors that can occur during block production.
 #[derive(Debug)]
 pub enum ProducerError {
+    /// Authenticated consensus context or certificate is invalid.
+    Consensus(consensus::ConsensusError),
     /// Transaction validation or execution failed.
     Execution(ExecutionError),
     /// Mempool admission failed.
@@ -95,6 +97,7 @@ pub enum ProducerError {
 impl std::fmt::Display for ProducerError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
+            Self::Consensus(e) => write!(f, "consensus error: {e}"),
             Self::Execution(e) => write!(f, "execution error: {e}"),
             Self::Mempool(e) => write!(f, "mempool error: {e}"),
             Self::Storage(e) => write!(f, "storage error: {e}"),
@@ -104,6 +107,12 @@ impl std::fmt::Display for ProducerError {
 }
 
 impl std::error::Error for ProducerError {}
+
+impl From<consensus::ConsensusError> for ProducerError {
+    fn from(error: consensus::ConsensusError) -> Self {
+        Self::Consensus(error)
+    }
+}
 
 impl From<ExecutionError> for ProducerError {
     fn from(e: ExecutionError) -> Self {
@@ -410,6 +419,40 @@ impl BlockProducer {
         };
 
         Ok(proposal)
+    }
+
+    /// Prepares a proposal bound to independently trusted committee membership.
+    pub fn produce_block_for_committee(
+        &mut self,
+        committee: &consensus::AuthenticatedCommittee,
+    ) -> Result<BlockProposal, ProducerError> {
+        if committee.chain_id() != self.config.chain_id || committee.height() != self.height {
+            return Err(consensus::ConsensusError::InvalidTransition.into());
+        }
+        let mut proposal = self.produce_block()?;
+        proposal.block.header.committee_root = committee.root();
+        Ok(proposal)
+    }
+
+    /// Authenticates finality before re-executing and atomically committing a proposal.
+    ///
+    /// The caller supplies membership from trusted finalized state, not peer input.
+    /// Failed proofs, execution, or storage writes preserve local state and the pool.
+    pub fn commit_certified_block<S: NodeStorage>(
+        &mut self,
+        proposal: &BlockProposal,
+        certificate: &consensus::FinalityCertificate,
+        committee: &consensus::AuthenticatedCommittee,
+        storage: &mut S,
+    ) -> Result<storage::Checkpoint, ProducerError> {
+        if committee.chain_id() != self.config.chain_id || committee.height() != self.height {
+            return Err(consensus::ConsensusError::InvalidTransition.into());
+        }
+        committee.verify_certificate(certificate, &proposal.block.header)?;
+        let bytes = certificate
+            .encode()
+            .map_err(|_| consensus::ConsensusError::InvalidCertificate)?;
+        self.commit_block(proposal, bytes, storage)
     }
 
     /// Commits a finalized block to storage after consensus approval.

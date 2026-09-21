@@ -28,6 +28,9 @@ pub const COMMITTEE: &[u8] = b"astrolune.committee.v1";
 /// Finality certificate domain.
 pub const FINALITY: &[u8] = b"astrolune.finality.v1";
 
+/// Consensus vote signing digest domain.
+pub const CONSENSUS_VOTE: &[u8] = b"astrolune.vote.v1";
+
 /// VRF evaluation domain for committee selection.
 pub const VRF_COMMITTEE: &[u8] = b"astrolune.vrf.committee.v1";
 

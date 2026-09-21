@@ -6,6 +6,12 @@
 /// Consensus-level validation failures.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum ConsensusError {
+    /// Membership is empty, duplicated, zero-powered, oversized, or overflows.
+    InvalidCommittee,
+    /// Two authenticated values occupy the same voting slot.
+    Equivocation,
+    /// A certificate is malformed or lacks sufficient voting power.
+    InvalidCertificate,
     /// The signer is not in the active committee.
     UnknownVoter,
     /// A validator voted more than once in one phase and round.
@@ -19,6 +25,9 @@ pub enum ConsensusError {
 impl std::fmt::Display for ConsensusError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
+            Self::InvalidCommittee => write!(f, "invalid committee membership or power"),
+            Self::Equivocation => write!(f, "conflicting authenticated votes"),
+            Self::InvalidCertificate => write!(f, "invalid finality certificate"),
             Self::UnknownVoter => write!(f, "voter is not in the active committee"),
             Self::DuplicateVote => {
                 write!(f, "validator voted more than once in one phase and round")

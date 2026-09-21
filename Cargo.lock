@@ -62,6 +62,7 @@ version = "0.1.0"
 name = "consensus"
 version = "0.1.0"
 dependencies = [
+ "codec",
  "crypto",
  "types",
 ]

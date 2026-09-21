@@ -8,6 +8,8 @@ All notable changes to AstroLune will be documented in this file. The format fol
 
 ### Fixed
 
+- Authenticate consensus votes before counting power; isolate heights, rounds, phases, and blocks, reject repeated nil votes, distinguish signed conflicts, and check full-width committee sums.
+
 - Release exact mempool byte capacity on single and batch removal; reject byte-count overflow.
 - Compute strict two-thirds quorum without saturation for the full `u128` validator-weight range.
 - Remove the workspace member reference to the deleted isolation service.
@@ -28,6 +30,9 @@ All notable changes to AstroLune will be documented in this file. The format fol
 - Make the codec fuzz package independently resolvable and add exact-byte re-encoding checks for transactions, state keys, and execution receipts.
 
 ### Added
+
+- Version-1 committee commitments, signed vote/certificate envelopes, registered Ed25519 quorum verification, and bounded round-local collection.
+- Explicit certified producer proposal/commit APIs, independent hash vectors, decoder fuzz target, weighted-subset regressions, and payment/certificate archive recovery with failed-write retry tests.
 
 - Version-1 canonical transaction envelopes with signed expiry, explicit lanes, and resource prices; enforce policy during admission and execution and release expired pool entries after durable commit.
 - Reject unsupported transaction versions before storage publication; archive version 2 rejects incompatible version-1 files without rewriting.

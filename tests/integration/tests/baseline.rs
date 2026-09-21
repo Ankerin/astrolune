@@ -154,19 +154,22 @@ fn keystore_signs_consensus_votes() {
 
 #[test]
 fn committee_rotation_feeds_finality() {
+    let identity = |seed: u8| {
+        ValidatorId(crypto::blake2s_hash(&crypto::blake2s::ed25519_public_key(&[seed; 32])).0)
+    };
     let committee = Committee {
         height: 0,
         members: vec![
             CommitteeMember {
-                id: validator(1),
+                id: identity(1),
                 power: PotbWeight(10),
             },
             CommitteeMember {
-                id: validator(2),
+                id: identity(2),
                 power: PotbWeight(10),
             },
             CommitteeMember {
-                id: validator(3),
+                id: identity(3),
                 power: PotbWeight(10),
             },
         ],
@@ -174,7 +177,7 @@ fn committee_rotation_feeds_finality() {
 
     let candidates = vec![
         consensus::Candidate {
-            id: validator(4),
+            id: identity(4),
             weight: PotbWeight(50),
             vrf: crypto::VrfOutput {
                 randomness: Hash256([0xFF; 32]),
@@ -182,7 +185,7 @@ fn committee_rotation_feeds_finality() {
             },
         },
         consensus::Candidate {
-            id: validator(5),
+            id: identity(5),
             weight: PotbWeight(30),
             vrf: crypto::VrfOutput {
                 randomness: Hash256([0xFE; 32]),
@@ -195,13 +198,19 @@ fn committee_rotation_feeds_finality() {
     let next = sampler.rotate(&committee, &candidates, 1);
     assert_eq!(next.height, 1);
     assert_eq!(next.members.len(), 3);
-    assert_eq!(next.members[0].id, validator(1));
+    assert_eq!(next.members[0].id, identity(1));
 
-    let mut engine = consensus::BftFinalityEngine::new(next.clone());
+    let seeds = [1u8, 4, 5];
+    let keys = seeds.map(|seed| crypto::blake2s::ed25519_public_key(&[seed; 32]));
+    let context = consensus::AuthenticatedCommittee::new(7, &next, &keys).unwrap();
+    let root = context.root();
+    let mut engine = consensus::BftFinalityEngine::new(context);
     let block = hash(100);
 
     for member in &next.members {
-        let vote = consensus::Vote {
+        let mut vote = consensus::Vote {
+            chain_id: 7,
+            committee_root: root,
             height: 1,
             round: 0,
             phase: consensus::VotePhase::Precommit,
@@ -209,6 +218,11 @@ fn committee_rotation_feeds_finality() {
             voter: member.id,
             signature: [0xFF; 64],
         };
+        let seed = seeds
+            .iter()
+            .find(|seed| identity(**seed) == member.id)
+            .unwrap();
+        vote.signature = crypto::blake2s::ed25519_sign(&[*seed; 32], &vote.signing_hash().0);
         engine.receive_vote(vote).expect("valid vote");
     }
 

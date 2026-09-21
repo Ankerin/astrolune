@@ -6,6 +6,8 @@
 #![forbid(unsafe_code)]
 #![allow(clippy::missing_errors_doc)]
 
+pub mod authenticated;
+pub mod certificate;
 pub mod committee;
 pub mod error;
 pub mod finality;
@@ -13,6 +15,8 @@ pub mod sampler;
 pub mod vote;
 pub mod weight;
 
+pub use authenticated::{AuthenticatedCommittee, MAX_COMMITTEE_MEMBERS};
+pub use certificate::{CertificateSignature, FinalityCertificate};
 pub use committee::{Candidate, Committee, CommitteeMember, CommitteeSelector};
 pub use error::ConsensusError;
 pub use finality::{BftFinalityEngine, FinalityEngine};
@@ -29,6 +33,10 @@ mod tests {
     use std::collections::BTreeSet;
     use types::{Hash256, ValidatorId};
 
+    fn identity(id: u8) -> ValidatorId {
+        ValidatorId(crypto::blake2s_hash(&crypto::blake2s::ed25519_public_key(&[id; 32])).0)
+    }
+
     fn make_vrf(byte: u8) -> VrfOutput {
         VrfOutput {
             randomness: Hash256([byte; 32]),
@@ -38,7 +46,7 @@ mod tests {
 
     fn make_candidate(id: u8, weight: u128, vrf_byte: u8) -> Candidate {
         Candidate {
-            id: ValidatorId::from_bytes([id; 32]),
+            id: identity(id),
             weight: PotbWeight(weight),
             vrf: make_vrf(vrf_byte),
         }
@@ -46,7 +54,7 @@ mod tests {
 
     fn make_member(id: u8, power: u128) -> CommitteeMember {
         CommitteeMember {
-            id: ValidatorId::from_bytes([id; 32]),
+            id: identity(id),
             power: PotbWeight(power),
         }
     }
@@ -75,21 +83,19 @@ mod tests {
         assert_eq!(next_committee.height, 1);
         assert_eq!(next_committee.members.len(), 4);
 
-        assert_eq!(
-            next_committee.members[0].id,
-            ValidatorId::from_bytes([1; 32])
-        );
-        assert_eq!(
-            next_committee.members[1].id,
-            ValidatorId::from_bytes([2; 32])
-        );
+        assert_eq!(next_committee.members[0].id, identity(1));
+        assert_eq!(next_committee.members[1].id, identity(2));
 
         let new_ids: BTreeSet<ValidatorId> =
             next_committee.members[2..].iter().map(|m| m.id).collect();
-        assert!(new_ids.contains(&ValidatorId::from_bytes([7; 32])));
-        assert!(new_ids.contains(&ValidatorId::from_bytes([6; 32])));
+        assert!(new_ids.contains(&identity(7)));
+        assert!(new_ids.contains(&identity(6)));
 
-        let mut engine = BftFinalityEngine::new(next_committee.clone());
+        let seeds = [1u8, 2, 7, 6];
+        let keys = seeds.map(|seed| crypto::blake2s::ed25519_public_key(&[seed; 32]));
+        let context = AuthenticatedCommittee::new(7, &next_committee, &keys).unwrap();
+        let root = context.root();
+        let mut engine = BftFinalityEngine::new(context);
         let block = Hash256([0xBB; 32]);
         let total_power: u128 = next_committee.members.iter().map(|m| m.power.0).sum();
         let q = quorum_power(total_power);
@@ -99,16 +105,22 @@ mod tests {
             if accumulated >= q {
                 break;
             }
-            engine
-                .receive_vote(Vote {
-                    height: 1,
-                    round: 0,
-                    phase: VotePhase::Precommit,
-                    block: Some(block),
-                    voter: member.id,
-                    signature: [0xFF; 64],
-                })
+            let seed = seeds
+                .iter()
+                .find(|seed| identity(**seed) == member.id)
                 .unwrap();
+            let mut vote = Vote {
+                chain_id: 7,
+                committee_root: root,
+                height: 1,
+                round: 0,
+                phase: VotePhase::Precommit,
+                block: Some(block),
+                voter: member.id,
+                signature: [0; 64],
+            };
+            vote.signature = crypto::blake2s::ed25519_sign(&[*seed; 32], &vote.signing_hash().0);
+            engine.receive_vote(vote).unwrap();
             accumulated += member.power.0;
         }
 

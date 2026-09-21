@@ -253,6 +253,196 @@ fn payment_address(seed: u8) -> Address {
     transaction::address_from_public_key(&crypto::blake2s::ed25519_public_key(&[seed; 32]))
 }
 
+fn authenticated_context(genesis: &Genesis, height: u64) -> consensus::AuthenticatedCommittee {
+    let committee = consensus::Committee {
+        height,
+        members: genesis
+            .validators
+            .iter()
+            .map(|validator| consensus::CommitteeMember {
+                id: validator.id,
+                power: consensus::PotbWeight(validator.weight),
+            })
+            .collect(),
+    };
+    let keys = [1u8, 2, 3].map(|seed| crypto::blake2s::ed25519_public_key(&[seed; 32]));
+    consensus::AuthenticatedCommittee::new(genesis.chain_id, &committee, &keys).unwrap()
+}
+
+fn sign_certificate(
+    context: &consensus::AuthenticatedCommittee,
+    proposal: &node::BlockProposal,
+) -> consensus::FinalityCertificate {
+    let hash = proposal.block.header.compute_hash();
+    let mut signatures: Vec<_> = [1u8, 2, 3]
+        .iter()
+        .map(|seed| {
+            let voter = ValidatorId(
+                crypto::blake2s_hash(&crypto::blake2s::ed25519_public_key(&[*seed; 32])).0,
+            );
+            let vote = consensus::Vote {
+                chain_id: context.chain_id(),
+                committee_root: context.root(),
+                height: context.height(),
+                round: 0,
+                phase: consensus::VotePhase::Precommit,
+                block: Some(hash),
+                voter,
+                signature: [0; 64],
+            };
+            consensus::CertificateSignature {
+                voter,
+                signature: crypto::blake2s::ed25519_sign(&[*seed; 32], &vote.signing_hash().0),
+            }
+        })
+        .collect();
+    signatures.sort_by_key(|entry| entry.voter);
+    consensus::FinalityCertificate {
+        chain_id: context.chain_id(),
+        height: context.height(),
+        round: 0,
+        committee_root: context.root(),
+        block: hash,
+        signatures,
+    }
+}
+
+fn certified_genesis() -> Genesis {
+    let mut genesis = payment_genesis();
+    genesis.validators = [1u8, 2, 3]
+        .iter()
+        .map(|seed| GenesisValidator {
+            id: ValidatorId(
+                crypto::blake2s_hash(&crypto::blake2s::ed25519_public_key(&[*seed; 32])).0,
+            ),
+            weight: 1,
+        })
+        .collect();
+    genesis.validators.sort_by_key(|validator| validator.id);
+    genesis.committee_size = 3;
+    genesis
+}
+
+#[test]
+fn certified_payments_verify_before_publication_and_survive_restart() {
+    let fixture = Fixture::new();
+    let genesis = certified_genesis();
+    {
+        let mut storage = FileBackedStorage::open(fixture.path()).unwrap();
+        storage
+            .initialize_genesis(
+                genesis.commitment().unwrap(),
+                genesis.materialize().unwrap(),
+            )
+            .unwrap();
+    }
+    for height in 1..=3 {
+        let mut storage = FileBackedStorage::open(fixture.path()).unwrap();
+        let checkpoint = storage.recover().unwrap();
+        let mut producer = node::BlockProducer::from_checkpoint(
+            config(&genesis),
+            checkpoint,
+            storage.state().clone(),
+        )
+        .unwrap();
+        let context = authenticated_context(&genesis, height);
+        producer
+            .submit_transaction(payment(1, 2, height - 1, 10))
+            .unwrap();
+        let before = producer.state().root();
+        let archive = fs::read(fixture.path()).unwrap();
+        let proposal = producer.produce_block_for_committee(&context).unwrap();
+        assert_eq!(proposal.block.transactions.len(), 1);
+        let certificate = sign_certificate(&context, &proposal);
+        let mut forged = certificate.clone();
+        forged.signatures[0].signature[0] ^= 1;
+        assert!(matches!(
+            producer.commit_certified_block(&proposal, &forged, &context, &mut storage),
+            Err(node::ProducerError::Consensus(_))
+        ));
+        let mut invalid_execution = proposal.clone();
+        invalid_execution.block.header.state_root = Hash256::ZERO;
+        let signed_invalid = sign_certificate(&context, &invalid_execution);
+        assert!(
+            producer
+                .commit_certified_block(&invalid_execution, &signed_invalid, &context, &mut storage)
+                .is_err()
+        );
+        // A valid proof must not consume pending transactions on a failed durable write.
+        let pending = fixture.0.join("chain.bin.pending");
+        fs::create_dir(&pending).unwrap();
+        assert!(matches!(
+            producer.commit_certified_block(&proposal, &certificate, &context, &mut storage),
+            Err(node::ProducerError::Storage(_))
+        ));
+        fs::remove_dir(&pending).unwrap();
+        assert_eq!(producer.state().root(), before);
+        assert_eq!(producer.height(), height);
+        assert_eq!(producer.pending_count(), 1);
+        assert_eq!(storage.checkpoint().copied(), checkpoint);
+        assert_eq!(fs::read(fixture.path()).unwrap(), archive);
+        let committed = producer
+            .commit_certified_block(&proposal, &certificate, &context, &mut storage)
+            .unwrap();
+        assert_eq!(producer.height(), height + 1);
+        assert_eq!(producer.pending_count(), 0);
+        assert!(
+            producer
+                .commit_certified_block(&proposal, &certificate, &context, &mut storage)
+                .is_err()
+        );
+        drop(storage);
+        let storage = FileBackedStorage::open(fixture.path()).unwrap();
+        let recovered = consensus::FinalityCertificate::decode(
+            storage.get_certificate(&committed.block).unwrap(),
+        )
+        .unwrap();
+        context
+            .verify_certificate(
+                &recovered,
+                &storage.get_block(&committed.block).unwrap().header,
+            )
+            .unwrap();
+        assert_eq!(recovered, certificate);
+        assert_eq!(storage.state().root(), committed.state_root);
+        let snapshot = storage.state().snapshot().unwrap();
+        assert_eq!(
+            read_account(snapshot.as_ref(), payment_address(1)).unwrap(),
+            Some(AccountState {
+                nonce: height,
+                balance: 1000 - 11 * height
+            })
+        );
+        assert_eq!(
+            read_account(snapshot.as_ref(), payment_address(2)).unwrap(),
+            Some(AccountState {
+                nonce: 0,
+                balance: 10 * height
+            })
+        );
+    }
+}
+
+#[test]
+fn certified_production_rejects_other_chains_and_heights() {
+    let public_key = crypto::blake2s::ed25519_public_key(&[1; 32]);
+    let mut producer = node::BlockProducer::new(ProducerConfig::default());
+    let committee = |height| consensus::Committee {
+        height,
+        members: vec![consensus::CommitteeMember {
+            id: ValidatorId(crypto::blake2s_hash(&public_key).0),
+            power: consensus::PotbWeight(1),
+        }],
+    };
+    for (chain, height) in [(8, 0), (7, 1)] {
+        let context =
+            consensus::AuthenticatedCommittee::new(chain, &committee(height), &[public_key])
+                .unwrap();
+        assert!(producer.produce_block_for_committee(&context).is_err());
+        assert_eq!(producer.height(), 0);
+    }
+}
+
 fn payment_genesis() -> Genesis {
     Genesis {
         capacity: Resources {

@@ -104,6 +104,10 @@ height h + 2:                                   transaction prefetch
 
 Implementations may overlap execution earlier when safe. The externally visible rule remains simple: transaction order comes from consensus, execution results come from deterministic validation, and canonical state changes only in the commit stage.
 
+## Implemented authentication boundary
+
+[Version-1 vote and certificate formats](15-authenticated-finality.md) now implement committee commitments, strict registered Ed25519 verification, isolated round/phase accounting, and independent weighted precommit quorum verification. `BftFinalityEngine` collects authenticated evidence; it does not implement proposal validation, local lock/unlock decisions, timeouts, or durable signing. Membership must come from trusted finalized state. The demonstration sampler is not a verified weighted VRF implementation, and the daemon still simulates finality.
+
 ## 1.9 Safety assumptions and open work
 
 The baseline does not prove PoTB anti-domination, sampler fairness, BFT safety under rotating weighted committees, or liveness under partial synchrony. Required work includes formal modeling, adversarial simulation, VRF selection analysis, persistent anti-double-sign testing, timeout calibration, and independent review.
