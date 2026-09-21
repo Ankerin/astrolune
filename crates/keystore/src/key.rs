@@ -3,6 +3,24 @@
 
 //! Key types: purpose classification, opaque handles, and signing coordinates.
 
+use types::Hash256;
+
+/// Durable journal phase for a proposal (not a vote wire tag).
+pub const PROPOSAL_PHASE: u8 = 0;
+/// Durable journal phase for a prevote (wire phase 0).
+pub const PREVOTE_PHASE: u8 = 1;
+/// Durable journal phase for a precommit (wire phase 1).
+pub const PRECOMMIT_PHASE: u8 = 2;
+
+/// Immutable namespace for one validator's signing journal.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct SigningContext {
+    /// Chain ID covered by consensus vote digests.
+    pub chain_id: u32,
+    /// Independently trusted genesis commitment; must be nonzero.
+    pub genesis: Hash256,
+}
+
 /// Allowed key purpose.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum KeyPurpose {
@@ -32,6 +50,6 @@ pub struct SigningPosition {
     pub height: u64,
     /// Round within the height.
     pub round: u32,
-    /// Domain-separated proposal, prevote, or precommit phase byte.
+    /// Journal phase: proposal 0, prevote 1, or precommit 2; distinct from wire tags.
     pub phase: u8,
 }

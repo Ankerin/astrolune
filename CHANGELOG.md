@@ -8,6 +8,8 @@ All notable changes to AstroLune will be documented in this file. The format fol
 
 ### Fixed
 
+- Reject relabelled non-consensus handles when requesting consensus signatures from the mock keystore.
+
 - Authenticate consensus votes before counting power; isolate heights, rounds, phases, and blocks, reject repeated nil votes, distinguish signed conflicts, and check full-width committee sums.
 
 - Release exact mempool byte capacity on single and batch removal; reject byte-count overflow.
@@ -30,6 +32,9 @@ All notable changes to AstroLune will be documented in this file. The format fol
 - Make the codec fuzz package independently resolvable and add exact-byte re-encoding checks for transactions, state keys, and execution receipts.
 
 ### Added
+
+- Durable Ed25519 signing with a bounded append-only decision journal, chain/genesis/key binding, process locks, strictly increasing signing positions, and idempotent retries after restart.
+- Typed vote signing with protected phase mapping, fault-injection and process-exit recovery tests, and independent signing-journal checksum vectors.
 
 - Version-1 committee commitments, signed vote/certificate envelopes, registered Ed25519 quorum verification, and bounded round-local collection.
 - Explicit certified producer proposal/commit APIs, independent hash vectors, decoder fuzz target, weighted-subset regressions, and payment/certificate archive recovery with failed-write retry tests.

@@ -49,7 +49,7 @@ Validation does not mutate accounts or reserve balances. Callers must maintain a
 
 The original cryptographic backend change preserved transaction bytes but changed cryptographic outputs: raw and domain hashes, derived keys, validator IDs, transaction IDs, signatures, and roots using those functions. Old experimental signatures and commitments are incompatible. Existing data cannot be silently treated as data from the new suite; no database migration or network upgrade is implied. The subsequent version-1 transaction envelope changes canonical transaction bytes and commitments again, and requires archive version 2.
 
-The in-memory signing-position guard does not survive restarts. Durable anti-equivocation, production key generation and custody, authenticated networking, VRF, finality verification, and independent review remain required before deployment.
+The original in-memory signing-position guard does not survive restarts. The separate [durable signer](16-durable-signing.md) now journals decisions before issuing signatures and restores its watermark on restart. [Finality certificate verification](15-authenticated-finality.md) is also implemented. Production key generation and custody, rollback-resistant journal anchoring, authenticated networking, VRF, full BFT voting rules, daemon integration, and independent review remain required before deployment.
 
 ## Verification
 

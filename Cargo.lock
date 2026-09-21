@@ -64,6 +64,7 @@ version = "0.1.0"
 dependencies = [
  "codec",
  "crypto",
+ "keystore",
  "types",
 ]
 
@@ -284,7 +285,10 @@ dependencies = [
 name = "keystore"
 version = "0.1.0"
 dependencies = [
+ "codec",
+ "crypto",
  "types",
+ "zeroize",
 ]
 
 [[package]]

@@ -5,20 +5,48 @@
 
 #![forbid(unsafe_code)]
 
+mod durable;
 pub mod error;
+mod journal;
 pub mod key;
 pub mod mock;
 pub mod signer;
 
+pub use durable::DurableSigner;
 pub use error::KeystoreError;
-pub use key::{KeyHandle, KeyPurpose, SigningPosition};
+pub use journal::{MAX_JOURNAL_BYTES, MAX_JOURNAL_RECORDS};
+pub use key::{
+    KeyHandle, KeyPurpose, PRECOMMIT_PHASE, PREVOTE_PHASE, PROPOSAL_PHASE, SigningContext,
+    SigningPosition,
+};
 pub use mock::MockKeystore;
-pub use signer::Signer;
+pub use signer::{ChainSigner, Signer};
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use types::{Hash256, ValidatorId};
+
+    #[test]
+    fn consensus_key_rejects_a_relabelled_handle() {
+        let mut store = MockKeystore::new();
+        store.insert("consensus", vid(1), KeyPurpose::Consensus);
+        for purpose in [KeyPurpose::Network, KeyPurpose::Wallet, KeyPurpose::Service] {
+            assert_eq!(
+                store.sign_consensus(
+                    &handle("consensus", purpose),
+                    SigningPosition {
+                        height: 1,
+                        round: 0,
+                        phase: 0,
+                    },
+                    Hash256::ZERO
+                ),
+                Err(KeystoreError::WrongPurpose)
+            );
+        }
+        assert!(!store.has_conflict());
+    }
 
     fn vid(n: u8) -> ValidatorId {
         ValidatorId([n; 32])

@@ -4,7 +4,7 @@
 //! Non-exporting signature provider trait.
 
 use crate::error::KeystoreError;
-use crate::key::{KeyHandle, SigningPosition};
+use crate::key::{KeyHandle, SigningContext, SigningPosition};
 use types::{Hash256, ValidatorId};
 
 /// Non-exporting signature provider.
@@ -28,4 +28,10 @@ pub trait Signer: Send + Sync {
         position: SigningPosition,
         message: Hash256,
     ) -> Result<[u8; 64], KeystoreError>;
+}
+
+/// A signer bound to a single immutable chain and genesis namespace.
+pub trait ChainSigner: Signer {
+    /// Returns the namespace whose journal protects this key.
+    fn signing_context(&self) -> SigningContext;
 }

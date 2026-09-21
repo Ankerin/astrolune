@@ -8,7 +8,7 @@ The consensus library now authenticates fixed-height votes and precommit certifi
 
 Membership and weights are independently trusted inputs from finalized state. A certificate cannot introduce its own trusted committee. Registration proves a signature's association with an identity, not that the identity deserves a seat or weight. Genesis currently stores IDs and weights without public keys; supplying and authenticating the public-key registry remains a caller responsibility.
 
-The collector does not implement local proposal/lock/unlock/timeout policy, durable anti-equivocation signing, committee handoff, or verified weighted VRF selection. A precommit quorum can be verified without receiving the corresponding prevotes locally; safe generation of those precommits requires the unfinished voting protocol. `FullNodeService` and the daemon still simulate finality.
+The collector does not implement local proposal/lock/unlock/timeout policy, committee handoff, or verified weighted VRF selection. A separate [durable signing journal](16-durable-signing.md) now implements restart-safe reservations through `Vote::sign_with`. A precommit quorum can be verified without receiving the corresponding prevotes locally; safe generation of those precommits requires the unfinished voting protocol. `FullNodeService` and the daemon still simulate finality.
 
 ## Canonical formats
 
@@ -68,4 +68,4 @@ The lower-level `commit_block` and storage interfaces retain their explicit call
 
 Tests cover independent Python BLAKE2s vectors, strict codecs, truncations and mutations, invalid key sets, full-width overflow, replayed nil votes, altered signing fields, phase/round isolation, every subset of several weighted four-member committees, all certificate signatures, certified payment execution, failed-write retry, and independent certificate verification after archive recovery. A decoder fuzz target checks exact accepted-input re-encoding. Long fuzz campaigns and cross-platform qualification remain open.
 
-This layer provides authenticated quorum evidence, not a complete BFT safety/liveness protocol. Durable signing, authenticated genesis key provisioning, lock and timeout rules, committee transition proofs, network delivery, and daemon integration remain separate implementation stages.
+This layer provides authenticated quorum evidence, not a complete BFT safety/liveness protocol. Durable signing is implemented separately; authenticated genesis key provisioning, lock and timeout rules, committee transition proofs, network delivery, and daemon integration remain separate implementation stages.

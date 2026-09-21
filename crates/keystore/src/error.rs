@@ -8,6 +8,22 @@ use std::fmt;
 /// Signer and key isolation failures.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum KeystoreError {
+    /// Another signer owns the journal's exclusive file lock.
+    Locked,
+    /// Explicit creation would overwrite an existing journal.
+    AlreadyExists,
+    /// Journal bytes are malformed, incomplete, or inconsistent.
+    InvalidJournal,
+    /// The chain, genesis, key, or voter differs from the signing context.
+    ContextMismatch,
+    /// A phase tag is unsupported.
+    InvalidPosition,
+    /// The requested position precedes the durable signing watermark.
+    StalePosition,
+    /// The bounded journal is full; signing stops without pruning history.
+    LimitExceeded,
+    /// An append or synchronization failed; reopen and verify before signing again.
+    DurabilityUnknown,
     /// Key handle does not exist.
     UnknownKey,
     /// Requested operation does not match the key purpose.
@@ -23,6 +39,14 @@ pub enum KeystoreError {
 impl fmt::Display for KeystoreError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
+            Self::Locked => write!(f, "signing journal is locked"),
+            Self::AlreadyExists => write!(f, "signing journal already exists"),
+            Self::InvalidJournal => write!(f, "invalid signing journal"),
+            Self::ContextMismatch => write!(f, "signing context mismatch"),
+            Self::InvalidPosition => write!(f, "invalid signing phase"),
+            Self::StalePosition => write!(f, "signing position precedes durable watermark"),
+            Self::LimitExceeded => write!(f, "signing journal limit exceeded"),
+            Self::DurabilityUnknown => write!(f, "signing durability unknown; reopen required"),
             Self::UnknownKey => write!(f, "unknown key"),
             Self::WrongPurpose => write!(f, "wrong purpose"),
             Self::ConflictingSign => write!(f, "conflicting sign"),

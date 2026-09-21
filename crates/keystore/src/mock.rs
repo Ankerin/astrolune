@@ -76,7 +76,7 @@ impl Signer for MockKeystore {
     ) -> Result<[u8; 64], KeystoreError> {
         let (vid, purpose) = self.keys.get(&handle.id).ok_or(KeystoreError::UnknownKey)?;
 
-        if purpose != &KeyPurpose::Consensus {
+        if purpose != &KeyPurpose::Consensus || handle.purpose != KeyPurpose::Consensus {
             return Err(KeystoreError::WrongPurpose);
         }
 

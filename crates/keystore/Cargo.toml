@@ -12,6 +12,9 @@ authors.workspace = true
 repository.workspace = true
 
 [dependencies]
+crypto = { path = "../crypto" }
+codec = { path = "../codec" }
+zeroize = "1.8"
 types = { path = "../types" }
 
 [lints]

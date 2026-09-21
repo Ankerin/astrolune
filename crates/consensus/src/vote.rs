@@ -37,6 +37,35 @@ pub struct Vote {
 }
 
 impl Vote {
+    /// Signs this exact vote using chain-bound durable signing coordinates.
+    ///
+    /// The caller must first apply the consensus proposal and locking rules.
+    /// The signature is changed only after the signer durably accepts the decision.
+    pub fn sign_with(
+        &mut self,
+        signer: &mut impl keystore::ChainSigner,
+        handle: &keystore::KeyHandle,
+    ) -> Result<(), keystore::KeystoreError> {
+        if self.chain_id != signer.signing_context().chain_id
+            || self.voter != signer.validator_id(handle)?
+        {
+            return Err(keystore::KeystoreError::ContextMismatch);
+        }
+        let phase = match self.phase {
+            VotePhase::Prevote => keystore::PREVOTE_PHASE,
+            VotePhase::Precommit => keystore::PRECOMMIT_PHASE,
+        };
+        self.signature = signer.sign_consensus(
+            handle,
+            keystore::SigningPosition {
+                height: self.height,
+                round: self.round,
+                phase,
+            },
+            self.signing_hash(),
+        )?;
+        Ok(())
+    }
     /// Returns the version-1 signing bytes, including explicit nil and phase tags.
     #[must_use]
     pub fn signing_bytes(&self) -> [u8; 122] {
