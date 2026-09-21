@@ -9,7 +9,8 @@ use std::sync::Arc;
 use types::{Hash256, StateKey};
 
 use crate::{
-    StateDatabase, StateDiff, StateError, StateProof, StateSnapshot, commitment, snapshot,
+    StateAbsenceProof, StateDatabase, StateDiff, StateError, StateProof, StateSnapshot, commitment,
+    snapshot,
 };
 
 /// Reference state database; snapshots share immutable entries until the next commit.
@@ -122,6 +123,10 @@ impl StateSnapshot for InMemoryState {
 
     fn prove(&self, key: &StateKey) -> Result<Option<StateProof>, StateError> {
         Ok(commitment::prove(&self.data, key))
+    }
+
+    fn prove_absence(&self, key: &StateKey) -> Result<Option<StateAbsenceProof>, StateError> {
+        commitment::prove_absence(&self.data, key)
     }
 }
 

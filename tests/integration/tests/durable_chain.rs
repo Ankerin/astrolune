@@ -6,9 +6,9 @@
 use std::fs;
 use std::path::PathBuf;
 
-use node::{BlockProducer, ProducerConfig};
-use storage::{FileBackedStorage, NodeStorage};
-use types::{Address, Resources, Transaction};
+use node::{BlockProducer, FullNodeService, NodeService, ProducerConfig, ProducerError};
+use storage::{Checkpoint, FileBackedStorage, NodeStorage, StorageError};
+use types::{Address, Hash256, Resources, Transaction};
 
 struct Fixture(PathBuf);
 impl Drop for Fixture {
@@ -16,6 +16,79 @@ impl Drop for Fixture {
         // The test owns this unique temporary directory.
         let _ = fs::remove_dir_all(&self.0);
     }
+}
+
+#[test]
+fn restarted_service_matches_uninterrupted_execution() {
+    let fixture = Fixture(
+        std::env::temp_dir().join(format!("astrolune-service-restart-{}", std::process::id())),
+    );
+    fs::create_dir(&fixture.0).unwrap();
+    let path = fixture.0.join("chain.bin");
+    let mut reference = FullNodeService::new(ProducerConfig::default());
+    for height in 0..20u8 {
+        let mut service = FullNodeService::open(ProducerConfig::default(), &path).unwrap();
+        assert_eq!(service.height(), u64::from(height));
+        assert_eq!(service.pending_transactions(), 0);
+        assert_eq!(service.finalized_block(), reference.finalized_block());
+        let transaction = Transaction {
+            chain_id: 7,
+            sender: Address([height; 32]),
+            nonce: 0,
+            access_list: vec![],
+            resource_limit: Resources::ZERO,
+            payload: vec![height],
+            signature: [1; 64],
+        };
+        reference.submit_transaction(transaction.clone()).unwrap();
+        service.submit_transaction(transaction).unwrap();
+        for _ in 0..5 {
+            reference.advance().unwrap();
+            service.advance().unwrap();
+        }
+        let checkpoint = service.storage().checkpoint().unwrap();
+        assert_eq!(Some(checkpoint), reference.storage().checkpoint());
+        assert_eq!(
+            service.storage().get_block(&checkpoint.block),
+            reference.storage().get_block(&checkpoint.block)
+        );
+        assert_eq!(
+            service.storage().state().export_snapshot(),
+            reference.storage().state().export_snapshot()
+        );
+        assert!(!service.storage().state().is_empty());
+    }
+}
+
+#[test]
+fn recovery_rejects_mismatched_state_and_exhausted_height() {
+    let state = state::InMemoryState::new();
+    let checkpoint = Checkpoint {
+        height: 10,
+        block: Hash256([1; 32]),
+        state_root: Hash256::ZERO,
+    };
+    assert!(matches!(
+        BlockProducer::from_checkpoint(ProducerConfig::default(), Some(checkpoint), state.clone()),
+        Err(ProducerError::Storage(StorageError::VerificationFailed))
+    ));
+    let checkpoint = Checkpoint {
+        height: u64::MAX,
+        state_root: state.root(),
+        ..checkpoint
+    };
+    assert!(matches!(
+        BlockProducer::from_checkpoint(ProducerConfig::default(), Some(checkpoint), state),
+        Err(ProducerError::Storage(StorageError::InvalidOrder))
+    ));
+    let mut diff = state::StateDiff::new();
+    diff.put(types::StateKey::new(vec![1]).unwrap(), vec![2]);
+    let empty = state::InMemoryState::new();
+    let populated = empty.prepare(empty.root(), &[diff]).unwrap();
+    assert!(matches!(
+        BlockProducer::from_checkpoint(ProducerConfig::default(), None, populated),
+        Err(ProducerError::Storage(StorageError::VerificationFailed))
+    ));
 }
 
 #[test]

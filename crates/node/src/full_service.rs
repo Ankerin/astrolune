@@ -9,14 +9,14 @@
 //! production and finalization workflow.
 
 use consensus::{BftFinalityEngine, Committee, CommitteeMember};
-use storage::InMemoryStorage;
+use storage::{FileBackedStorage, InMemoryStorage, NodeStorage};
 use types::{Hash256, Resources};
 
 use crate::capacity::{
     AdaptiveCapacityController, CapacityController, CapacityObservation, DEFAULT_CAPACITY,
     LATENCY_WINDOW, NodeError,
 };
-use crate::producer::{BlockProducer, BlockProposal, ProducerConfig};
+use crate::producer::{BlockProducer, BlockProposal, ProducerConfig, ProducerError};
 
 /// Current high-level state of the full node.
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -54,9 +54,9 @@ pub enum FullNodeState {
 /// Integrates:
 /// - [`BlockProducer`] for transaction selection and block assembly
 /// - [`BftFinalityEngine`] for consensus voting and finalization
-/// - [`InMemoryStorage`] for atomic, process-local block and state publication
+/// - [`NodeStorage`] for atomic block and state publication
 /// - [`AdaptiveCapacityController`] for dynamic block sizing
-pub struct FullNodeService {
+pub struct FullNodeService<S = InMemoryStorage> {
     /// Current pipeline state.
     state: FullNodeState,
     /// Block production pipeline.
@@ -66,7 +66,7 @@ pub struct FullNodeService {
     /// Current committee for the active height.
     committee: Option<Committee>,
     /// Persistent storage backend.
-    storage: InMemoryStorage,
+    storage: S,
     /// Adaptive capacity controller.
     capacity_controller: AdaptiveCapacityController,
     /// Recorded observations from completed blocks.
@@ -83,15 +83,39 @@ impl FullNodeService {
     /// Creates a new full node service with the given producer configuration.
     #[must_use]
     pub fn new(config: ProducerConfig) -> Self {
-        let block_capacity = config.block_capacity;
-        let producer = BlockProducer::new(config);
+        let capacity = config.block_capacity;
+        Self::with_producer(BlockProducer::new(config), InMemoryStorage::new(), capacity)
+    }
+}
 
+impl FullNodeService<FileBackedStorage> {
+    /// Opens a local demonstration chain and resumes after its last durable block.
+    ///
+    /// The directory must exist. Corrupt archives, concurrent writers, and exhausted
+    /// heights fail before production starts. This does not authenticate finality or
+    /// restore consensus keys, pending transactions, or finalized account semantics.
+    pub fn open(
+        config: ProducerConfig,
+        path: impl AsRef<std::path::Path>,
+    ) -> Result<Self, ProducerError> {
+        let mut storage = FileBackedStorage::open(path)?;
+        let checkpoint = storage.recover()?;
+        let capacity = config.block_capacity;
+        let producer = BlockProducer::from_checkpoint(config, checkpoint, storage.state().clone())?;
+        let mut service = Self::with_producer(producer, storage, capacity);
+        service.finalized_block = checkpoint.map(|value| value.block);
+        Ok(service)
+    }
+}
+
+impl<S: NodeStorage> FullNodeService<S> {
+    fn with_producer(producer: BlockProducer, storage: S, block_capacity: Resources) -> Self {
         Self {
             state: FullNodeState::Idle,
             producer,
             finality_engine: None,
             committee: None,
-            storage: InMemoryStorage::new(),
+            storage,
             capacity_controller: AdaptiveCapacityController::new(DEFAULT_CAPACITY, LATENCY_WINDOW),
             observations: Vec::new(),
             block_capacity,
@@ -126,7 +150,7 @@ impl FullNodeService {
 
     /// Returns a reference to the storage backend.
     #[must_use]
-    pub fn storage(&self) -> &InMemoryStorage {
+    pub fn storage(&self) -> &S {
         &self.storage
     }
 
@@ -185,17 +209,12 @@ impl FullNodeService {
                             round: 0,
                         }
                     }
-                    Err(e) => {
-                        eprintln!("block assembly failed: {e}");
-                        FullNodeState::Idle
-                    }
+                    Err(_) => return Err(NodeError::CommitmentMismatch),
                 }
             }
             FullNodeState::Voting { height, .. } => {
                 // In single-validator mode, simulate immediate finalization
-                if let Some(ref proposal) = self.pending_proposal {
-                    let block_hash = proposal.block.header.compute_hash();
-                    self.finalized_block = Some(block_hash);
+                if self.pending_proposal.is_some() {
                     FullNodeState::Executing { height: *height }
                 } else {
                     FullNodeState::Idle
@@ -208,7 +227,8 @@ impl FullNodeService {
             FullNodeState::Committing { height: _ } => {
                 // Commit to storage
                 if let Some(proposal) = self.pending_proposal.as_ref() {
-                    self.producer
+                    let checkpoint = self
+                        .producer
                         .commit_block(
                             proposal,
                             vec![0xAA; 32], // Placeholder certificate
@@ -220,8 +240,12 @@ impl FullNodeService {
                             }
                             _ => NodeError::CommitmentMismatch,
                         })?;
+                    self.finalized_block = Some(checkpoint.block);
 
                     // Record capacity observation
+                    if self.observations.len() == LATENCY_WINDOW {
+                        self.observations.remove(0);
+                    }
                     self.observations.push(CapacityObservation {
                         used: proposal.resources_used,
                         within_latency_target: true,
@@ -232,6 +256,9 @@ impl FullNodeService {
                         .capacity_controller
                         .next_capacity(self.block_capacity, &self.observations);
                     self.pending_proposal = None;
+                    if let Some(committee) = self.committee.as_ref() {
+                        self.setup_committee(committee.members.clone());
+                    }
                 } else {
                     return Err(NodeError::NotReady);
                 }
@@ -242,7 +269,7 @@ impl FullNodeService {
     }
 }
 
-impl crate::service::NodeService for FullNodeService {
+impl<S: NodeStorage> crate::service::NodeService for FullNodeService<S> {
     fn advance(&mut self) -> Result<(), NodeError> {
         self.advance_pipeline()
     }
@@ -270,11 +297,16 @@ mod tests {
         assert!(service.pending_proposal.is_some());
         assert!(service.observations.is_empty());
         assert_eq!(service.height(), 0);
+        assert_eq!(service.finalized_block(), None);
         service.pending_proposal = Some(proposal);
         service.advance().unwrap();
         assert_eq!(service.height(), 1);
         assert!(service.pending_proposal.is_none());
         assert_eq!(service.observations.len(), 1);
+        assert_eq!(
+            service.finalized_block(),
+            Some(service.storage().checkpoint().unwrap().block)
+        );
     }
 
     fn sender() -> Address {
@@ -424,7 +456,7 @@ mod tests {
         }
 
         // Capacity should have been adjusted
-        assert!(service.observations.len() >= 3);
+        assert_eq!(service.observations.len(), LATENCY_WINDOW);
     }
 
     #[test]

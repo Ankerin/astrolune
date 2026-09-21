@@ -17,7 +17,7 @@ As of 2026-09-21, this repository contains a Rust 2024 workspace with:
 - CI, dependency-policy automation, contribution templates, project governance documents, and engineering specifications;
 - a block production pipeline (`BlockProducer`) that coordinates mempool selection, deterministic execution, and storage commitment;
 - a full node service (`FullNodeService`) that wires together consensus, execution, and storage into a cohesive pipeline;
-- a daemon with a real block production loop and configurable block limits.
+- a local demonstration daemon with a durable block production loop, restart recovery, validated command-line options, and RPC status tied to durable commits.
 
 This is predominantly an **interface baseline**. It is not a functioning blockchain network, contract runtime, wallet platform, or service deployment.
 
@@ -33,14 +33,14 @@ This is predominantly an **interface baseline**. It is not a functioning blockch
 | Keystore | non-exporting signer and anti-equivocation interface only |
 | Transactions | canonical signing/ID commitments and state-aware signed validator implemented/tested; full versioned envelope and account transitions remain planned |
 | Mempool | bounded in-memory reference admission and deterministic selection implemented/tested |
-| State and storage | bounded Merkle state, membership proofs, immutable snapshots, atomic transitions, file-backed state and whole-chain archive recovery, and authenticated snapshot exchange implemented/tested; production-scale indexing, daemon restart integration, and account transitions remain planned |
+| State and storage | bounded Merkle state, membership and absence proofs, immutable snapshots, atomic transitions, file-backed state and whole-chain archive recovery, and authenticated snapshot exchange implemented/tested; daemon block/state restart recovery implemented/tested; production-scale indexing and account transitions remain planned |
 | Runtime and execution | serial executor demonstration and dependency-preserving greedy wave planner; lease normalization and scheduler equivalence tested; production runtime and parallel execution remain planned |
 | Sync, P2P, RPC, and node | node demonstration pipeline with staged proposal execution, atomic commit, retry preservation, and canonical transaction/receipt leaves; default admission and finality remain demonstrations; authenticated end-to-end integration remains planned |
 | Configuration | pure validation and debug redaction baseline |
 | Telemetry | no-op local sink |
 | Contracts | SDK interface only; no compiler target or runtime |
 | DNS, Proxy, Pages, ID | service data models and placeholder binaries |
-| CLI and daemon | help/version engineering scaffolds only |
+| CLI and daemon | CLI scaffold; local daemon with file-backed block/state recovery, strict arguments, startup failure propagation, and durable RPC head; consensus and account integration remain demonstrations/planned |
 
 ## 8.3 Removed architecture
 
@@ -70,7 +70,7 @@ Standard hashing and signing backends, signed transaction IDs, address derivatio
 
 Signed envelopes, validation order, account/state commitments, immutable snapshots, proofs, diffs, sequential atomic commit, crash recovery, pruning, receipts, and snapshot exchange.
 
-Implemented reference state commitments, membership proofs, bounded versioned snapshots, atomic file-backed state publication, writer locks, recovery, verified snapshot exchange, and proposal rollback are described in [state and recovery](10-state-and-recovery.md). [Whole-chain archives](11-chain-archives.md) now persist blocks, certificates, checkpoints, and historical state atomically. Full account/fee transitions, absence proofs, daemon restart integration, and production-scale indexing remain open.
+Implemented reference state commitments, membership and absence proofs, bounded versioned snapshots, atomic file-backed state publication, writer locks, recovery, verified snapshot exchange, and proposal rollback are described in [state and recovery](10-state-and-recovery.md). [Whole-chain archives](11-chain-archives.md) now persist blocks, certificates, checkpoints, and historical state atomically. Local daemon block/state restart integration is implemented with process and differential recovery tests. Full account/fee transitions, consensus signing-state recovery, and production-scale indexing remain open.
 
 ### M3 — deterministic runtime
 

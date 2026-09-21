@@ -145,6 +145,7 @@ dependencies = [
  "p2p",
  "rpc",
  "state",
+ "storage",
  "types",
 ]
 

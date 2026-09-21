@@ -61,7 +61,7 @@ See [`ARCHITECTURE.md`](ARCHITECTURE.md) and [`docs/README.md`](docs/README.md) 
 
 The repository pins Rust `1.93.1` with `rustfmt` and Clippy through [`rust-toolchain.toml`](rust-toolchain.toml). Install Rust with [rustup](https://rustup.rs/); entering the repository selects the pinned toolchain.
 
-Cryptographic foundations use pinned BLAKE2s and Ed25519 backends; dependency versions are recorded in `Cargo.lock`. Reference state and [whole-chain archive persistence](docs/11-chain-archives.md) use standard-library file I/O and locks. The daemon still uses memory storage.
+Cryptographic foundations use pinned BLAKE2s and Ed25519 backends; dependency versions are recorded in `Cargo.lock`. Reference state and [whole-chain archive persistence](docs/11-chain-archives.md) use standard-library file I/O and locks. The local demonstration daemon persists blocks and execution state and resumes from its last durable checkpoint.
 
 ## Validate the workspace
 
@@ -87,6 +87,16 @@ cargo run -p cli -- --help
 cargo run -p daemon -- --help
 cargo run -p cargo-contract -- --help
 ```
+
+Run the local demonstration chain, then resume it with two additional blocks:
+
+```sh
+cargo run -p daemon -- --data-dir node-data --blocks 3
+cargo run -p daemon -- --data-dir node-data --blocks 2
+cargo run -p daemon -- --data-dir node-data --blocks 0
+```
+
+`--blocks 0` verifies recovery without starting listeners or producing blocks. `--dry-run` validates arguments without filesystem or network effects. `--run` produces blocks until stopped or a storage bound is reached. `--p2p-listen` and `--rpc-listen` accept IP socket addresses. The daemon uses chain ID 7 and placeholder consensus certificates; authenticated consensus and finalized account transitions remain unimplemented. RPC reports the durable head; account queries and transaction submission return unavailable until their node integration is implemented.
 
 ## Data flow
 

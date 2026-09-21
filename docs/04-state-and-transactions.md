@@ -80,6 +80,6 @@ Database implementations must make lifetimes explicit. Compaction cannot invalid
 
 ## 4.10 Efficient state database
 
-The state database must support immutable snapshots, content or version integrity, batched reads, write batches, sequential commit, crash recovery, checksums, pruning policy, and snapshot export/import. A concrete production engine is not selected. The implemented reference backends now provide bounded Merkle state, membership proofs, verified snapshots, and atomic publication; see [state and recovery](10-state-and-recovery.md) for exact formats, failure behavior, compatibility, and remaining work.
+The state database must support immutable snapshots, content or version integrity, batched reads, write batches, sequential commit, crash recovery, checksums, pruning policy, and snapshot export/import. A concrete production engine is not selected. The implemented reference backends now provide bounded Merkle state, membership and absence proofs, verified snapshots, and atomic publication; see [state and recovery](10-state-and-recovery.md) for exact formats, failure behavior, compatibility, and remaining work.
 
 State sharding is deferred. If required later, it begins as internal partitions under one execution domain and one state commitment. Cross-shard asynchronous semantics are not introduced by storage layout alone.

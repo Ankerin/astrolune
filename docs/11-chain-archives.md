@@ -18,7 +18,15 @@ let recovered = storage.recover()?;
 
 Both memory and file backends reject transaction bodies whose signed canonical IDs do not match the header's transaction root. They also check structural transaction/certificate bounds, parent linkage, consecutive heights, and the resulting state root. The caller must authenticate finality and execution, including receipts and account semantics. The archive checksum detects corruption; it does not authenticate a file rewritten by an adversary.
 
-`FullNodeService` and the daemon still instantiate memory storage. Restoring their consensus, mempool, and finalized account overlays remains separate work. This archive is a usable storage backend, not a claim of complete node restart support.
+`FullNodeService::new` retains the memory backend for fixtures. `FullNodeService::open(config, path)` verifies the file archive, restores execution state and the parent hash, and resumes at the next checked height. `BlockProducer::from_checkpoint` rejects state-root mismatches, populated state without a checkpoint, and exhausted heights. The caller still authenticates the checkpoint and chain identity; archive version 1 contains no chain configuration identifier.
+
+The daemon creates its data directory and opens `chain.bin` there. Each `--blocks N` invocation produces N additional blocks. `--blocks 0` recovers without opening listeners; `--dry-run` validates options without filesystem or network effects. Unknown, missing, duplicate, overflowing, or malformed arguments fail before opening storage. Both listener sockets bind before block production starts. An occupied listener or locked/corrupt archive stops startup rather than silently continuing.
+
+RPC chain status is initialized from recovery and updated only after successful durable commits. The daemon returns unavailable for account queries and transaction submission instead of acknowledging transactions outside the node's mempool. The RPC service boundary requires `Send` so a bound server can move to its worker thread.
+
+This is demonstration block/state recovery. Certificates remain placeholders; consensus keys, signing journals, finalized account/fee transitions, pending transactions, and adaptive-capacity observations are not recovered. The latter observation window is bounded and starts empty after restart; it does not change the producer's configured header capacity. The daemon uses chain ID 7 and does not implement network synchronization. Its listener workers currently terminate with the process. Archives stop accepting writes at the reference bounds below; automatic pruning is not enabled.
+
+Process tests cover repeated daemon runs, recovery-only startup, argument errors, dry runs, writer exclusion, corrupt archives, and listener failures. Differential tests compare 20 service restarts with uninterrupted block production, including nonempty execution state and identical retained block bodies.
 
 ## Archive version 1
 

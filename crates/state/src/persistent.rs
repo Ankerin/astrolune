@@ -15,8 +15,8 @@ use std::path::{Path, PathBuf};
 use types::{Hash256, StateKey};
 
 use crate::{
-    InMemoryState, MAX_SNAPSHOT_BYTES, StateDatabase, StateDiff, StateError, StateProof,
-    StateSnapshot,
+    InMemoryState, MAX_SNAPSHOT_BYTES, StateAbsenceProof, StateDatabase, StateDiff, StateError,
+    StateProof, StateSnapshot,
 };
 
 /// File-backed state with an OS lock held until the database is dropped.
@@ -170,6 +170,10 @@ impl StateSnapshot for FileBackedState {
 
     fn prove(&self, key: &StateKey) -> Result<Option<StateProof>, StateError> {
         self.state.prove(key)
+    }
+
+    fn prove_absence(&self, key: &StateKey) -> Result<Option<StateAbsenceProof>, StateError> {
+        self.state.prove_absence(key)
     }
 }
 

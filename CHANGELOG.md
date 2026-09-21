@@ -8,6 +8,7 @@ All notable changes to AstroLune will be documented in this file. The format fol
 
 ### Fixed
 
+- Reject malformed daemon arguments and fail startup on listener errors; expose only durably committed heads and bound the service observation history.
 - Replace XOR block IDs and receipt commitments with canonical domain-separated BLAKE2s; reject child headers after height exhaustion.
 - Authenticate the genesis header contents and first-child height when checking synchronized ancestry.
 - Verify stored transaction bodies against header commitments before publication, and enforce the transaction decoder's access-list count limit.
@@ -24,6 +25,10 @@ All notable changes to AstroLune will be documented in this file. The format fol
 
 ### Added
 
+- Authenticated state absence proofs with adjacent Merkle witnesses, bounded versioned transport, immutable snapshot/file recovery coverage, and a decoder fuzz target.
+- File-backed node service and daemon recovery of block height, parent hash, and execution state; strict data-directory/listener options and recovery-only startup.
+- Daemon RPC status follows recovered and newly committed checkpoints; unwired account and transaction operations return unavailable.
+- Process restart/failure tests and differential state/block checks across repeated node service restarts.
 - Bounded file-backed whole-chain archives with atomic commit/import/pruning, retained historical snapshots, writer locks, corruption checks, and process-recovery tests.
 - Independent block/receipt hash fixtures and archive format/compatibility documentation in `docs/11-chain-archives.md`.
 - Immutable shared state snapshots, bounded transitions, and strict Merkle membership proofs.

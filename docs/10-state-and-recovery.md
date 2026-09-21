@@ -4,11 +4,11 @@
 
 ## Implemented reference behavior
 
-`InMemoryState` and `FileBackedState` share bounded, ordered state transitions, BLAKE2s Merkle roots, immutable snapshots, and membership proofs. `InMemoryStorage` stages finalized batches before verifying their state roots, then publishes state, block, certificate bytes, and checkpoint together. It retains immutable historical state views for snapshot export and preserves the latest checkpoint when pruning.
+`InMemoryState` and `FileBackedState` share bounded, ordered state transitions, BLAKE2s Merkle roots, immutable snapshots, and membership and absence proofs. `InMemoryStorage` stages finalized batches before verifying their state roots, then publishes state, block, certificate bytes, and checkpoint together. It retains immutable historical state views for snapshot export and preserves the latest checkpoint when pruning.
 
 The producer executes proposals against an isolated copy. Preparing or rejecting a proposal does not change canonical state, height, or pending transactions. Before committing, the producer re-executes the reference transition and checks outputs, resource totals, capacity, and commitments. Successful storage commit publishes the producer's state and removes included transactions. `FullNodeService` propagates commit failures and retains the pending proposal for retry.
 
-These are reference implementations. `InMemoryStorage` does not survive restart, and the daemon still demonstrates admission, execution, and finality. `FileBackedStorage` now persists retained blocks, certificates, checkpoints, and historical state together; see [chain archives](11-chain-archives.md). Finality authentication, finalized account/fee transitions, daemon restart integration, absence proofs, and production-scale state indexing remain open. `FileBackedState` persists state entries only, without block history or certificates.
+These are reference implementations. `InMemoryStorage` does not survive restart, and the daemon still demonstrates admission, execution, and finality. `FileBackedStorage` now persists retained blocks, certificates, checkpoints, and historical state together; see [chain archives](11-chain-archives.md). Finality authentication, finalized account/fee transitions, and production-scale state indexing remain open. `FileBackedState` persists state entries only, without block history or certificates.
 
 ## State commitment version 1
 
@@ -29,6 +29,36 @@ Each level combines adjacent left/right nodes. A last unpaired node is promoted 
 `StateProof` binds a zero-based leaf index, total entry count, and siblings from leaf to root. Verification derives orientation and unpaired levels from the index and count, requires exactly the necessary siblings, and checks the supplied key and value against the trusted root. `None` from `prove` is not an authenticated absence proof.
 
 `StateDiff::commitment()` is `H("astrolune.state.diff.v1", canonical_diff_bytes)`. Operation order, repeated writes, deletions, and field lengths are preserved. This replaces the demonstration executor's XOR output commitment. A final state root depends on final entries, whereas a diff commitment also binds the sequence of operations.
+
+## Authenticated absence and proof transport
+
+`StateSnapshot::prove_absence(key)` returns `Some(StateAbsenceProof)` for an absent key and `None` for an existing key. Keys longer than 256 bytes are rejected. The in-memory and file-backed backends, including immutable snapshots retained across commits, expose the same API.
+
+Each neighboring `StateWitness` contains its complete key, value, and membership path. `verify(trusted_root, requested_key)` requires strict key ordering and authenticates every supplied neighbor against the same root. Interior gaps require consecutive leaf indices and equal leaf counts. A missing predecessor requires index zero; a missing successor requires the final leaf. Two missing neighbors authenticate only the canonical empty-state root. Authentic but nonadjacent entries cannot establish absence, and a proof for an older snapshot must be checked against that snapshot's root.
+
+The caller must independently authenticate a root produced by the canonical ordered-state implementation. A proof does not establish finality or validate ordering of the entire committed tree. Because version-1 leaves bind complete values, absence proofs disclose neighboring values and may contain up to two megabytes of value data. Proof generation recomputes a membership path for each neighbor; incremental indexing remains future work.
+
+The standalone absence-proof format leaves existing roots, snapshots, and chain archives unchanged:
+
+```text
+"ASTABSEN"                 8-byte magic
+version = 1                u16 little-endian
+lower witness, then upper witness:
+    present                u8, exactly 0 or 1
+    if present:
+        key_length         u64 little-endian
+        key                key_length bytes
+        value_length       u64 little-endian
+        value              value_length bytes
+        index              u64 little-endian
+        leaf_count         u64 little-endian
+        sibling_count      u8
+        siblings           sibling_count * 32 bytes, leaf to root
+```
+
+`to_bytes` and `from_bytes` enforce the state key/value/count bounds, a valid leaf index, at most 20 siblings, and a maximum packet size of 2,099,022 bytes. Decoding checks the complete framing before allocating owned keys and values; unsupported versions, reserved presence flags, truncation, and trailing bytes are rejected. Decoding alone is not authentication: callers must invoke `verify` with the requested key and trusted root. The requested key and root are external inputs, so one gap proof can authenticate multiple absent keys strictly within that gap.
+
+Tests cover generated tree shapes, boundary gaps, prefixes and empty keys, skipped neighbors, mixed roots, stale snapshots, file recovery, exact format fixtures, length bounds, every truncation and single-byte mutation of a proof. The `decode_state_absence` fuzz target checks canonical re-encoding and rejection under an invalid root. Long fuzz campaigns remain a release gate.
 
 ## Bounds and atomic transitions
 

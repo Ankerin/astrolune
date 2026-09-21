@@ -45,6 +45,35 @@ fn update(byte: u8) -> StateDiff {
     diff
 }
 
+#[test]
+fn absence_proofs_survive_restart_and_preserve_old_snapshots() {
+    let fixture = Fixture::new();
+    let key = StateKey(vec![0]);
+    let mut database = FileBackedState::open(fixture.path()).unwrap();
+    database.commit(database.root(), &[update(4)]).unwrap();
+    let snapshot = database.snapshot().unwrap();
+    let proof = database.prove_absence(&key).unwrap().unwrap();
+    assert!(proof.verify(database.root(), &key));
+    drop(database);
+
+    let mut database = FileBackedState::open(fixture.path()).unwrap();
+    assert_eq!(database.prove_absence(&key).unwrap(), Some(proof.clone()));
+    let mut insert = StateDiff::new();
+    insert.put(key.clone(), vec![9]);
+    database.commit(database.root(), &[insert]).unwrap();
+    assert!(database.prove_absence(&key).unwrap().is_none());
+    assert!(!proof.verify(database.root(), &key));
+    assert!(proof.verify(snapshot.root(), &key));
+    assert_eq!(snapshot.prove_absence(&key).unwrap(), Some(proof.clone()));
+    let mut delete = StateDiff::new();
+    delete.delete(key.clone());
+    database.commit(database.root(), &[delete]).unwrap();
+    drop(database);
+
+    let recovered = FileBackedState::open(fixture.path()).unwrap();
+    assert_eq!(recovered.prove_absence(&key).unwrap(), Some(proof));
+}
+
 fn child(path: &Path, mode: &str) {
     let output = Command::new(std::env::current_exe().unwrap())
         .args(["--exact", "process_probe", "--nocapture"])

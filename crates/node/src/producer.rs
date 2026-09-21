@@ -18,7 +18,7 @@ use std::collections::BTreeMap;
 use execution::{ExecutionError, ExecutorConfig, SimpleExecutor, TransactionOutput};
 use mempool::{Mempool, MempoolError, PoolEntry, PoolLimits};
 use state::{InMemoryState, StateDiff};
-use storage::{CommitBatch, NodeStorage, StorageError};
+use storage::{Checkpoint, CommitBatch, NodeStorage, StorageError};
 use transaction::{BasicValidator, TransactionError, TransactionValidator, ValidationContext};
 use types::{Address, Block, BlockHeader, Hash256, Resources, Transaction};
 
@@ -150,6 +150,38 @@ pub struct BlockProducer {
 }
 
 impl BlockProducer {
+    /// Restores execution state and the next position from a trusted local checkpoint.
+    ///
+    /// The caller authenticates chain identity and finality. Pending transactions and
+    /// the demonstration validator's account cache are not durable account state.
+    pub fn from_checkpoint(
+        config: ProducerConfig,
+        checkpoint: Option<Checkpoint>,
+        state: InMemoryState,
+    ) -> Result<Self, ProducerError> {
+        let (height, parent_hash) = match checkpoint {
+            Some(checkpoint) => {
+                if checkpoint.state_root != state.root() {
+                    return Err(StorageError::VerificationFailed.into());
+                }
+                (
+                    checkpoint
+                        .height
+                        .checked_add(1)
+                        .ok_or(StorageError::InvalidOrder)?,
+                    checkpoint.block,
+                )
+            }
+            None if state.is_empty() => (0, Hash256::ZERO),
+            None => return Err(StorageError::VerificationFailed.into()),
+        };
+        let mut producer = Self::new(config);
+        producer.height = height;
+        producer.parent_hash = parent_hash;
+        producer.state = state;
+        Ok(producer)
+    }
+
     /// Creates a new block producer with the given configuration.
     ///
     /// The producer starts at height 0 (genesis) with the zero hash as parent.

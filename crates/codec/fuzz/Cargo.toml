@@ -21,6 +21,12 @@ state = { path = "../../state" }
 path = ".."
 
 [[bin]]
+name = "decode_state_absence"
+path = "fuzz_targets/decode_state_absence.rs"
+test = false
+doc = false
+
+[[bin]]
 name = "decode_state_snapshot"
 path = "fuzz_targets/decode_state_snapshot.rs"
 test = false

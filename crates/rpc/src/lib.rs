@@ -49,7 +49,7 @@ pub enum RpcResponse {
 }
 
 /// Handles authenticated and rate-limited external requests.
-pub trait RpcService {
+pub trait RpcService: Send {
     /// Processes one already bounded transport request.
     ///
     /// # Errors

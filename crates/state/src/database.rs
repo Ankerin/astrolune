@@ -5,8 +5,8 @@
 
 use types::{Hash256, StateKey};
 
-use crate::StateProof;
 use crate::diff::StateDiff;
+use crate::{StateAbsenceProof, StateProof};
 
 /// An immutable state view at a finalized or speculative root.
 pub trait StateSnapshot: Send + Sync {
@@ -18,6 +18,10 @@ pub trait StateSnapshot: Send + Sync {
 
     /// Proves membership of an existing key; absence is not an authenticated proof.
     fn prove(&self, key: &StateKey) -> Result<Option<StateProof>, StateError>;
+
+    /// Proves absence using authenticated neighboring entries; returns `None` for
+    /// an existing key. Queries exceeding the state key limit are rejected.
+    fn prove_absence(&self, key: &StateKey) -> Result<Option<StateAbsenceProof>, StateError>;
 }
 
 /// State database boundary for batching, snapshots, and sequential commits.

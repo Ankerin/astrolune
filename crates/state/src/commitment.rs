@@ -8,7 +8,63 @@ use std::collections::BTreeMap;
 use crypto::blake2s::domain_hash;
 use types::{Hash256, StateKey, domain};
 
-use crate::{MAX_STATE_ENTRIES, MAX_STATE_KEY_BYTES, MAX_STATE_VALUE_BYTES};
+use crate::{MAX_STATE_ENTRIES, MAX_STATE_KEY_BYTES, MAX_STATE_VALUE_BYTES, StateError};
+
+/// An authenticated entry bordering a range of absent keys.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct StateWitness {
+    /// Complete key bytes in lexicographic order.
+    pub key: StateKey,
+    /// Complete value authenticated by the membership path.
+    pub value: Vec<u8>,
+    /// Position and siblings under the trusted state root.
+    pub proof: StateProof,
+}
+
+/// Non-membership evidence under a trusted, canonically ordered state root.
+///
+/// Interior gaps require two adjacent entries. A boundary gap requires the first
+/// or last entry, and an empty tree requires neither. Neighbor values are included
+/// because the version-1 leaf commitment binds both the key and the value.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct StateAbsenceProof {
+    /// Immediate predecessor, or `None` before the first entry.
+    pub lower: Option<StateWitness>,
+    /// Immediate successor, or `None` after the last entry.
+    pub upper: Option<StateWitness>,
+}
+
+impl StateAbsenceProof {
+    /// Authenticates the gap containing `key`, including adjacency and tree edges.
+    ///
+    /// The caller must authenticate `root` independently. As with membership
+    /// proofs, a root supplied by the prover alone does not establish finality.
+    #[must_use]
+    pub fn verify(&self, root: Hash256, key: &StateKey) -> bool {
+        if key.len() > MAX_STATE_KEY_BYTES {
+            return false;
+        }
+        if let Some(lower) = &self.lower
+            && (lower.key >= *key || !lower.proof.verify(root, &lower.key, &lower.value))
+        {
+            return false;
+        }
+        if let Some(upper) = &self.upper
+            && (upper.key <= *key || !upper.proof.verify(root, &upper.key, &upper.value))
+        {
+            return false;
+        }
+        match (&self.lower, &self.upper) {
+            (None, None) => root == empty_root(),
+            (None, Some(upper)) => upper.proof.index == 0,
+            (Some(lower), None) => lower.proof.index + 1 == lower.proof.leaf_count,
+            (Some(lower), Some(upper)) => {
+                lower.proof.leaf_count == upper.proof.leaf_count
+                    && lower.proof.index + 1 == upper.proof.index
+            }
+        }
+    }
+}
 
 /// Membership path for a key/value pair under a trusted state root.
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -76,6 +132,41 @@ pub(crate) fn compute_root(data: &BTreeMap<StateKey, Vec<u8>>) -> Hash256 {
 
 pub(crate) fn prove(data: &BTreeMap<StateKey, Vec<u8>>, key: &StateKey) -> Option<StateProof> {
     let index = data.keys().position(|candidate| candidate == key)?;
+    Some(proof_at(data, index))
+}
+
+pub(crate) fn prove_absence(
+    data: &BTreeMap<StateKey, Vec<u8>>,
+    key: &StateKey,
+) -> Result<Option<StateAbsenceProof>, StateError> {
+    if key.len() > MAX_STATE_KEY_BYTES {
+        return Err(StateError::LimitExceeded);
+    }
+    if data.contains_key(key) {
+        return Ok(None);
+    }
+    let mut lower = None;
+    let mut upper = None;
+    for (index, (candidate, value)) in data.iter().enumerate() {
+        if candidate < key {
+            lower = Some((index, candidate, value));
+        } else {
+            upper = Some((index, candidate, value));
+            break;
+        }
+    }
+    let witness = |(index, key, value): (usize, &StateKey, &Vec<u8>)| StateWitness {
+        key: key.clone(),
+        value: value.clone(),
+        proof: proof_at(data, index),
+    };
+    Ok(Some(StateAbsenceProof {
+        lower: lower.map(witness),
+        upper: upper.map(witness),
+    }))
+}
+
+fn proof_at(data: &BTreeMap<StateKey, Vec<u8>>, index: usize) -> StateProof {
     let mut proof = StateProof {
         index: index as u64,
         leaf_count: data.len() as u64,
@@ -90,7 +181,7 @@ pub(crate) fn prove(data: &BTreeMap<StateKey, Vec<u8>>, key: &StateKey) -> Optio
         position /= 2;
         level = next_level(&level);
     }
-    Some(proof)
+    proof
 }
 
 fn next_level(level: &[Hash256]) -> Vec<Hash256> {

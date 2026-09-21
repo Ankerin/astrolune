@@ -9,6 +9,7 @@
 #![forbid(unsafe_code)]
 #![allow(clippy::missing_errors_doc)]
 
+pub mod absence;
 pub mod commitment;
 pub mod database;
 pub mod diff;
@@ -17,7 +18,8 @@ pub mod memory;
 pub mod persistent;
 pub mod snapshot;
 
-pub use commitment::StateProof;
+pub use absence::MAX_ABSENCE_PROOF_BYTES;
+pub use commitment::{StateAbsenceProof, StateProof, StateWitness};
 pub use database::{StateDatabase, StateError, StateSnapshot};
 pub use diff::{StateChange, StateDiff};
 pub use lease::{AccessMode, AccessRequest, StateLease};
