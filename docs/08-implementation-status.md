@@ -27,7 +27,7 @@ This is predominantly an **interface baseline**. It is not a functioning blockch
 |---|---|
 | Canonical codec | primitive, transaction, block-header, and receipt codecs implemented; strict length/boolean decoding and transaction preflight validation with regression tests; complete versioned protocol codecs planned |
 | Shared protocol types | interface baseline |
-| Genesis | structural validation baseline; encoding, hashing, and materialization planned |
+| Genesis | bounded version-1 decoding, validated BLAKE2s commitment, account/validator state materialization, CLI verification, atomic daemon activation and restart identity checks implemented; validator-key registration planned |
 | Cryptography and VRF | standard BLAKE2s-256 and strict Ed25519 implemented/tested; registered validator-key verification; VRF remains unimplemented and fails closed |
 | PoTB and BFT | type/state-machine interfaces and quorum helper; protocol implementation/formal work planned |
 | Keystore | non-exporting signer and anti-equivocation interface only |
@@ -40,7 +40,7 @@ This is predominantly an **interface baseline**. It is not a functioning blockch
 | Telemetry | no-op local sink |
 | Contracts | SDK interface only; no compiler target or runtime |
 | DNS, Proxy, Pages, ID | service data models and placeholder binaries |
-| CLI and daemon | CLI scaffold; local daemon with file-backed block/state recovery, strict arguments, startup failure propagation, and durable RPC head; consensus and account integration remain demonstrations/planned |
+| CLI and daemon | CLI genesis verification; local daemon with file-backed block/state recovery, genesis activation, strict arguments, startup failure propagation, and durable RPC head; consensus and account execution remain demonstrations/planned |
 
 ## 8.3 Removed architecture
 
@@ -70,7 +70,7 @@ Standard hashing and signing backends, signed transaction IDs, address derivatio
 
 Signed envelopes, validation order, account/state commitments, immutable snapshots, proofs, diffs, sequential atomic commit, crash recovery, pruning, receipts, and snapshot exchange.
 
-Implemented reference state commitments, membership and absence proofs, bounded versioned snapshots, atomic file-backed state publication, writer locks, recovery, verified snapshot exchange, and proposal rollback are described in [state and recovery](10-state-and-recovery.md). [Whole-chain archives](11-chain-archives.md) now persist blocks, certificates, checkpoints, and historical state atomically. Local daemon block/state restart integration is implemented with process and differential recovery tests. Full account/fee transitions, consensus signing-state recovery, and production-scale indexing remain open.
+Implemented reference state commitments, membership and absence proofs, bounded versioned snapshots, atomic file-backed state publication, writer locks, recovery, verified snapshot exchange, and proposal rollback are described in [state and recovery](10-state-and-recovery.md). [Whole-chain archives](11-chain-archives.md) now persist blocks, certificates, checkpoints, and historical state atomically. Local daemon block/state restart integration is implemented with process and differential recovery tests. [Genesis activation](12-genesis-and-accounts.md) creates committed account balances/nonces and validator weights, installs a durable height-zero anchor, and validates genesis identity on restart. Recovered accounts are tested against signed admission. Full account/fee transitions, consensus signing-state recovery, and production-scale indexing remain open.
 
 ### M3 — deterministic runtime
 

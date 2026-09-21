@@ -12,6 +12,19 @@ use codec::traits::{CanonicalDecode, CanonicalEncode};
 use crypto::CryptoProvider;
 use types::{Address, Hash256, Resources, ValidatorId};
 
+mod materialize;
+pub use materialize::{genesis_key, validator_key};
+
+/// Supported canonical genesis format.
+pub const GENESIS_VERSION: u16 = 1;
+/// Maximum validators in the reference genesis format.
+pub const MAX_GENESIS_VALIDATORS: usize = 4096;
+/// Maximum initial allocations in the reference genesis format.
+pub const MAX_GENESIS_ALLOCATIONS: usize = 65_536;
+/// Maximum complete genesis bytes, including both fixed-width counts.
+pub const MAX_GENESIS_BYTES: usize =
+    74 + MAX_GENESIS_VALIDATORS * 48 + MAX_GENESIS_ALLOCATIONS * 40;
+
 /// Initial account allocation.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct Allocation {
@@ -59,8 +72,16 @@ impl Genesis {
     /// Returns [`GenesisError`] when identifiers, capacity, committee parameters,
     /// validators, or allocations violate canonical genesis rules.
     pub fn validate(&self) -> Result<(), GenesisError> {
-        if self.version == 0 || self.chain_id == 0 {
+        if self.version != GENESIS_VERSION {
+            return Err(GenesisError::UnsupportedVersion);
+        }
+        if self.chain_id == 0 || self.runtime_version == 0 {
             return Err(GenesisError::InvalidIdentity);
+        }
+        if self.validators.len() > MAX_GENESIS_VALIDATORS
+            || self.allocations.len() > MAX_GENESIS_ALLOCATIONS
+        {
+            return Err(GenesisError::LimitExceeded);
         }
         if self.capacity.compute == 0
             || self.capacity.memory == 0
@@ -83,7 +104,12 @@ impl Genesis {
             || self
                 .validators
                 .iter()
-                .any(|validator| validator.weight == 0)
+                .any(|validator| validator.id.is_zero() || validator.weight == 0)
+            || self
+                .validators
+                .iter()
+                .try_fold(0u128, |sum, validator| sum.checked_add(validator.weight))
+                .is_none()
         {
             return Err(GenesisError::InvalidValidators);
         }
@@ -91,33 +117,69 @@ impl Genesis {
             .allocations
             .windows(2)
             .any(|pair| pair[0].address >= pair[1].address)
+            || self
+                .allocations
+                .iter()
+                .any(|allocation| allocation.address.is_zero())
         {
             return Err(GenesisError::InvalidAllocations);
         }
         Ok(())
+    }
+
+    /// Validates and hashes the configuration using the protocol BLAKE2s suite.
+    pub fn commitment(&self) -> Result<Hash256, GenesisError> {
+        self.validate()?;
+        Ok(crypto::blake2s::domain_hash(
+            types::domain::GENESIS,
+            &self.to_bytes(),
+        ))
     }
 }
 
 /// Hashing boundary for canonical genesis bytes.
 pub trait GenesisCommitment {
     /// Returns the chain-binding genesis hash.
-    fn genesis_hash(&self, genesis: &Genesis) -> Hash256;
+    fn genesis_hash(&self, genesis: &Genesis) -> Result<Hash256, GenesisError>;
 }
 
 /// Genesis validation failures.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum GenesisError {
-    /// Version or chain identifier is zero.
+    /// Chain or runtime identifier is zero.
     InvalidIdentity,
+    /// The genesis format version is not supported.
+    UnsupportedVersion,
+    /// A validator or allocation count exceeds its bound.
+    LimitExceeded,
     /// One or more resource dimensions are zero.
     InvalidCapacity,
     /// Committee size or rotation is inconsistent.
     InvalidCommittee,
-    /// Validators are empty, duplicated, unsorted, or have zero weight.
+    /// Validators have invalid identities, order, weights, or aggregate overflow.
     InvalidValidators,
-    /// Allocations contain duplicate or unsorted addresses.
+    /// Allocations contain zero, duplicate, or unsorted addresses.
     InvalidAllocations,
+    /// Initial state could not be staged within the state backend bounds.
+    State(state::StateError),
 }
+
+impl std::fmt::Display for GenesisError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::InvalidIdentity => f.write_str("invalid genesis chain or runtime identifier"),
+            Self::UnsupportedVersion => f.write_str("unsupported genesis version"),
+            Self::LimitExceeded => f.write_str("genesis limit exceeded"),
+            Self::InvalidCapacity => f.write_str("invalid genesis capacity"),
+            Self::InvalidCommittee => f.write_str("invalid genesis committee"),
+            Self::InvalidValidators => f.write_str("invalid genesis validators"),
+            Self::InvalidAllocations => f.write_str("invalid genesis allocations"),
+            Self::State(error) => write!(f, "genesis state: {error}"),
+        }
+    }
+}
+
+impl std::error::Error for GenesisError {}
 
 impl CanonicalEncode for Allocation {
     fn encode(&self, output: &mut Vec<u8>) {
@@ -167,9 +229,10 @@ impl CanonicalEncode for Genesis {
 /// Produces a domain-separated deterministic hash of the genesis configuration
 /// suitable for chain-binding and genesis validation.
 impl<C: CryptoProvider> GenesisCommitment for C {
-    fn genesis_hash(&self, genesis: &Genesis) -> Hash256 {
+    fn genesis_hash(&self, genesis: &Genesis) -> Result<Hash256, GenesisError> {
+        genesis.validate()?;
         let encoded = genesis.to_bytes();
-        self.hash(types::domain::GENESIS, &encoded)
+        Ok(self.hash(types::domain::GENESIS, &encoded))
     }
 }
 
@@ -199,8 +262,14 @@ impl CanonicalDecode for GenesisValidator {
 
 impl CanonicalDecode for Genesis {
     fn decode(bytes: &[u8]) -> Result<Self, DecodeError> {
+        if bytes.len() > MAX_GENESIS_BYTES {
+            return Err(DecodeError::LimitExceeded);
+        }
         let mut dec = Decoder::new(bytes);
         let version = dec.read_u16()?;
+        if version != GENESIS_VERSION {
+            return Err(DecodeError::Unsupported);
+        }
         let chain_id = dec.read_u32()?;
         let capacity = Resources {
             compute: dec.read_u64()?,
@@ -208,47 +277,44 @@ impl CanonicalDecode for Genesis {
             io: dec.read_u64()?,
             bandwidth: dec.read_u64()?,
         };
-        let committee_size =
-            usize::try_from(dec.read_u64()?).map_err(|_| DecodeError::TrailingBytes)?;
-        let rotation_count =
-            usize::try_from(dec.read_u64()?).map_err(|_| DecodeError::TrailingBytes)?;
+        let committee_size = read_count(&mut dec, MAX_GENESIS_VALIDATORS)?;
+        let rotation_count = read_count(&mut dec, MAX_GENESIS_VALIDATORS)?;
         let runtime_version = dec.read_u32()?;
 
-        let validator_len =
-            usize::try_from(dec.read_u64()?).map_err(|_| DecodeError::TrailingBytes)?;
-        let mut validators = Vec::with_capacity(validator_len);
-        for _ in 0..validator_len {
-            let id = ValidatorId(dec.read_fixed::<32>()?);
-            let low = dec.read_u64()?;
-            let high = dec.read_u64()?;
-            validators.push(GenesisValidator {
-                id,
-                weight: u128::from(low) | (u128::from(high) << 64),
-            });
-        }
-
-        let allocation_len =
-            usize::try_from(dec.read_u64()?).map_err(|_| DecodeError::TrailingBytes)?;
-        let mut allocations = Vec::with_capacity(allocation_len);
-        for _ in 0..allocation_len {
-            let address = Address(dec.read_fixed::<32>()?);
-            let amount = dec.read_u64()?;
-            allocations.push(Allocation { address, amount });
-        }
-
+        // Preflight both complete lists and the input end before any owned allocation.
+        let validator_len = read_count(&mut dec, MAX_GENESIS_VALIDATORS)?;
+        let validator_bytes = dec.read_exact(validator_len * 48)?;
+        let allocation_len = read_count(&mut dec, MAX_GENESIS_ALLOCATIONS)?;
+        let allocation_bytes = dec.read_exact(allocation_len * 40)?;
         dec.finish()?;
 
-        Ok(Self {
+        let genesis = Self {
             version,
             chain_id,
             capacity,
             committee_size,
             rotation_count,
             runtime_version,
-            validators,
-            allocations,
-        })
+            validators: validator_bytes
+                .chunks_exact(48)
+                .map(GenesisValidator::decode)
+                .collect::<Result<_, _>>()?,
+            allocations: allocation_bytes
+                .chunks_exact(40)
+                .map(Allocation::decode)
+                .collect::<Result<_, _>>()?,
+        };
+        genesis.validate().map_err(|_| DecodeError::NonCanonical)?;
+        Ok(genesis)
     }
+}
+
+fn read_count(decoder: &mut Decoder<'_>, maximum: usize) -> Result<usize, DecodeError> {
+    let count = decoder.read_u64()?;
+    if count > maximum as u64 {
+        return Err(DecodeError::LimitExceeded);
+    }
+    usize::try_from(count).map_err(|_| DecodeError::LengthOverflow)
 }
 
 #[cfg(test)]
@@ -353,8 +419,8 @@ mod tests {
     fn genesis_commitment_deterministic() {
         let provider = MockCryptoProvider::new();
         let genesis = valid_genesis();
-        let h1 = provider.genesis_hash(&genesis);
-        let h2 = provider.genesis_hash(&genesis);
+        let h1 = provider.genesis_hash(&genesis).unwrap();
+        let h2 = provider.genesis_hash(&genesis).unwrap();
         assert_eq!(h1, h2);
     }
 
@@ -375,7 +441,7 @@ mod tests {
     fn genesis_commitment_non_zero() {
         let provider = MockCryptoProvider::new();
         let genesis = valid_genesis();
-        let hash = provider.genesis_hash(&genesis);
+        let hash = provider.genesis_hash(&genesis).unwrap();
         assert!(!hash.is_zero());
     }
 
@@ -421,19 +487,19 @@ mod tests {
     }
 
     #[test]
-    fn genesis_roundtrip_empty_lists() {
+    fn genesis_rejects_empty_validator_set() {
         let mut genesis = valid_genesis();
         genesis.validators.clear();
         genesis.allocations.clear();
         let encoded = genesis.to_bytes();
-        let decoded = Genesis::decode(&encoded).unwrap();
-        assert_eq!(genesis, decoded);
+        assert_eq!(Genesis::decode(&encoded), Err(DecodeError::NonCanonical));
     }
 
     #[test]
     fn genesis_roundtrip_single_validator() {
         let mut genesis = valid_genesis();
         genesis.validators.truncate(1);
+        genesis.committee_size = 1;
         let encoded = genesis.to_bytes();
         let decoded = Genesis::decode(&encoded).unwrap();
         assert_eq!(genesis, decoded);

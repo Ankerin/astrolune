@@ -22,6 +22,7 @@ For a concise source-tree map, read [`../ARCHITECTURE.md`](../ARCHITECTURE.md).
 | [09-cryptographic-foundations.md](09-cryptographic-foundations.md) | implemented hash/signature suite, signed admission, and compatibility |
 | [10-state-and-recovery.md](10-state-and-recovery.md) | Merkle state commitments, proofs, atomic transitions, snapshots, and recovery |
 | [11-chain-archives.md](11-chain-archives.md) | atomic whole-chain archives, historical recovery, pruning, bounds, and compatibility |
+| [12-genesis-and-accounts.md](12-genesis-and-accounts.md) | bounded genesis, initial account/validator state, commitments, and operator verification |
 
 Legacy-shaped filenames such as `03-vm-and-gas.md`, `05-contract-languages.md`, and `06-deferred-services.md` are retained temporarily to preserve links. Their contents describe the current Rust architecture.
 

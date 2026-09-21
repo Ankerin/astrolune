@@ -19,6 +19,8 @@ Canonical encodings, protocol domains, hashes, addresses, signatures, checked re
 - [x] Strict primitive/current-transaction codecs and canonical-byte regression tests.
 - [x] Standard BLAKE2s-256, strict Ed25519, transaction signing/ID domains, and address derivation.
 - [x] Checked resource pricing and cryptographic conformance vectors.
+- [x] Bounded version-1 genesis, validated commitments, initial account/validator state, and CLI verification.
+- [x] Atomic daemon genesis activation, restart identity checks, and preserved initial account state.
 - [ ] Complete versioned protocol envelopes and replace remaining placeholder commitments.
 - [ ] Long fuzz campaigns, dependency/security review, and cross-platform suite qualification.
 

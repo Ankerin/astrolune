@@ -10,6 +10,7 @@
 #![allow(clippy::missing_errors_doc)]
 
 pub mod absence;
+pub mod account;
 pub mod commitment;
 pub mod database;
 pub mod diff;
@@ -19,6 +20,7 @@ pub mod persistent;
 pub mod snapshot;
 
 pub use absence::MAX_ABSENCE_PROOF_BYTES;
+pub use account::{account_key, read_account};
 pub use commitment::{StateAbsenceProof, StateProof, StateWitness};
 pub use database::{StateDatabase, StateError, StateSnapshot};
 pub use diff::{StateChange, StateDiff};

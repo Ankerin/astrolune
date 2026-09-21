@@ -28,7 +28,6 @@ members = [
     "crates/types",
     "services/dns",
     "services/id",
-    "services/isolation",
     "services/pages",
     "services/proxy",
     "tests/integration",

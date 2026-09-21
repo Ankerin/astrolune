@@ -98,7 +98,68 @@ impl FullNodeService<FileBackedStorage> {
         config: ProducerConfig,
         path: impl AsRef<std::path::Path>,
     ) -> Result<Self, ProducerError> {
+        let storage = FileBackedStorage::open(path)?;
+        if storage.state().get(&genesis::genesis_key()).is_some() {
+            return Err(ProducerError::Assembly(
+                "this archive requires its genesis configuration".into(),
+            ));
+        }
+        Self::resume(config, storage)
+    }
+
+    /// Opens or initializes a chain using an independently trusted genesis.
+    ///
+    /// Genesis is a height-zero anchor; the first produced block has height one.
+    /// Restarts verify the committed genesis identity, and never reset accounts.
+    /// Legacy archives cannot be converted implicitly. The demonstration committee
+    /// uses the first configured seats in canonical order; this is not `PoTB` selection.
+    /// Finality authentication and account execution remain separate work.
+    pub fn open_with_genesis(
+        config: ProducerConfig,
+        path: impl AsRef<std::path::Path>,
+        genesis: &genesis::Genesis,
+    ) -> Result<Self, ProducerError> {
+        let initial = genesis
+            .materialize()
+            .map_err(|error| ProducerError::Assembly(error.to_string()))?;
+        if config.chain_id != genesis.chain_id || config.block_capacity != genesis.capacity {
+            return Err(ProducerError::Assembly(
+                "producer configuration differs from genesis".into(),
+            ));
+        }
+        let hash = genesis
+            .commitment()
+            .map_err(|error| ProducerError::Assembly(error.to_string()))?;
         let mut storage = FileBackedStorage::open(path)?;
+        if let Some(checkpoint) = storage.checkpoint() {
+            if storage.state().get(&genesis::genesis_key()) != Some(hash.as_bytes().as_slice())
+                || (checkpoint.height == 0
+                    && (checkpoint.block != hash || checkpoint.state_root != initial.root()))
+            {
+                return Err(ProducerError::Assembly("archive genesis mismatch".into()));
+            }
+        } else {
+            storage.initialize_genesis(hash, initial)?;
+        }
+        let mut service = Self::resume(config, storage)?;
+        service.setup_committee(
+            genesis
+                .validators
+                .iter()
+                .take(genesis.committee_size)
+                .map(|validator| CommitteeMember {
+                    id: validator.id,
+                    power: consensus::PotbWeight(validator.weight),
+                })
+                .collect(),
+        );
+        Ok(service)
+    }
+
+    fn resume(
+        config: ProducerConfig,
+        mut storage: FileBackedStorage,
+    ) -> Result<Self, ProducerError> {
         let checkpoint = storage.recover()?;
         let capacity = config.block_capacity;
         let producer = BlockProducer::from_checkpoint(config, checkpoint, storage.state().clone())?;

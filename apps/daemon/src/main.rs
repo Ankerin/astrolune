@@ -53,7 +53,18 @@ fn run() -> Result<(), DaemonError> {
         }
         options::Command::Run(options) => options,
     };
-    let config = options.config;
+    let genesis = options.genesis.as_deref().map(read_genesis).transpose()?;
+    let mut config = options.config;
+    let mut producer_config = ProducerConfig::default();
+    if let Some(genesis) = &genesis {
+        config.chain_id = genesis.chain_id;
+        producer_config.block_capacity = genesis.capacity;
+        println!(
+            "genesis_hash: {:?}",
+            genesis.commitment().map_err(io_error)?
+        );
+    }
+    producer_config.chain_id = config.chain_id;
     println!(
         "AstroLune local demonstration daemon v{}",
         env!("CARGO_PKG_VERSION")
@@ -61,23 +72,24 @@ fn run() -> Result<(), DaemonError> {
     println!("chain_id  : {}", config.chain_id);
     println!("data_dir  : {}", config.data_dir.display());
     if options.dry_run {
-        println!("[dry-run] configuration valid; no files or listeners opened.");
+        println!("[dry-run] configuration valid; no files written or listeners opened.");
         return Ok(());
     }
 
     std::fs::create_dir_all(&config.data_dir).map_err(io_error)?;
-    let mut service = FullNodeService::open(
-        ProducerConfig {
-            chain_id: config.chain_id,
-            ..ProducerConfig::default()
-        },
-        config.data_dir.join("chain.bin"),
-    )
+    let path = config.data_dir.join("chain.bin");
+    let mut service = if let Some(genesis) = &genesis {
+        FullNodeService::open_with_genesis(producer_config, path, genesis)
+    } else {
+        FullNodeService::open(producer_config, path)
+    }
     .map_err(io_error)?;
-    service.setup_committee(vec![consensus::CommitteeMember {
-        id: types::ValidatorId::from_bytes([1; 32]),
-        power: consensus::PotbWeight(100),
-    }]);
+    if genesis.is_none() {
+        service.setup_committee(vec![consensus::CommitteeMember {
+            id: types::ValidatorId::from_bytes([1; 32]),
+            power: consensus::PotbWeight(100),
+        }]);
+    }
     println!("next_height: {}", service.height());
     if options.max_blocks == Some(0) {
         println!("Recovery complete; no blocks requested.");
@@ -162,4 +174,18 @@ fn start_listeners(
 
 fn io_error(error: impl std::fmt::Display) -> DaemonError {
     DaemonError::Io(error.to_string())
+}
+
+fn read_genesis(path: &std::path::Path) -> Result<genesis::Genesis, DaemonError> {
+    use codec::CanonicalDecode;
+    use std::io::Read;
+
+    let mut bytes = Vec::new();
+    std::fs::File::open(path)
+        .map_err(io_error)?
+        .take(genesis::MAX_GENESIS_BYTES as u64 + 1)
+        .read_to_end(&mut bytes)
+        .map_err(io_error)?;
+    genesis::Genesis::decode(&bytes)
+        .map_err(|error| DaemonError::Config(format!("invalid genesis: {error}")))
 }

@@ -11,8 +11,28 @@ use crate::decoder::Decoder;
 use crate::error::DecodeError;
 use crate::traits::{CanonicalDecode, CanonicalEncode, DecodeAt, DecoderExt};
 use types::{
-    Address, BlockHeader, ExecutionReceipt, Hash256, Resources, StateKey, Transaction, ValidatorId,
+    AccountState, Address, BlockHeader, ExecutionReceipt, Hash256, Resources, StateKey,
+    Transaction, ValidatorId,
 };
+
+impl CanonicalEncode for AccountState {
+    fn encode(&self, output: &mut Vec<u8>) {
+        self.nonce.encode(output);
+        self.balance.encode(output);
+    }
+}
+
+impl CanonicalDecode for AccountState {
+    fn decode(bytes: &[u8]) -> Result<Self, DecodeError> {
+        let mut decoder = Decoder::new(bytes);
+        let account = Self {
+            nonce: decoder.read_u64()?,
+            balance: decoder.read_u64()?,
+        };
+        decoder.finish()?;
+        Ok(account)
+    }
+}
 
 impl CanonicalEncode for Hash256 {
     fn encode(&self, output: &mut Vec<u8>) {

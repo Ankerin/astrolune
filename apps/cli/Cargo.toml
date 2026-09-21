@@ -13,7 +13,9 @@ repository.workspace = true
 publish = false
 
 [dependencies]
+codec = { path = "../../crates/codec" }
 config = { path = "../../crates/config" }
+genesis = { path = "../../crates/genesis" }
 keystore = { path = "../../crates/keystore" }
 types = { path = "../../crates/types" }
 

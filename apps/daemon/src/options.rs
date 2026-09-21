@@ -16,9 +16,10 @@ Usage: daemon [--help | --version] [--run | --dry-run | --blocks N] [options]
 
 Options:
   --run              Produce blocks indefinitely
-  --dry-run          Validate configuration without opening files or sockets
+  --dry-run          Validate configuration/genesis without writing or listening
   --blocks N         Produce N additional blocks, then exit (0: recovery only)
   --data-dir PATH    Durable chain directory (default: node-data)
+  --genesis PATH     Trusted binary genesis (required on each genesis-chain start)
   --p2p-listen ADDR  Peer socket address (default: 127.0.0.1:17330)
   --rpc-listen ADDR  RPC socket address (default: 127.0.0.1:17331)
   --help             Show this message
@@ -37,6 +38,7 @@ pub(crate) struct Options {
     pub config: NodeConfig,
     pub dry_run: bool,
     pub max_blocks: Option<u64>,
+    pub genesis: Option<PathBuf>,
 }
 
 pub(crate) fn parse(args: impl IntoIterator<Item = OsString>) -> Result<Command, DaemonError> {
@@ -57,6 +59,7 @@ pub(crate) fn parse(args: impl IntoIterator<Item = OsString>) -> Result<Command,
         },
         dry_run: false,
         max_blocks: None,
+        genesis: None,
     };
     let mut seen = BTreeSet::new();
     while let Some(arg) = args.next() {
@@ -77,7 +80,7 @@ pub(crate) fn parse(args: impl IntoIterator<Item = OsString>) -> Result<Command,
             }
             "--dry-run" => options.dry_run = true,
             "--run" => {}
-            "--blocks" | "--data-dir" | "--p2p-listen" | "--rpc-listen" => {
+            "--blocks" | "--data-dir" | "--genesis" | "--p2p-listen" | "--rpc-listen" => {
                 let value = args
                     .next()
                     .ok_or_else(|| invalid(&format!("missing value for {flag}")))?;
@@ -86,6 +89,10 @@ pub(crate) fn parse(args: impl IntoIterator<Item = OsString>) -> Result<Command,
                 }
                 if flag == "--data-dir" {
                     options.config.data_dir = PathBuf::from(value);
+                    continue;
+                }
+                if flag == "--genesis" {
+                    options.genesis = Some(PathBuf::from(value));
                     continue;
                 }
                 let value = value
@@ -146,6 +153,9 @@ mod tests {
             vec!["unexpected"],
             vec!["--dry-run", "--dry-run"],
             vec!["--data-dir", "--blocks", "1"],
+            vec!["--genesis"],
+            vec!["--genesis", "--blocks", "1"],
+            vec!["--genesis", "one", "--genesis", "two"],
             vec!["--p2p-listen", "garbage"],
             vec!["--run", "--blocks", "1"],
             vec!["--help", "--blocks", "1"],

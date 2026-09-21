@@ -13,6 +13,7 @@ repository.workspace = true
 publish = false
 
 [dependencies]
+codec = { path = "../../crates/codec" }
 config = { path = "../../crates/config" }
 consensus = { path = "../../crates/consensus" }
 crypto = { path = "../../crates/crypto" }

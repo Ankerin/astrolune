@@ -16,6 +16,7 @@ codec = { path = "../codec" }
 crypto = { path = "../crypto" }
 consensus = { path = "../consensus" }
 execution = { path = "../execution" }
+genesis = { path = "../genesis" }
 mempool = { path = "../mempool" }
 p2p = { path = "../p2p" }
 state = { path = "../state" }

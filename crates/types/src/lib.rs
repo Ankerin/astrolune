@@ -5,6 +5,7 @@
 
 #![forbid(unsafe_code)]
 
+pub mod account;
 pub mod block;
 pub mod domain;
 pub mod hash;
@@ -12,6 +13,7 @@ pub mod resources;
 pub mod state_key;
 pub mod transaction;
 
+pub use account::AccountState;
 pub use block::{Block, BlockHeader, ExecutionReceipt};
 pub use hash::Hash256;
 pub use resources::Resources;

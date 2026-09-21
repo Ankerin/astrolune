@@ -88,6 +88,20 @@ cargo run -p daemon -- --help
 cargo run -p cargo-contract -- --help
 ```
 
+Verify a canonical binary genesis and calculate its initial account/validator state root:
+
+```sh
+cargo run -p cli -- genesis genesis.bin
+```
+
+This read-only command implements [genesis verification and materialization](docs/12-genesis-and-accounts.md). Start or resume a local chain with the same trusted genesis on every invocation:
+
+```sh
+cargo run -p daemon -- --genesis genesis.bin --data-dir node-data --blocks 3
+```
+
+Genesis initializes a durable height-zero anchor with account balances and validator weights; produced blocks start at height one. A different or missing genesis is rejected on restart. Consensus and transaction execution remain demonstrations.
+
 Run the local demonstration chain, then resume it with two additional blocks:
 
 ```sh

@@ -84,9 +84,41 @@ impl FileBackedStorage {
     }
 
     /// Returns the latest published checkpoint.
+    ///
+    /// A height-zero checkpoint can be an operator-trusted genesis anchor.
     #[must_use]
     pub fn checkpoint(&self) -> Option<&Checkpoint> {
         self.inner.checkpoint()
+    }
+
+    /// Atomically installs an operator-trusted genesis state in an empty archive.
+    ///
+    /// The genesis commitment identifies a height-zero anchor without a block body
+    /// or finality certificate. The caller validates the genesis and its state.
+    /// Existing checkpoints are never replaced, including an existing genesis.
+    pub fn initialize_genesis(
+        &mut self,
+        genesis_hash: Hash256,
+        state: InMemoryState,
+    ) -> Result<Checkpoint, StorageError> {
+        self.ready()?;
+        if self.inner.checkpoint().is_some() || !self.inner.state().is_empty() {
+            return Err(StorageError::InvalidOrder);
+        }
+        if genesis_hash.is_zero() {
+            return Err(StorageError::VerificationFailed);
+        }
+        let checkpoint = Checkpoint {
+            height: 0,
+            block: genesis_hash,
+            state_root: state.root(),
+        };
+        let mut next = InMemoryStorage::new();
+        next.state = state.clone();
+        next.snapshots.insert(0, state);
+        next.checkpoints.insert(0, checkpoint);
+        self.publish(next)?;
+        Ok(checkpoint)
     }
 
     /// Returns the latest immutable state view.

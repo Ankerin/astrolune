@@ -10,6 +10,7 @@ use types::{Address, Hash256, Transaction};
 use crate::error::TransactionError;
 use crate::lane::TransactionLane;
 pub use crate::signing::compute_tx_id;
+pub use types::AccountState;
 
 /// Context needed for deterministic pre-execution validation.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -45,15 +46,6 @@ pub trait TransactionValidator {
         transaction: Transaction,
         context: ValidationContext,
     ) -> Result<ValidatedTransaction, TransactionError>;
-}
-
-/// Account state required for transaction validation.
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub struct AccountState {
-    /// Current nonce for the account.
-    pub nonce: u64,
-    /// Available balance for resource payment.
-    pub balance: u64,
 }
 
 /// Local demonstration validator with no cryptographic authentication.

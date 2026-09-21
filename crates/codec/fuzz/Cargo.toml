@@ -16,9 +16,16 @@ cargo-fuzz = true
 libfuzzer-sys = "0.4"
 types = { path = "../../types" }
 state = { path = "../../state" }
+genesis = { path = "../../genesis" }
 
 [dependencies.codec]
 path = ".."
+
+[[bin]]
+name = "decode_genesis"
+path = "fuzz_targets/decode_genesis.rs"
+test = false
+doc = false
 
 [[bin]]
 name = "decode_state_absence"

@@ -8,6 +8,9 @@ All notable changes to AstroLune will be documented in this file. The format fol
 
 ### Fixed
 
+- Compute strict two-thirds quorum without saturation for the full `u128` validator-weight range.
+- Remove the workspace member reference to the deleted isolation service.
+- Bound and preflight genesis lists before allocation; reject unsupported versions, invalid identities/order/committee parameters, and aggregate validator-weight overflow before hashing or materialization.
 - Reject malformed daemon arguments and fail startup on listener errors; expose only durably committed heads and bound the service observation history.
 - Replace XOR block IDs and receipt commitments with canonical domain-separated BLAKE2s; reject child headers after height exhaustion.
 - Authenticate the genesis header contents and first-child height when checking synchronized ancestry.
@@ -25,6 +28,9 @@ All notable changes to AstroLune will be documented in this file. The format fol
 
 ### Added
 
+- Daemon `--genesis PATH` activation with atomic height-zero state installation, genesis identity checks on restart, configured chain/capacity and demonstration committee, plus recovery/failure conformance tests.
+- Deterministic genesis account/validator materialization, canonical shared account records, authenticated snapshot reads, independent commitment vectors, recovery/admission tests, and a genesis decoder fuzz target.
+- Read-only `cli genesis <file>` verification reporting the genesis hash and initial state root.
 - Authenticated state absence proofs with adjacent Merkle witnesses, bounded versioned transport, immutable snapshot/file recovery coverage, and a decoder fuzz target.
 - File-backed node service and daemon recovery of block height, parent hash, and execution state; strict data-directory/listener options and recovery-only startup.
 - Daemon RPC status follows recovered and newly committed checkpoints; unwired account and transaction operations return unavailable.

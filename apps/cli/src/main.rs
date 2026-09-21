@@ -7,6 +7,7 @@
 //! - `status` — display chain status summary
 //! - `keys` — create a mock keystore and show registered key info
 //! - `verify` — validate a node configuration
+//! - `genesis <file>` — verify canonical genesis and derive the initial state root
 
 #![forbid(unsafe_code)]
 #![allow(clippy::print_stdout, clippy::print_stderr)]
@@ -20,6 +21,8 @@ use types::{Hash256, ValidatorId};
 /// Application error type.
 #[derive(Debug)]
 enum CliError {
+    /// Genesis input or materialization failed.
+    Genesis(String),
     /// Configuration validation failure.
     Config(String),
     /// Keystore operation failed.
@@ -29,6 +32,7 @@ enum CliError {
 impl core::fmt::Display for CliError {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match self {
+            Self::Genesis(msg) => write!(f, "genesis error: {msg}"),
             Self::Config(msg) => write!(f, "configuration error: {msg}"),
             Self::Keystore(err) => write!(f, "keystore error: {err}"),
         }
@@ -52,6 +56,7 @@ Commands:
   status   Show chain status summary
   keys     Create and query a mock keystore
   verify   Validate a node configuration
+  genesis <file>  Verify binary genesis and derive its initial state root
   help     Show this message
   version  Show version
 ";
@@ -80,11 +85,45 @@ fn run() -> Result<(), CliError> {
         Some("status") => cmd_status(),
         Some("keys") => cmd_keys(),
         Some("verify") => cmd_verify(),
+        Some("genesis") => cmd_genesis(),
         Some(cmd) => {
             eprintln!("unknown command: {cmd}\n\n{HELP}");
             std::process::exit(2);
         }
     }
+}
+
+/// Validate bounded genesis input and report commitments without changing state.
+fn cmd_genesis() -> Result<(), CliError> {
+    use codec::CanonicalDecode;
+    use std::io::Read;
+
+    let mut arguments = std::env::args_os().skip(2);
+    let path = arguments
+        .next()
+        .filter(|_| arguments.next().is_none())
+        .ok_or_else(|| CliError::Genesis("usage: cli genesis <file>".into()))?;
+    let mut bytes = Vec::new();
+    std::fs::File::open(path)
+        .and_then(|file| {
+            file.take(genesis::MAX_GENESIS_BYTES as u64 + 1)
+                .read_to_end(&mut bytes)
+        })
+        .map_err(|error| CliError::Genesis(error.to_string()))?;
+    let genesis =
+        genesis::Genesis::decode(&bytes).map_err(|error| CliError::Genesis(error.to_string()))?;
+    let commitment = genesis
+        .commitment()
+        .map_err(|error| CliError::Genesis(error.to_string()))?;
+    let state = genesis
+        .materialize()
+        .map_err(|error| CliError::Genesis(error.to_string()))?;
+    println!("chain_id: {}", genesis.chain_id);
+    println!("genesis_hash: {commitment}");
+    println!("state_root: {}", state.root());
+    println!("validators: {}", genesis.validators.len());
+    println!("allocations: {}", genesis.allocations.len());
+    Ok(())
 }
 
 /// Display a chain status summary.
