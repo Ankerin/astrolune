@@ -18,6 +18,7 @@
 pub mod envelope;
 pub mod error;
 pub mod lane;
+pub mod payment;
 pub mod signed_validator;
 pub mod signing;
 pub mod validator;
@@ -25,6 +26,7 @@ pub mod validator;
 pub use envelope::Envelope;
 pub use error::TransactionError;
 pub use lane::TransactionLane;
+pub use payment::Payment;
 pub use signed_validator::{RegisteredAccount, SignedValidator};
 pub use signing::{address_from_public_key, compute_tx_id, signing_hash};
 pub use validator::{

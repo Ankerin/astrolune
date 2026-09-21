@@ -31,16 +31,16 @@ This is predominantly an **interface baseline**. It is not a functioning blockch
 | Cryptography and VRF | standard BLAKE2s-256 and strict Ed25519 implemented/tested; registered validator-key verification; VRF remains unimplemented and fails closed |
 | PoTB and BFT | type/state-machine interfaces and quorum helper; protocol implementation/formal work planned |
 | Keystore | non-exporting signer and anti-equivocation interface only |
-| Transactions | canonical signing/ID commitments and state-aware signed validator implemented/tested; full versioned envelope and account transitions remain planned |
+| Transactions | canonical signing/ID commitments and state-aware signed validator implemented/tested; native signed payment transitions and fixed reference fees implemented/tested; full versioned envelope remains planned |
 | Mempool | bounded in-memory reference admission and deterministic selection implemented/tested |
-| State and storage | bounded Merkle state, membership and absence proofs, immutable snapshots, atomic transitions, file-backed state and whole-chain archive recovery, and authenticated snapshot exchange implemented/tested; daemon block/state restart recovery implemented/tested; production-scale indexing and account transitions remain planned |
-| Runtime and execution | serial executor demonstration and dependency-preserving greedy wave planner; lease normalization and scheduler equivalence tested; production runtime and parallel execution remain planned |
-| Sync, P2P, RPC, and node | node demonstration pipeline with staged proposal execution, atomic commit, retry preservation, and canonical transaction/receipt leaves; default admission and finality remain demonstrations; authenticated end-to-end integration remains planned |
+| State and storage | bounded Merkle state, membership and absence proofs, immutable snapshots, atomic transitions, file-backed state and whole-chain archive recovery, and authenticated snapshot exchange implemented/tested; daemon block/state restart recovery implemented/tested; native payment account transitions implemented/tested; production-scale indexing remains planned |
+| Runtime and execution | signed sequential native payment executor, serial contract demonstration, and dependency-preserving greedy wave planner; lease normalization and scheduler equivalence tested; production runtime and parallel execution remain planned |
+| Sync, P2P, RPC, and node | node demonstration pipeline with staged proposal execution, atomic commit, retry preservation, and canonical transaction/receipt leaves; genesis-backed native payment admission/execution and daemon RPC implemented/tested; genesis-free admission and finality remain demonstrations; authenticated end-to-end integration remains planned |
 | Configuration | pure validation and debug redaction baseline |
 | Telemetry | no-op local sink |
 | Contracts | SDK interface only; no compiler target or runtime |
 | DNS, Proxy, Pages, ID | service data models and placeholder binaries |
-| CLI and daemon | CLI genesis verification; local daemon with file-backed block/state recovery, genesis activation, strict arguments, startup failure propagation, and durable RPC head; consensus and account execution remain demonstrations/planned |
+| CLI and daemon | CLI genesis verification; local daemon with file-backed block/state recovery, genesis activation, strict arguments, startup failure propagation, and durable RPC head; signed native payments and committed account/submission RPC implemented/tested; consensus remains a demonstration |
 
 ## 8.3 Removed architecture
 
@@ -70,7 +70,7 @@ Standard hashing and signing backends, signed transaction IDs, address derivatio
 
 Signed envelopes, validation order, account/state commitments, immutable snapshots, proofs, diffs, sequential atomic commit, crash recovery, pruning, receipts, and snapshot exchange.
 
-Implemented reference state commitments, membership and absence proofs, bounded versioned snapshots, atomic file-backed state publication, writer locks, recovery, verified snapshot exchange, and proposal rollback are described in [state and recovery](10-state-and-recovery.md). [Whole-chain archives](11-chain-archives.md) now persist blocks, certificates, checkpoints, and historical state atomically. Local daemon block/state restart integration is implemented with process and differential recovery tests. [Genesis activation](12-genesis-and-accounts.md) creates committed account balances/nonces and validator weights, installs a durable height-zero anchor, and validates genesis identity on restart. Recovered accounts are tested against signed admission. Full account/fee transitions, consensus signing-state recovery, and production-scale indexing remain open.
+Implemented reference state commitments, membership and absence proofs, bounded versioned snapshots, atomic file-backed state publication, writer locks, recovery, verified snapshot exchange, and proposal rollback are described in [state and recovery](10-state-and-recovery.md). [Whole-chain archives](11-chain-archives.md) now persist blocks, certificates, checkpoints, and historical state atomically. Local daemon block/state restart integration is implemented with process and differential recovery tests. [Genesis activation](12-genesis-and-accounts.md) creates committed account balances/nonces and validator weights, installs a durable height-zero anchor, and validates genesis identity on restart. Recovered accounts are tested against signed admission. [Native payments](13-native-payments.md) implement sequential account transitions, fixed reference fees, atomic revalidation/publication, and daemon account/submission RPC with process restart tests. General execution/fee policy, consensus signing-state recovery, and production-scale indexing remain open.
 
 ### M3 — deterministic runtime
 

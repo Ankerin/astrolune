@@ -23,6 +23,7 @@ For a concise source-tree map, read [`../ARCHITECTURE.md`](../ARCHITECTURE.md).
 | [10-state-and-recovery.md](10-state-and-recovery.md) | Merkle state commitments, proofs, atomic transitions, snapshots, and recovery |
 | [11-chain-archives.md](11-chain-archives.md) | atomic whole-chain archives, historical recovery, pruning, bounds, and compatibility |
 | [12-genesis-and-accounts.md](12-genesis-and-accounts.md) | bounded genesis, initial account/validator state, commitments, and operator verification |
+| [13-native-payments.md](13-native-payments.md) | signed transfers, sequential account overlays, fees, atomic commits, and daemon RPC |
 
 Legacy-shaped filenames such as `03-vm-and-gas.md`, `05-contract-languages.md`, and `06-deferred-services.md` are retained temporarily to preserve links. Their contents describe the current Rust architecture.
 

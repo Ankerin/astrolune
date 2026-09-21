@@ -143,12 +143,14 @@ dependencies = [
  "config",
  "consensus",
  "crypto",
+ "execution",
  "genesis",
  "node",
  "p2p",
  "rpc",
  "state",
  "storage",
+ "transaction",
  "types",
 ]
 
@@ -208,6 +210,8 @@ dependencies = [
 name = "execution"
 version = "0.1.0"
 dependencies = [
+ "codec",
+ "crypto",
  "state",
  "transaction",
  "types",

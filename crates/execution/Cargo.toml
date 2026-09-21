@@ -12,9 +12,13 @@ authors.workspace = true
 repository.workspace = true
 
 [dependencies]
+codec = { path = "../codec" }
 state = { path = "../state" }
 transaction = { path = "../transaction" }
 types = { path = "../types" }
+
+[dev-dependencies]
+crypto = { path = "../crypto" }
 
 [lints]
 workspace = true

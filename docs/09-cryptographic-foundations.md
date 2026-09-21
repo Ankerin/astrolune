@@ -43,7 +43,7 @@ The node constructs transaction roots with the shared binary Merkle builder. Rec
 
 Validation does not mutate accounts or reserve balances. Callers must maintain a consistent overlay when admitting or executing multiple transactions from one sender. Fees and account state transitions are not implemented by this validator. Version, expiry, explicit lane tags, and signed resource prices still require the versioned transaction envelope.
 
-`BasicValidator`, the default `BlockProducer`, `SimpleExecutor`, and the daemon remain demonstration components. The default producer does not automatically use `SignedValidator`; a real node still needs authenticated admission wired to finalized account state, execution revalidation, and durable finality. The workspace integration test exercises signed decoding, validation, mempool selection, and planning explicitly.
+`BasicValidator`, genesis-free producers, and `SimpleExecutor` remain demonstration components. Genesis-backed producers and the daemon now use `SignedValidator` over committed accounts and sequential execution overlays for [native payments](13-native-payments.md), including execution revalidation and durable balance/nonce updates. Authenticated consensus finality remains unfinished. The workspace integration test exercises signed decoding, validation, mempool selection, and planning explicitly.
 
 ## Compatibility
 

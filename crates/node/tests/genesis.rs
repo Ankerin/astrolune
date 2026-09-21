@@ -248,3 +248,246 @@ fn failed_genesis_publication_can_be_retried_without_partial_state() {
         FullNodeService::open_with_genesis(config(&genesis), fixture.path(), &genesis).unwrap();
     assert_eq!(service.height(), 1);
 }
+
+fn payment_address(seed: u8) -> Address {
+    transaction::address_from_public_key(&crypto::blake2s::ed25519_public_key(&[seed; 32]))
+}
+
+fn payment_genesis() -> Genesis {
+    Genesis {
+        capacity: Resources {
+            compute: 100,
+            memory: 1024,
+            io: 100,
+            bandwidth: 10000,
+        },
+        allocations: vec![Allocation {
+            address: payment_address(1),
+            amount: 1000,
+        }],
+        ..genesis()
+    }
+}
+
+fn payment(seed: u8, recipient: u8, nonce: u64, amount: u64) -> types::Transaction {
+    let mut access_list = vec![
+        state::account_key(payment_address(seed)),
+        state::account_key(payment_address(recipient)),
+    ];
+    access_list.sort();
+    access_list.dedup();
+    let mut tx = types::Transaction {
+        chain_id: 42,
+        sender: payment_address(seed),
+        nonce,
+        access_list,
+        resource_limit: Resources::ZERO,
+        payload: transaction::Payment {
+            public_key: crypto::blake2s::ed25519_public_key(&[seed; 32]),
+            recipient: payment_address(recipient),
+            amount,
+        }
+        .to_bytes(),
+        signature: [0; 64],
+    };
+    tx.resource_limit = execution::payment_resources(&tx).unwrap();
+    tx.signature =
+        crypto::blake2s::ed25519_sign(&[seed; 32], transaction::signing_hash(&tx).as_bytes());
+    tx
+}
+
+#[test]
+fn signed_payments_survive_restart_and_replay_is_rejected() {
+    let fixture = Fixture::new();
+    let reference = Fixture::new();
+    let genesis = payment_genesis();
+    let first = payment(1, 2, 0, 100);
+    {
+        let mut service =
+            FullNodeService::open_with_genesis(config(&genesis), fixture.path(), &genesis).unwrap();
+        let mut forged = first.clone();
+        forged.signature[0] ^= 1;
+        assert!(service.submit_transaction(forged).is_err());
+        assert_eq!(service.pending_transactions(), 0);
+        service.submit_transaction(first.clone()).unwrap();
+        assert!(service.submit_transaction(payment(1, 3, 1, 1)).is_err());
+        advance(&mut service, 1);
+    }
+    let mut service =
+        FullNodeService::open_with_genesis(config(&genesis), fixture.path(), &genesis).unwrap();
+    assert!(service.submit_transaction(first.clone()).is_err());
+    let second = payment(1, 3, 1, 50);
+    let third = payment(2, 3, 0, 10);
+    service.submit_transaction(second.clone()).unwrap();
+    service.submit_transaction(third.clone()).unwrap();
+    advance(&mut service, 1);
+    let snapshot = service.storage().state().snapshot().unwrap();
+    for (seed, nonce, balance) in [(1, 2, 848), (2, 1, 89), (3, 0, 60)] {
+        assert_eq!(
+            read_account(snapshot.as_ref(), payment_address(seed)).unwrap(),
+            Some(AccountState { nonce, balance })
+        );
+    }
+    assert_eq!(
+        service.storage().state().get(&genesis::genesis_key()),
+        Some(genesis.commitment().unwrap().as_bytes().as_slice())
+    );
+    let mut uninterrupted =
+        FullNodeService::open_with_genesis(config(&genesis), reference.path(), &genesis).unwrap();
+    uninterrupted.submit_transaction(first).unwrap();
+    advance(&mut uninterrupted, 1);
+    uninterrupted.submit_transaction(second).unwrap();
+    uninterrupted.submit_transaction(third).unwrap();
+    advance(&mut uninterrupted, 1);
+    assert_eq!(
+        fs::read(fixture.path()).unwrap(),
+        fs::read(reference.path()).unwrap()
+    );
+}
+
+#[test]
+fn failed_payment_publication_keeps_balances_and_pending_proposal_for_retry() {
+    let fixture = Fixture::new();
+    let genesis = payment_genesis();
+    let mut service =
+        FullNodeService::open_with_genesis(config(&genesis), fixture.path(), &genesis).unwrap();
+    service.submit_transaction(payment(1, 2, 0, 100)).unwrap();
+    let before = fs::read(fixture.path()).unwrap();
+    let root = service.storage().state().root();
+    for _ in 0..4 {
+        service.advance().unwrap();
+    }
+    assert_eq!(service.storage().state().root(), root);
+    let pending = fixture.0.join("chain.bin.pending");
+    fs::create_dir(&pending).unwrap();
+    assert!(service.advance().is_err());
+    assert_eq!(service.height(), 1);
+    assert_eq!(service.pending_transactions(), 1);
+    assert_eq!(service.storage().state().root(), root);
+    assert_eq!(fs::read(fixture.path()).unwrap(), before);
+    fs::remove_dir(pending).unwrap();
+    service.advance().unwrap();
+    assert_eq!(service.height(), 2);
+    assert_eq!(service.pending_transactions(), 0);
+    assert_ne!(service.storage().state().root(), root);
+}
+
+#[test]
+fn commit_rejects_consistent_but_forged_payment_outputs() {
+    use node::{BlockProducer, compute_receipts_root, compute_transactions_root};
+    let fixture = Fixture::new();
+    let genesis = payment_genesis();
+    let mut storage = FileBackedStorage::open(fixture.path()).unwrap();
+    storage
+        .initialize_genesis(
+            genesis.commitment().unwrap(),
+            genesis.materialize().unwrap(),
+        )
+        .unwrap();
+    let mut producer = BlockProducer::from_checkpoint(
+        config(&genesis),
+        storage.checkpoint().copied(),
+        storage.state().clone(),
+    )
+    .unwrap();
+    producer.submit_transaction(payment(1, 2, 0, 100)).unwrap();
+    let valid = producer.produce_block().unwrap();
+    assert_eq!(valid, producer.produce_block().unwrap());
+    let mut forged = valid.clone();
+    forged.block.transactions[0].signature[0] ^= 1;
+    forged.outputs[0].receipt.transaction =
+        transaction::compute_tx_id(&forged.block.transactions[0]);
+    forged.block.header.transactions_root = compute_transactions_root(&forged.block.transactions);
+    forged.block.header.receipts_root = compute_receipts_root(&[forged.outputs[0].receipt.clone()]);
+    let before = fs::read(fixture.path()).unwrap();
+    assert!(
+        producer
+            .commit_block(&forged, vec![1], &mut storage)
+            .is_err()
+    );
+    let mut forged = valid.clone();
+    forged.outputs[0]
+        .diff
+        .put(genesis::genesis_key(), vec![0; 32]);
+    forged.outputs[0].receipt.output_root = forged.outputs[0].diff.commitment();
+    forged.block.header.receipts_root = compute_receipts_root(&[forged.outputs[0].receipt.clone()]);
+    forged.state_root = producer
+        .state()
+        .prepare(producer.state().root(), &[forged.outputs[0].diff.clone()])
+        .unwrap()
+        .root();
+    forged.block.header.state_root = forged.state_root;
+    assert!(
+        producer
+            .commit_block(&forged, vec![1], &mut storage)
+            .is_err()
+    );
+    assert_eq!(fs::read(fixture.path()).unwrap(), before);
+    assert_eq!(producer.pending_count(), 1);
+    producer
+        .commit_block(&valid, vec![1], &mut storage)
+        .unwrap();
+}
+
+#[test]
+fn conflicting_pool_payments_do_not_reserve_capacity_or_block_later_candidates() {
+    let fixture = Fixture::new();
+    let mut genesis = payment_genesis();
+    genesis.allocations = [(1, 100), (2, 100), (3, 100), (4, u64::MAX - 1)]
+        .into_iter()
+        .map(|(seed, amount)| Allocation {
+            address: payment_address(seed),
+            amount,
+        })
+        .collect();
+    genesis
+        .allocations
+        .sort_by_key(|allocation| allocation.address);
+    let mut storage = FileBackedStorage::open(fixture.path()).unwrap();
+    storage
+        .initialize_genesis(
+            genesis.commitment().unwrap(),
+            genesis.materialize().unwrap(),
+        )
+        .unwrap();
+    let mut config = config(&genesis);
+    config.max_block_transactions = 2;
+    let mut producer = node::BlockProducer::from_checkpoint(
+        config,
+        storage.checkpoint().copied(),
+        storage.state().clone(),
+    )
+    .unwrap();
+    let first = payment(1, 4, 0, 1);
+    let conflicted = payment(2, 4, 0, 1);
+    let last = payment(3, 5, 0, 1);
+    for tx in [&first, &conflicted, &last] {
+        producer.submit_transaction(tx.clone()).unwrap();
+    }
+    let proposal = producer.produce_block().unwrap();
+    assert_eq!(proposal.block.transactions, [first, last]);
+    assert_eq!(producer.pending_count(), 3);
+    producer
+        .commit_block(&proposal, vec![1], &mut storage)
+        .unwrap();
+    assert_eq!(producer.pending_count(), 1);
+    assert!(
+        producer
+            .produce_block()
+            .unwrap()
+            .block
+            .transactions
+            .is_empty()
+    );
+    producer.submit_transaction(payment(4, 5, 0, 1)).unwrap();
+    let proposal = producer.produce_block().unwrap();
+    producer
+        .commit_block(&proposal, vec![1], &mut storage)
+        .unwrap();
+    let proposal = producer.produce_block().unwrap();
+    assert_eq!(proposal.block.transactions, [conflicted]);
+    producer
+        .commit_block(&proposal, vec![1], &mut storage)
+        .unwrap();
+    assert_eq!(producer.pending_count(), 0);
+}

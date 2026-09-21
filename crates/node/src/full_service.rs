@@ -93,7 +93,8 @@ impl FullNodeService<FileBackedStorage> {
     ///
     /// The directory must exist. Corrupt archives, concurrent writers, and exhausted
     /// heights fail before production starts. This does not authenticate finality or
-    /// restore consensus keys, pending transactions, or finalized account semantics.
+    /// restore consensus keys or pending transactions. Genesis-backed archives
+    /// must be opened with `open_with_genesis`.
     pub fn open(
         config: ProducerConfig,
         path: impl AsRef<std::path::Path>,
@@ -113,7 +114,7 @@ impl FullNodeService<FileBackedStorage> {
     /// Restarts verify the committed genesis identity, and never reset accounts.
     /// Legacy archives cannot be converted implicitly. The demonstration committee
     /// uses the first configured seats in canonical order; this is not `PoTB` selection.
-    /// Finality authentication and account execution remain separate work.
+    /// Native payments use signed account execution; finality authentication remains pending.
     pub fn open_with_genesis(
         config: ProducerConfig,
         path: impl AsRef<std::path::Path>,

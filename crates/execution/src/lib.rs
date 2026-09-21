@@ -13,11 +13,13 @@
 
 mod error;
 mod executor;
+mod payment;
 mod scheduler;
 mod wave;
 
 pub use error::ExecutionError;
 pub use executor::{ExecutorConfig, SimpleExecutor, TransactionOutput};
+pub use payment::{PAYMENT_PRICES, PaymentSession, execute_payments, payment_resources};
 pub use scheduler::{ExecutionScheduler, GreedyScheduler, SerialScheduler};
 pub use wave::{ExecutionLane, ExecutionPlan, ExecutionWave};
 

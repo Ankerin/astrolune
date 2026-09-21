@@ -15,9 +15,12 @@
 
 use std::collections::BTreeMap;
 
-use execution::{ExecutionError, ExecutorConfig, SimpleExecutor, TransactionOutput};
+use execution::{
+    ExecutionError, ExecutorConfig, PaymentSession, SimpleExecutor, TransactionOutput,
+    execute_payments,
+};
 use mempool::{Mempool, MempoolError, PoolEntry, PoolLimits};
-use state::{InMemoryState, StateDiff};
+use state::{InMemoryState, StateDatabase, StateDiff};
 use storage::{Checkpoint, CommitBatch, NodeStorage, StorageError};
 use transaction::{BasicValidator, TransactionError, TransactionValidator, ValidationContext};
 use types::{Address, Block, BlockHeader, Hash256, Resources, Transaction};
@@ -147,6 +150,8 @@ pub struct BlockProducer {
     validator: BasicValidator,
     /// Sequence counter for mempool admission ordering.
     admission_sequence: u64,
+    /// Genesis-backed chains use authenticated native payments.
+    account_execution: bool,
 }
 
 impl BlockProducer {
@@ -178,6 +183,7 @@ impl BlockProducer {
         let mut producer = Self::new(config);
         producer.height = height;
         producer.parent_hash = parent_hash;
+        producer.account_execution = state.get(&genesis::genesis_key()).is_some();
         producer.state = state;
         Ok(producer)
     }
@@ -202,6 +208,7 @@ impl BlockProducer {
             parent_hash: Hash256::ZERO,
             validator: BasicValidator::empty(),
             admission_sequence: 0,
+            account_execution: false,
         }
     }
 
@@ -232,6 +239,7 @@ impl BlockProducer {
             parent_hash: Hash256::ZERO,
             validator,
             admission_sequence: 0,
+            account_execution: false,
         }
     }
 
@@ -270,7 +278,19 @@ impl BlockProducer {
             max_transaction_bytes: self.config.max_transaction_bytes,
         };
 
-        let validated = self.validator.validate(tx, context)?;
+        let validated = if self.account_execution {
+            let snapshot = self.state.snapshot().map_err(ExecutionError::from)?;
+            let mut session =
+                PaymentSession::new(snapshot.as_ref(), context, self.config.block_capacity);
+            let output = session.execute(&tx)?;
+            transaction::ValidatedTransaction {
+                id: output.receipt.transaction,
+                lane: transaction::TransactionLane::Payments,
+                transaction: tx,
+            }
+        } else {
+            self.validator.validate(tx, context)?
+        };
 
         let id = validated.id;
         let sender = validated.transaction.sender;
@@ -287,7 +307,9 @@ impl BlockProducer {
             .checked_add(1)
             .ok_or_else(|| ProducerError::Assembly("admission sequence exhausted".into()))?;
         self.mempool.insert(entry, encoded_len)?;
-        self.validator.advance_nonce(&sender)?;
+        if !self.account_execution {
+            self.validator.advance_nonce(&sender)?;
+        }
         self.admission_sequence = next_sequence;
         Ok(id)
     }
@@ -303,33 +325,59 @@ impl BlockProducer {
     /// state root cannot be computed.
     pub fn produce_block(&mut self) -> Result<BlockProposal, ProducerError> {
         // Select transactions from the mempool based on priority and capacity
-        let selected = self.mempool.select(
-            self.config.max_block_transactions,
-            self.config.block_capacity,
-        );
+        let selected = if self.account_execution {
+            self.mempool.candidates()
+        } else {
+            self.mempool.select(
+                self.config.max_block_transactions,
+                self.config.block_capacity,
+            )
+        };
 
-        let transactions: Vec<Transaction> = selected
+        let mut transactions: Vec<Transaction> = selected
             .iter()
             .map(|entry| entry.transaction.clone())
             .collect();
 
-        // Compute the transactions root commitment
-        let transactions_root = compute_transactions_root(&transactions);
-
-        // Execute transactions against the current state
-        let executor_config = ExecutorConfig {
-            chain_id: self.config.chain_id,
-            next_height: self.height,
-            max_transaction_bytes: self.config.max_transaction_bytes,
-        };
-
         let parent_root = self.state.root();
         // Proposal execution must not publish state before storage accepts finalization.
         let mut staged = self.state.clone();
-        let mut executor =
-            SimpleExecutor::new(&mut staged, BasicValidator::empty(), executor_config);
-
-        let (outputs, state_root) = executor.execute_block(&transactions, parent_root)?;
+        let (outputs, state_root) = if self.account_execution {
+            let snapshot = self.state.snapshot().map_err(ExecutionError::from)?;
+            let mut session = PaymentSession::new(
+                snapshot.as_ref(),
+                self.validation_context(),
+                self.config.block_capacity,
+            );
+            let mut accepted = Vec::new();
+            let mut outputs = Vec::new();
+            for tx in transactions {
+                if accepted.len() == self.config.max_block_transactions {
+                    break;
+                }
+                match session.execute(&tx) {
+                    Ok(output) => {
+                        accepted.push(tx);
+                        outputs.push(output);
+                    }
+                    Err(ExecutionError::State(error)) => {
+                        return Err(ExecutionError::State(error).into());
+                    }
+                    // Conflicts with earlier transfers may invalidate a pool entry.
+                    // Keep it pending while building the proposal; never stall valid work.
+                    Err(_) => {}
+                }
+            }
+            transactions = accepted;
+            let diffs: Vec<_> = outputs.iter().map(|output| output.diff.clone()).collect();
+            let root = staged
+                .commit(parent_root, &diffs)
+                .map_err(ExecutionError::from)?;
+            (outputs, root)
+        } else {
+            self.execute_transactions(&mut staged, &transactions)?
+        };
+        let transactions_root = compute_transactions_root(&transactions);
 
         // Compute the receipts root commitment
         let receipts: Vec<types::ExecutionReceipt> =
@@ -420,17 +468,8 @@ impl BlockProducer {
         // Re-execute the reference transition: mutually consistent forged roots are not proof
         // that the supplied outputs actually follow from these transactions and this parent.
         let mut staged = self.state.clone();
-        let mut executor = SimpleExecutor::new(
-            &mut staged,
-            BasicValidator::empty(),
-            ExecutorConfig {
-                chain_id: self.config.chain_id,
-                next_height: self.height,
-                max_transaction_bytes: self.config.max_transaction_bytes,
-            },
-        );
         let (outputs, root) =
-            executor.execute_block(&proposal.block.transactions, self.state.root())?;
+            self.execute_transactions(&mut staged, &proposal.block.transactions)?;
         if outputs != proposal.outputs || root != header.state_root {
             return Err(ProducerError::Assembly(
                 "proposal execution does not match".into(),
@@ -459,6 +498,41 @@ impl BlockProducer {
         self.parent_hash = proposal.block.header.compute_hash();
 
         Ok(checkpoint)
+    }
+
+    fn validation_context(&self) -> ValidationContext {
+        ValidationContext {
+            chain_id: self.config.chain_id,
+            next_height: self.height,
+            max_transaction_bytes: self.config.max_transaction_bytes,
+        }
+    }
+
+    fn execute_transactions(
+        &self,
+        staged: &mut InMemoryState,
+        transactions: &[Transaction],
+    ) -> Result<(Vec<TransactionOutput>, Hash256), ExecutionError> {
+        if self.account_execution {
+            execute_payments(
+                staged,
+                transactions,
+                self.state.root(),
+                self.validation_context(),
+                self.config.block_capacity,
+            )
+        } else {
+            SimpleExecutor::new(
+                staged,
+                BasicValidator::empty(),
+                ExecutorConfig {
+                    chain_id: self.config.chain_id,
+                    next_height: self.height,
+                    max_transaction_bytes: self.config.max_transaction_bytes,
+                },
+            )
+            .execute_block(transactions, self.state.root())
+        }
     }
 
     /// Computes a simple deterministic hash for the mempool selection tie-breaking.

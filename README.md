@@ -100,7 +100,7 @@ This read-only command implements [genesis verification and materialization](doc
 cargo run -p daemon -- --genesis genesis.bin --data-dir node-data --blocks 3
 ```
 
-Genesis initializes a durable height-zero anchor with account balances and validator weights; produced blocks start at height one. A different or missing genesis is rejected on restart. Consensus and transaction execution remain demonstrations.
+Genesis initializes a durable height-zero anchor with account balances and validator weights; produced blocks start at height one. A different or missing genesis is rejected on restart. Native signed payments update balances and nonces; consensus remains a demonstration. See [payment rules and RPC](docs/13-native-payments.md).
 
 Run the local demonstration chain, then resume it with two additional blocks:
 
@@ -110,7 +110,7 @@ cargo run -p daemon -- --data-dir node-data --blocks 2
 cargo run -p daemon -- --data-dir node-data --blocks 0
 ```
 
-`--blocks 0` verifies recovery without starting listeners or producing blocks. `--dry-run` validates arguments without filesystem or network effects. `--run` produces blocks until stopped or a storage bound is reached. `--p2p-listen` and `--rpc-listen` accept IP socket addresses. The daemon uses chain ID 7 and placeholder consensus certificates; authenticated consensus and finalized account transitions remain unimplemented. RPC reports the durable head; account queries and transaction submission return unavailable until their node integration is implemented.
+`--blocks 0` verifies recovery without starting listeners or producing blocks. `--dry-run` validates arguments without filesystem or network effects. `--run` produces blocks until stopped or a storage bound is reached. `--p2p-listen` and `--rpc-listen` accept IP socket addresses. Without genesis, the daemon uses chain ID 7 and keeps account/submission RPC unavailable. Genesis-backed nodes accept signed native payments and serve committed account bytes through RPC. Consensus certificates remain placeholders and authenticated consensus is unfinished.
 
 ## Data flow
 

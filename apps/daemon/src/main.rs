@@ -96,34 +96,34 @@ fn run() -> Result<(), DaemonError> {
         return Ok(());
     }
 
+    let service = Arc::new(Mutex::new(service));
     let rpc_service = Arc::new(Mutex::new(status::ChainStatus {
         chain_id: config.chain_id,
-        checkpoint: service.storage().checkpoint().copied(),
+        accounts_enabled: genesis.is_some(),
+        node: service.clone(),
     }));
-    start_listeners(&config.network, rpc_service.clone())?;
+    start_listeners(&config.network, rpc_service)?;
 
     let mut produced = 0u64;
     while options.max_blocks.is_none_or(|max| produced < max) {
-        let previous_height = service.height();
+        let mut node = service.lock().map_err(|_| io_error("node lock poisoned"))?;
+        let previous_height = node.height();
         for _ in 0..5 {
-            service.advance().map_err(io_error)?;
+            node.advance().map_err(io_error)?;
         }
-        if service.height()
+        if node.height()
             != previous_height
                 .checked_add(1)
                 .ok_or_else(|| io_error("height exhausted"))?
         {
             return Err(io_error("pipeline did not commit a block"));
         }
-        let checkpoint = service
+        let checkpoint = node
             .storage()
             .checkpoint()
             .copied()
             .ok_or_else(|| io_error("committed checkpoint missing"))?;
-        rpc_service
-            .lock()
-            .map_err(|_| io_error("RPC status lock poisoned"))?
-            .checkpoint = Some(checkpoint);
+        drop(node);
         produced += 1;
         println!(
             "block #{produced} committed at height {}",

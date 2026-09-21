@@ -25,5 +25,9 @@ state = { path = "../../crates/state" }
 storage = { path = "../../crates/storage" }
 types = { path = "../../crates/types" }
 
+[dev-dependencies]
+execution = { path = "../../crates/execution" }
+transaction = { path = "../../crates/transaction" }
+
 [lints]
 workspace = true

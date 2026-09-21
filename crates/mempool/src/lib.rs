@@ -35,7 +35,7 @@ pub struct PoolLimits {
 #[derive(Debug)]
 pub struct Mempool {
     limits: PoolLimits,
-    entries: BTreeMap<(Address, u64), PoolEntry>,
+    entries: BTreeMap<(Address, u64), (PoolEntry, usize)>,
     bytes: usize,
 }
 
@@ -69,19 +69,26 @@ impl Mempool {
             return Err(MempoolError::CapacityExceeded);
         }
         let key = (entry.transaction.sender, entry.transaction.nonce);
-        if self.entries.values().any(|current| current.id == entry.id) {
+        if self
+            .entries
+            .values()
+            .any(|(current, _)| current.id == entry.id)
+        {
             return Err(MempoolError::Duplicate);
         }
         if self.entries.contains_key(&key) {
             return Err(MempoolError::ConflictingNonce);
         }
         if self.entries.len() == self.limits.max_transactions
-            || self.bytes.saturating_add(encoded_len) > self.limits.max_bytes
+            || self
+                .bytes
+                .checked_add(encoded_len)
+                .is_none_or(|bytes| bytes > self.limits.max_bytes)
         {
             return Err(MempoolError::CapacityExceeded);
         }
         self.bytes += encoded_len;
-        self.entries.insert(key, entry);
+        self.entries.insert(key, (entry, encoded_len));
         Ok(())
     }
 
@@ -90,9 +97,7 @@ impl Mempool {
     /// This is a reference local policy. Consensus commits the resulting order.
     #[must_use]
     pub fn select(&self, max_transactions: usize, capacity: Resources) -> Vec<&PoolEntry> {
-        let mut candidates: Vec<_> = self.entries.values().collect();
-        candidates
-            .sort_by_key(|entry| (core::cmp::Reverse(entry.priority), entry.sequence, entry.id));
+        let candidates = self.candidates();
 
         let mut used = Resources::default();
         candidates
@@ -130,14 +135,26 @@ impl Mempool {
 
     /// Removes a transaction by its sender and nonce.
     pub fn remove(&mut self, sender: &Address, nonce: u64) {
-        self.entries.remove(&(*sender, nonce));
+        if let Some((_, bytes)) = self.entries.remove(&(*sender, nonce)) {
+            self.bytes -= bytes;
+        }
     }
 
     /// Removes multiple transactions by sender and nonce pairs.
     pub fn remove_batch(&mut self, keys: &[(Address, u64)]) {
         for (sender, nonce) in keys {
-            self.entries.remove(&(*sender, *nonce));
+            self.remove(sender, *nonce);
         }
+    }
+
+    /// Returns all bounded resident entries in deterministic proposal order.
+    /// Stateful selectors can skip invalid entries without reserving their capacity.
+    #[must_use]
+    pub fn candidates(&self) -> Vec<&PoolEntry> {
+        let mut candidates: Vec<_> = self.entries.values().map(|(entry, _)| entry).collect();
+        candidates
+            .sort_by_key(|entry| (core::cmp::Reverse(entry.priority), entry.sequence, entry.id));
+        candidates
     }
 }
 
@@ -201,6 +218,23 @@ mod tests {
             priority,
             sequence,
         }
+    }
+
+    #[test]
+    fn removal_releases_exact_byte_capacity_even_when_repeated() {
+        let mut pool = Mempool::new(PoolLimits {
+            max_transactions: 2,
+            max_bytes: 30,
+        })
+        .unwrap();
+        for nonce in 0..10 {
+            pool.insert(entry(1, nonce, 1, 0, nonce), 30).unwrap();
+            pool.remove_batch(&[(Address([1; 32]), nonce), (Address([1; 32]), nonce)]);
+            assert_eq!(pool.bytes, 0);
+        }
+        pool.insert(entry(1, 10, 1, 0, 10), 30).unwrap();
+        pool.remove(&Address([1; 32]), 10);
+        assert_eq!(pool.bytes, 0);
     }
 
     #[test]

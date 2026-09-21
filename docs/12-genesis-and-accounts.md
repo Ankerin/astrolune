@@ -12,7 +12,7 @@ The operator command reads at most the genesis byte limit plus one byte, validat
 cargo run -p cli -- genesis genesis.bin
 ```
 
-It writes no files. Verify the genesis hash against an independently trusted chain configuration before starting the daemon. Validator public-key registration, consensus signing, and finalized fee/nonce transitions remain separate work.
+It writes no files. Verify the genesis hash against an independently trusted chain configuration before starting the daemon. Validator public-key registration and consensus signing remain separate work. [Native signed payments](13-native-payments.md) now implement committed balance/nonce transitions and fixed reference fees.
 
 ## Daemon activation and recovery
 
@@ -28,7 +28,7 @@ The daemon reads bounded binary genesis input before creating data files or list
 
 Every restart requires the same genesis file contents. The service verifies the committed genesis identity before production; at height zero it also checks the anchor ID and complete initial state root. It never reapplies allocations to a running chain. Missing or mismatched genesis, incompatible producer configuration, and nonempty legacy archives fail closed. An empty legacy archive can be initialized. Existing genesis-free demonstration chains keep their prior behavior. No archive encoding changes are required: genesis uses the existing snapshot-anchor record.
 
-These checks bind local recovery to the operator's chosen genesis. Archive checksums do not authenticate later execution or consensus against maliciously rewritten local data. System-key protection and finalized account transitions remain pending.
+These checks bind local recovery to the operator's chosen genesis. Archive checksums do not authenticate later execution or consensus against maliciously rewritten local data. The native payment executor writes only sender/recipient accounts, preserving genesis and validator keys. General contract/system-operation authorization remains pending.
 
 ## Canonical genesis version 1
 
