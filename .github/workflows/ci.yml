@@ -118,7 +118,7 @@ jobs:
           python-version: "3.11"
       - name: Package binaries with checksums and build metadata
         run: python .github/scripts/package-build.py ${{ matrix.target }}
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: astrolune-${{ matrix.target }}
           path: target/ci-artifacts/*
