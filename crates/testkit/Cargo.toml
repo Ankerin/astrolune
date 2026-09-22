@@ -13,7 +13,7 @@ repository.workspace = true
 publish = false
 
 [dependencies]
-types = { path = "../types" }
+types = { version = "0.1.0", path = "../types" }
 
 [lints]
 workspace = true

@@ -12,10 +12,10 @@ authors.workspace = true
 repository.workspace = true
 
 [dependencies]
-codec = { path = "../codec" }
-crypto = { path = "../crypto" }
-state = { path = "../state" }
-types = { path = "../types" }
+codec = { version = "0.1.0", path = "../codec" }
+crypto = { version = "0.1.0", path = "../crypto" }
+state = { version = "0.1.0", path = "../state" }
+types = { version = "0.1.0", path = "../types" }
 
 [lints]
 workspace = true

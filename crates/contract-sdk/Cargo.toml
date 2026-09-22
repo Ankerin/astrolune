@@ -15,7 +15,7 @@ repository.workspace = true
 crate-type = ["rlib"]
 
 [dependencies]
-types = { path = "../types" }
+types = { version = "0.1.0", path = "../types" }
 
 [lints]
 workspace = true

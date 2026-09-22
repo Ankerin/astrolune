@@ -29,6 +29,12 @@ pub struct FileBackedState {
     recovery_required: bool,
 }
 
+impl Drop for FileBackedState {
+    fn drop(&mut self) {
+        let _ = self._lock.unlock();
+    }
+}
+
 impl FileBackedState {
     /// Opens a verified snapshot or initializes an empty database.
     ///

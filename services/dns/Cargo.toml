@@ -12,7 +12,7 @@ authors.workspace = true
 repository.workspace = true
 
 [dependencies]
-types = { path = "../../crates/types" }
+types = { version = "0.1.0", path = "../../crates/types" }
 
 [lints]
 workspace = true

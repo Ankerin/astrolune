@@ -33,6 +33,9 @@ jobs:
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
-      - uses: rustsec/audit-check@v2.0.0
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Install cargo-audit
+        run: |
+          rustup toolchain install stable --profile minimal
+          cargo +stable install cargo-audit --version 0.22.2 --locked
+      - name: Audit dependencies
+        run: cargo +stable audit

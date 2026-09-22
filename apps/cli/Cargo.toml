@@ -13,11 +13,11 @@ repository.workspace = true
 publish = false
 
 [dependencies]
-codec = { path = "../../crates/codec" }
-config = { path = "../../crates/config" }
-genesis = { path = "../../crates/genesis" }
-keystore = { path = "../../crates/keystore" }
-types = { path = "../../crates/types" }
+codec = { version = "0.1.0", path = "../../crates/codec" }
+config = { version = "0.1.0", path = "../../crates/config" }
+genesis = { version = "0.1.0", path = "../../crates/genesis" }
+keystore = { version = "0.1.0", path = "../../crates/keystore" }
+types = { version = "0.1.0", path = "../../crates/types" }
 
 [lints]
 workspace = true

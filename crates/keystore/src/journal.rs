@@ -35,6 +35,12 @@ pub(crate) struct Journal {
     safety: Option<SigningSafety>,
 }
 
+impl Drop for Journal {
+    fn drop(&mut self) {
+        let _ = self.file.unlock();
+    }
+}
+
 #[cfg(test)]
 fn header(context: SigningContext, public_key: [u8; 32]) -> [u8; HEADER_BYTES] {
     header_version(context, public_key, false)
