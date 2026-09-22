@@ -10,9 +10,9 @@ AstroLune explores **Proof of Trusted Behavior (PoTB)**, weighted VRF committees
 gradual committee rotation, and prevote/precommit BFT finality in a modular Rust workspace.
 
 <p>
-  <a href="https://github.com/Ankerin/astrolune/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/Ankerin/astrolune/ci.yml?branch=main&style=for-the-badge&logo=githubactions&logoColor=white&label=CI" alt="CI status"></a>
-  <a href="https://github.com/Ankerin/astrolune/actions/workflows/security.yml"><img src="https://img.shields.io/github/actions/workflow/status/Ankerin/astrolune/security.yml?branch=main&style=for-the-badge&logo=github&logoColor=white&label=Security" alt="Security workflow status"></a>
-  <a href="https://github.com/Ankerin/astrolune/actions/workflows/markdown-links.yml"><img src="https://img.shields.io/github/actions/workflow/status/Ankerin/astrolune/markdown-links.yml?branch=main&style=for-the-badge&logo=markdown&logoColor=white&label=Links" alt="Markdown links workflow status"></a>
+  <a href="https://github.com/Ankerin/astrolune/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/Ankerin/astrolune/ci.yml?branch=master&style=for-the-badge&logo=githubactions&logoColor=white&label=CI" alt="CI status"></a>
+  <a href="https://github.com/Ankerin/astrolune/actions/workflows/security.yml"><img src="https://img.shields.io/github/actions/workflow/status/Ankerin/astrolune/security.yml?branch=master&style=for-the-badge&logo=github&logoColor=white&label=Security" alt="Security workflow status"></a>
+  <a href="https://github.com/Ankerin/astrolune/actions/workflows/markdown-links.yml"><img src="https://img.shields.io/github/actions/workflow/status/Ankerin/astrolune/markdown-links.yml?branch=master&style=for-the-badge&logo=markdown&logoColor=white&label=Links" alt="Markdown links workflow status"></a>
 </p>
 <p>
   <img src="https://img.shields.io/badge/Rust-1.93.1%20%7C%20Edition%202024-dea584?style=for-the-badge&logo=rust&logoColor=white" alt="Rust 1.93.1 and Edition 2024">
