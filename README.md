@@ -112,6 +112,16 @@ Prediction, telemetry, cache state, worker count, SIMD availability, and JIT ava
 
 ## Prerequisites
 
+Validator hardware requirements depend on the deployment profile:
+
+| Profile | CPU | RAM | Storage |
+| --- | --- | --- | --- |
+| Mainnet minimum | 12 cores at 2.8 GHz or higher | 128 GB | 1 TB NVMe SSD |
+| Mainnet recommended | 24 cores at 2.8 GHz or higher | 256–512 GB | 2 TB NVMe SSD |
+| Testnet / local development minimum | 8 cores | 16 GB | 50 GB free disk space |
+
+Mainnet participation targets operators able to meet this hardware baseline. These are design requirements, not benchmark guarantees or checks currently enforced by the daemon. See [validator hardware and operational requirements](docs/07-validator-requirements.md).
+
 The repository pins Rust `1.93.1` with rustfmt and Clippy through [`rust-toolchain.toml`](rust-toolchain.toml). Install Rust with [rustup](https://rustup.rs/); entering the repository selects the pinned toolchain.
 
 Cryptographic foundations use pinned BLAKE2s and Ed25519 backends; dependency versions are recorded in `Cargo.lock`. Reference state and [whole-chain archive persistence](docs/11-chain-archives.md) use standard-library file I/O and locks.

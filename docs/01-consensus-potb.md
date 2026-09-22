@@ -8,6 +8,8 @@ PoTB determines effective validator weight. Weighted VRF sampling uses that weig
 
 These responsibilities MUST remain separate interfaces. A faster executor cannot gain consensus weight, a producer cannot commit unverified adaptive measurements, and the consensus state machine must not depend on worker scheduling.
 
+Validator participation is open to operators who satisfy the network's hardware and protocol requirements. Mainnet targets powerful validators: a minimum of 12 CPU cores at 2.8 GHz or higher, 128 GB RAM, and 1 TB NVMe storage; the recommended configuration is 24 cores at 2.8 GHz or higher, 256–512 GB RAM, and 2 TB NVMe. Testnet and local development have a separate minimum of 8 cores, 16 GB RAM, and 50 GB free disk space. See [validator requirements](07-validator-requirements.md) for deployment profiles and calibration. Hardware establishes an operating baseline; it does not directly increase PoTB weight, selection probability, or voting power.
+
 ## 1.2 PoTB weight
 
 Each epoch derives an effective non-negative fixed-point weight from finalized evidence:

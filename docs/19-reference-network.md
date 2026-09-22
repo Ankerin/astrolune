@@ -10,6 +10,8 @@ This profile uses the **complete, fixed genesis validator set**, with at most 32
 
 ## Start a local network
 
+The testnet/local-development hardware baseline is 8 CPU cores, 16 GB RAM, and 50 GB of free disk space. Multiple local validator processes share the host's resources, so the required headroom depends on their combined workload. Mainnet has a separate, higher [hardware baseline](07-validator-requirements.md#mainnet-validators).
+
 ```sh
 cargo run -p cli -- devnet target/local-network 4
 ```
