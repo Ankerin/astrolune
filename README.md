@@ -2,7 +2,7 @@
 
 <div align="center">
 
-# AstroLune ()
+# AstroLune
 
 ### A Rust-first foundation for a verifiable, fast-finality network
 
