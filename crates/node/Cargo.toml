@@ -17,6 +17,7 @@ crypto = { version = "0.1.0", path = "../crypto" }
 consensus = { version = "0.1.0", path = "../consensus" }
 execution = { version = "0.1.0", path = "../execution" }
 genesis = { version = "0.1.0", path = "../genesis" }
+keystore = { version = "0.1.0", path = "../keystore" }
 mempool = { version = "0.1.0", path = "../mempool" }
 p2p = { version = "0.1.0", path = "../p2p" }
 state = { version = "0.1.0", path = "../state" }

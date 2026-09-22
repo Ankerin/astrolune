@@ -15,9 +15,11 @@ publish = false
 [dependencies]
 codec = { version = "0.1.0", path = "../../crates/codec" }
 config = { version = "0.1.0", path = "../../crates/config" }
+crypto = { version = "0.1.0", path = "../../crates/crypto" }
 genesis = { version = "0.1.0", path = "../../crates/genesis" }
 keystore = { version = "0.1.0", path = "../../crates/keystore" }
 types = { version = "0.1.0", path = "../../crates/types" }
+zeroize = "1.8"
 
 [lints]
 workspace = true

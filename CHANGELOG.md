@@ -33,6 +33,10 @@ All notable changes to AstroLune will be documented in this file. The format fol
 
 ### Added
 
+- Opt-in certified daemon network with fixed genesis membership, signed round-robin proposals, real weighted BFT quorums, monotonic timers, payment gossip, and sequential certified catch-up.
+- Bounded versioned network envelopes and TCP packets with absolute I/O deadlines; protected signer provisioning, a durable proposal/evidence cache, and independent authentication of recovered history.
+- `cli devnet` local fixtures and launch instructions, `cli init-validator` explicit journal provisioning, real multi-process network/restart tests, quorum-loss and locked-round recovery tests, and a network decoder fuzz target.
+
 - Canonical genesis-bound signed proposal envelopes, protected proposal reservations, designated-author verification, valid-round evidence binding, and restart-safe proposal retries.
 - Explicit reference round-robin validator participant connecting proposal execution, authenticated voting, bounded collection, timeout events, atomic commit, and recovery; four-participant payment and round-change conformance tests.
 

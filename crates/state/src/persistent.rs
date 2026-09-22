@@ -25,13 +25,13 @@ pub struct FileBackedState {
     state: InMemoryState,
     path: PathBuf,
     // The sidecar's inode must remain stable; do not unlink it when unlocking.
-    _lock: File,
+    lock: File,
     recovery_required: bool,
 }
 
 impl Drop for FileBackedState {
     fn drop(&mut self) {
-        let _ = self._lock.unlock();
+        let _ = self.lock.unlock();
     }
 }
 
@@ -80,7 +80,7 @@ impl FileBackedState {
         let mut database = Self {
             state,
             path,
-            _lock: lock,
+            lock,
             recovery_required: false,
         };
         if create {

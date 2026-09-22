@@ -160,6 +160,15 @@ impl FullNodeService<FileBackedStorage> {
         mut storage: FileBackedStorage,
     ) -> Result<Self, ProducerError> {
         let checkpoint = storage.recover()?;
+        if checkpoint.is_some_and(|head| {
+            storage
+                .get_certificate(&head.block)
+                .is_some_and(|bytes| consensus::FinalityCertificate::decode(bytes).is_ok())
+        }) {
+            return Err(ProducerError::Assembly(
+                "certified history cannot be resumed by the demonstration service".into(),
+            ));
+        }
         let capacity = config.block_capacity;
         let producer = BlockProducer::from_checkpoint(config, checkpoint, storage.state().clone())?;
         let mut service = Self::with_producer(producer, storage, capacity);

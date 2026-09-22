@@ -18,6 +18,8 @@ use config::{NetworkConfig, NodeConfig, SecretRef};
 use keystore::{KeyPurpose, MockKeystore, Signer};
 use types::{Hash256, ValidatorId};
 
+mod network;
+
 /// Application error type.
 #[derive(Debug)]
 enum CliError {
@@ -57,6 +59,8 @@ Commands:
   keys     Create and query a mock keystore
   verify   Validate a node configuration
   genesis <file>  Verify binary genesis and derive its initial state root
+  devnet <directory> [validators]  Create a local test network (default: 4)
+  init-validator <genesis> <seed> <directory>  Provision a protected signing journal
   help     Show this message
   version  Show version
 ";
@@ -86,6 +90,8 @@ fn run() -> Result<(), CliError> {
         Some("keys") => cmd_keys(),
         Some("verify") => cmd_verify(),
         Some("genesis") => cmd_genesis(),
+        Some("devnet") => network::devnet(),
+        Some("init-validator") => network::init_validator(),
         Some(cmd) => {
             eprintln!("unknown command: {cmd}\n\n{HELP}");
             std::process::exit(2);

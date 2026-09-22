@@ -20,18 +20,22 @@ Options:
   --blocks N         Produce N additional blocks, then exit (0: recovery only)
   --data-dir PATH    Durable chain directory (default: node-data)
   --genesis PATH     Trusted binary genesis (required on each genesis-chain start)
+  --validators PATH  Public keys file; enables certified fixed-committee networking
+  --validator-key PATH  Raw 32-byte seed; requires an existing signing.journal
+  --peers ADDR,...   Configured peers to poll and reconnect (up to 32)
+  --round-timeout-ms N  Initial BFT step deadline (100..60000; default 1000)
   --p2p-listen ADDR  Peer socket address (default: 127.0.0.1:17330)
   --rpc-listen ADDR  RPC socket address (default: 127.0.0.1:17331)
   --help             Show this message
   --version          Show version
 
-Consensus certificates and transaction execution remain demonstrations.
+Without --validators, finality remains a local demonstration.
 ";
 
 pub(crate) enum Command {
     Help,
     Version,
-    Run(Options),
+    Run(Box<Options>),
 }
 
 pub(crate) struct Options {
@@ -39,6 +43,10 @@ pub(crate) struct Options {
     pub dry_run: bool,
     pub max_blocks: Option<u64>,
     pub genesis: Option<PathBuf>,
+    pub validators: Option<PathBuf>,
+    pub validator_key: Option<PathBuf>,
+    pub peers: Vec<SocketAddr>,
+    pub round_timeout_ms: u64,
 }
 
 pub(crate) fn parse(args: impl IntoIterator<Item = OsString>) -> Result<Command, DaemonError> {
@@ -60,6 +68,10 @@ pub(crate) fn parse(args: impl IntoIterator<Item = OsString>) -> Result<Command,
         dry_run: false,
         max_blocks: None,
         genesis: None,
+        validators: None,
+        validator_key: None,
+        peers: Vec::new(),
+        round_timeout_ms: 1000,
     };
     let mut seen = BTreeSet::new();
     while let Some(arg) = args.next() {
@@ -80,7 +92,8 @@ pub(crate) fn parse(args: impl IntoIterator<Item = OsString>) -> Result<Command,
             }
             "--dry-run" => options.dry_run = true,
             "--run" => {}
-            "--blocks" | "--data-dir" | "--genesis" | "--p2p-listen" | "--rpc-listen" => {
+            "--blocks" | "--data-dir" | "--genesis" | "--p2p-listen" | "--rpc-listen"
+            | "--validators" | "--validator-key" | "--peers" | "--round-timeout-ms" => {
                 let value = args
                     .next()
                     .ok_or_else(|| invalid(&format!("missing value for {flag}")))?;
@@ -95,28 +108,18 @@ pub(crate) fn parse(args: impl IntoIterator<Item = OsString>) -> Result<Command,
                     options.genesis = Some(PathBuf::from(value));
                     continue;
                 }
+                if flag == "--validators" {
+                    options.validators = Some(PathBuf::from(value));
+                    continue;
+                }
+                if flag == "--validator-key" {
+                    options.validator_key = Some(PathBuf::from(value));
+                    continue;
+                }
                 let value = value
                     .to_str()
                     .ok_or_else(|| invalid("non-UTF-8 option value"))?;
-                if flag == "--blocks" {
-                    if !value.bytes().all(|byte| byte.is_ascii_digit()) {
-                        return Err(invalid("--blocks requires an unsigned integer"));
-                    }
-                    options.max_blocks = Some(
-                        value
-                            .parse()
-                            .map_err(|_| invalid("--blocks is out of range"))?,
-                    );
-                } else {
-                    let address: SocketAddr = value
-                        .parse()
-                        .map_err(|_| invalid("listener requires an IP address and port"))?;
-                    if flag == "--p2p-listen" {
-                        options.config.network.p2p_listen = address.to_string();
-                    } else {
-                        options.config.network.rpc_listen = address.to_string();
-                    }
-                }
+                parse_value(&mut options, flag, value)?;
             }
             _ => return Err(invalid(&format!("unknown option: {flag}"))),
         }
@@ -126,11 +129,70 @@ pub(crate) fn parse(args: impl IntoIterator<Item = OsString>) -> Result<Command,
             "--run cannot be combined with --dry-run or --blocks",
         ));
     }
+    if options.validators.is_some() {
+        if options.genesis.is_none() || options.validator_key.is_none() {
+            return Err(invalid(
+                "--validators requires --genesis and --validator-key",
+            ));
+        }
+    } else if options.validator_key.is_some()
+        || !options.peers.is_empty()
+        || seen.contains("--round-timeout-ms")
+    {
+        return Err(invalid(
+            "validator keys, peers, and BFT deadlines require --validators",
+        ));
+    }
     options
         .config
         .validate()
         .map_err(|error| invalid(&format!("{error:?}")))?;
-    Ok(Command::Run(options))
+    Ok(Command::Run(Box::new(options)))
+}
+
+fn parse_value(options: &mut Options, flag: &str, value: &str) -> Result<(), DaemonError> {
+    if flag == "--peers" {
+        let mut peers = BTreeSet::new();
+        for address in value.split(',') {
+            let address: SocketAddr = address
+                .parse()
+                .map_err(|_| invalid("peers require IP addresses and ports"))?;
+            if address.port() == 0
+                || address.ip().is_unspecified()
+                || !peers.insert(address)
+                || peers.len() > 32
+            {
+                return Err(invalid("invalid, duplicate, or excessive peers"));
+            }
+        }
+        options.peers = peers.into_iter().collect();
+    } else if flag == "--round-timeout-ms" {
+        options.round_timeout_ms = value
+            .parse()
+            .map_err(|_| invalid("invalid round timeout"))?;
+        if !(100..=60_000).contains(&options.round_timeout_ms) {
+            return Err(invalid("round timeout must be 100..60000 milliseconds"));
+        }
+    } else if flag == "--blocks" {
+        if !value.bytes().all(|byte| byte.is_ascii_digit()) {
+            return Err(invalid("--blocks requires an unsigned integer"));
+        }
+        options.max_blocks = Some(
+            value
+                .parse()
+                .map_err(|_| invalid("--blocks is out of range"))?,
+        );
+    } else {
+        let address: SocketAddr = value
+            .parse()
+            .map_err(|_| invalid("listener requires an IP address and port"))?;
+        if flag == "--p2p-listen" {
+            options.config.network.p2p_listen = address.to_string();
+        } else {
+            options.config.network.rpc_listen = address.to_string();
+        }
+    }
+    Ok(())
 }
 
 fn invalid(message: &str) -> DaemonError {

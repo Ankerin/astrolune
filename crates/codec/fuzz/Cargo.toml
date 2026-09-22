@@ -18,6 +18,13 @@ types = { path = "../../types" }
 state = { path = "../../state" }
 genesis = { path = "../../genesis" }
 consensus = { path = "../../consensus" }
+node = { path = "../../node" }
+
+[[bin]]
+name = "decode_network"
+path = "fuzz_targets/decode_network.rs"
+test = false
+doc = false
 
 [[bin]]
 name = "decode_consensus"

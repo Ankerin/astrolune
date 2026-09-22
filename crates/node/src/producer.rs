@@ -502,6 +502,58 @@ impl BlockProducer {
         self.prepare_verified(proposal).map(|_| ())
     }
 
+    /// Reconstructs execution outputs from an untrusted network block.
+    /// Bounds, parent, capacity, and transaction commitments are checked before execution.
+    pub fn execute_received_block(&self, block: Block) -> Result<BlockProposal, ProducerError> {
+        let header = &block.header;
+        if header.height != self.height
+            || header.parent != self.parent_hash
+            || header.capacity != self.config.block_capacity
+            || block.transactions.len() > self.config.max_block_transactions
+            || block.transactions.iter().any(|tx| {
+                tx.chain_id != self.config.chain_id
+                    || transaction::estimate_encoded_len(tx) > self.config.max_transaction_bytes
+            })
+            || compute_transactions_root(&block.transactions) != header.transactions_root
+        {
+            return Err(ProducerError::Assembly(
+                "network block context mismatch".into(),
+            ));
+        }
+        let mut staged = self.state.clone();
+        let (outputs, state_root) = self.execute_transactions(&mut staged, &block.transactions)?;
+        let receipts: Vec<_> = outputs
+            .iter()
+            .map(|output| output.receipt.clone())
+            .collect();
+        let resources_used = checked_resources(&receipts)?;
+        if state_root != header.state_root
+            || compute_receipts_root(&receipts) != header.receipts_root
+            || !resources_used.fits_in(header.capacity)
+        {
+            return Err(ProducerError::Assembly(
+                "network execution commitment mismatch".into(),
+            ));
+        }
+        Ok(BlockProposal {
+            block,
+            outputs,
+            state_root,
+            resources_used,
+        })
+    }
+
+    /// Bounded admission candidates for reference transaction gossip.
+    #[must_use]
+    pub fn pending_transactions(&self) -> Vec<Transaction> {
+        self.mempool
+            .candidates()
+            .into_iter()
+            .take(self.config.max_block_transactions)
+            .map(|entry| entry.transaction.clone())
+            .collect()
+    }
+
     fn prepare_verified(
         &self,
         proposal: &BlockProposal,

@@ -36,9 +36,11 @@ version = "0.1.0"
 dependencies = [
  "codec",
  "config",
+ "crypto",
  "genesis",
  "keystore",
  "types",
+ "zeroize",
 ]
 
 [[package]]
@@ -149,6 +151,7 @@ dependencies = [
  "crypto",
  "execution",
  "genesis",
+ "keystore",
  "node",
  "p2p",
  "rpc",
@@ -156,6 +159,7 @@ dependencies = [
  "storage",
  "transaction",
  "types",
+ "zeroize",
 ]
 
 [[package]]
@@ -291,6 +295,7 @@ dependencies = [
  "crypto",
  "execution",
  "genesis",
+ "keystore",
  "mempool",
  "p2p",
  "state",

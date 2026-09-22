@@ -11,6 +11,7 @@ use std::sync::{Arc, Mutex};
 use node::{FullNodeService, NodeService, ProducerConfig};
 use rpc::TcpRpcServer;
 
+mod network;
 mod options;
 mod status;
 
@@ -54,9 +55,29 @@ fn run() -> Result<(), DaemonError> {
         options::Command::Run(options) => options,
     };
     let genesis = options.genesis.as_deref().map(read_genesis).transpose()?;
+    if options.validators.is_some() {
+        return network::run(
+            &options,
+            genesis.ok_or_else(|| DaemonError::Config("network genesis required".into()))?,
+        );
+    }
+    run_demonstration(*options, genesis.as_ref())
+}
+
+fn run_demonstration(
+    options: options::Options,
+    genesis: Option<&genesis::Genesis>,
+) -> Result<(), DaemonError> {
+    if options.config.data_dir.join("signing.journal").exists()
+        || options.config.data_dir.join("consensus-cache.bin").exists()
+    {
+        return Err(DaemonError::Config(
+            "a provisioned validator directory requires certified networking (--validators)".into(),
+        ));
+    }
     let mut config = options.config;
     let mut producer_config = ProducerConfig::default();
-    if let Some(genesis) = &genesis {
+    if let Some(genesis) = genesis {
         config.chain_id = genesis.chain_id;
         producer_config.block_capacity = genesis.capacity;
         println!(
@@ -78,7 +99,7 @@ fn run() -> Result<(), DaemonError> {
 
     std::fs::create_dir_all(&config.data_dir).map_err(io_error)?;
     let path = config.data_dir.join("chain.bin");
-    let mut service = if let Some(genesis) = &genesis {
+    let mut service = if let Some(genesis) = genesis {
         FullNodeService::open_with_genesis(producer_config, path, genesis)
     } else {
         FullNodeService::open(producer_config, path)

@@ -31,7 +31,7 @@ gradual committee rotation, and prevote/precommit BFT finality in a modular Rust
 </div>
 
 > [!WARNING]
-> AstroLune is a **compileable architecture and interface baseline**. It is not a functioning network, has not been independently audited, and must not secure economic value.
+> AstroLune includes a **working reference network** for signed native payments and fixed-committee BFT finality. PoTB/VRF, contracts, production networking, and independent audits remain unfinished; it must not secure economic value.
 
 ## Overview
 
@@ -40,8 +40,8 @@ AstroLune is a research and engineering workspace for a modular blockchain node.
 | Area | Direction | Current shape |
 | --- | --- | --- |
 | Consensus | PoTB weight, weighted VRF committees, partial rotation | Design and interface baseline |
-| Finality | Proposal, prevote, and precommit with > ⅔ voting power | Authenticated local/reference paths |
-| Execution | Deterministic state transitions with parallel scheduling | Compileable execution interfaces |
+| Finality | Proposal, prevote, and precommit with > ⅔ voting power | Certified fixed-committee daemon network |
+| Execution | Deterministic state transitions with parallel scheduling | Signed native payments; contract interfaces |
 | Persistence | Snapshots, archives, genesis, accounts, and recovery | Reference implementation baseline |
 | Contracts | Restricted deterministic Rust runtime boundary | SDK and runtime interfaces |
 | Ecosystem | AstroLune DNS registry and resolution | Independent service direction |
@@ -85,7 +85,7 @@ Prediction, telemetry, cache state, worker count, SIMD availability, and JIT ava
 | Path | Responsibility |
 | --- | --- |
 | `apps/cli` | Operator and developer CLI |
-| `apps/daemon` | Node daemon entry point and local demonstration chain |
+| `apps/daemon` | Certified reference network and local demonstration mode |
 | `crates/codec` | Canonical bounded encoding |
 | `crates/config` | Validated non-secret configuration |
 | `crates/consensus` | PoTB committees and BFT finality |
@@ -146,6 +146,14 @@ cargo run -p daemon -- --help
 cargo run -p cargo-contract -- --help
 ```
 
+### Certified local network
+
+```sh
+cargo run -p cli -- devnet target/local-network 4
+```
+
+Run the four commands in `target/local-network/START.txt` in separate terminals. Validators exchange signed proposals and votes, gossip native payments, publish certified blocks, and catch up after reconnecting. Generated keys are public test fixtures. See [network setup, recovery, protocol bounds, and limitations](docs/19-reference-network.md).
+
 ### Local demonstration chain
 
 Run the daemon, then resume it with two additional blocks:
@@ -177,11 +185,11 @@ Genesis initializes a durable height-zero anchor with account balances and valid
 <details>
 <summary>Operational notes</summary>
 
-Without genesis, the daemon uses chain ID 7 and keeps account/submission RPC unavailable. Genesis-backed nodes accept signed native payments and serve committed account bytes through RPC. The daemon still uses placeholder certificates.
+Without genesis, the daemon uses chain ID 7 and keeps account/submission RPC unavailable. Genesis-backed nodes accept signed native payments and serve committed account bytes through RPC. The mode without `--validators` still uses placeholder certificates; certified networking requires an exact public-key registry and a previously provisioned protected signing journal.
 
 Archive version 2 is required; old version-1 archives are rejected without migration or rewriting. The consensus library authenticates votes and certificates; see [authenticated finality](docs/15-authenticated-finality.md). `BlockProducer` provides an explicit certified commit path. The [local BFT guard](docs/17-local-bft-voting.md) verifies prevote proofs and preserves vote locks across timeouts and restarts using a [protected durable journal](docs/16-durable-signing.md).
 
-The [reference round-robin participant](docs/18-signed-proposals-and-participants.md) authenticates signed proposals and coordinates execution, voting, round changes, and atomic publication. Weighted VRF selection, distributed consensus, and daemon integration remain unfinished.
+The [reference round-robin participant](docs/18-signed-proposals-and-participants.md) authenticates signed proposals and coordinates execution, voting, round changes, and atomic publication. The [network driver](docs/19-reference-network.md) connects it to the daemon, TCP exchange, timers, durable proposal recovery, and certified catch-up. Weighted VRF selection, rotating committees, encrypted transport, and production qualification remain unfinished.
 
 </details>
 

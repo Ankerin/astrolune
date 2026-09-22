@@ -1,0 +1,123 @@
+// Copyright (c) 2026 Astrolune contributors
+// SPDX-License-Identifier: MIT
+
+//! Provisioning refuses to overwrite namespaces and produces usable protected journals.
+
+use codec::CanonicalDecode;
+use keystore::{DurableSigner, SigningContext};
+use std::{
+    path::PathBuf,
+    process::Command,
+    sync::atomic::{AtomicU64, Ordering},
+};
+
+static NEXT: AtomicU64 = AtomicU64::new(0);
+struct Fixture(PathBuf);
+impl Fixture {
+    fn new() -> Self {
+        let path = std::env::temp_dir().join(format!(
+            "astrolune-cli-network-{}-{}",
+            std::process::id(),
+            NEXT.fetch_add(1, Ordering::Relaxed)
+        ));
+        std::fs::create_dir(&path).unwrap();
+        Self(path)
+    }
+}
+impl Drop for Fixture {
+    fn drop(&mut self) {
+        let _ = std::fs::remove_dir_all(&self.0);
+    }
+}
+
+#[test]
+fn generated_network_has_matching_keys_and_non_overwritable_journals() {
+    let fixture = Fixture::new();
+    let directory = fixture.0.join("network");
+    let output = Command::new(env!("CARGO_BIN_EXE_cli"))
+        .arg("devnet")
+        .arg(&directory)
+        .arg("4")
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let bytes = std::fs::read(directory.join("genesis.bin")).unwrap();
+    let genesis = genesis::Genesis::decode(&bytes).unwrap();
+    assert_eq!(genesis.validators.len(), 4);
+    assert_eq!(
+        std::fs::read(directory.join("validators.bin"))
+            .unwrap()
+            .len(),
+        128
+    );
+    for index in 1..=4 {
+        let data = directory.join(format!("node-{index}"));
+        let signer = DurableSigner::open(
+            data.join("signing.journal"),
+            SigningContext {
+                chain_id: genesis.chain_id,
+                genesis: genesis.commitment().unwrap(),
+            },
+            [index; 32],
+        )
+        .unwrap();
+        assert!(signer.is_protected());
+        assert!(signer.last_position().is_none());
+    }
+    assert!(
+        !Command::new(env!("CARGO_BIN_EXE_cli"))
+            .arg("devnet")
+            .arg(&directory)
+            .arg("4")
+            .output()
+            .unwrap()
+            .status
+            .success()
+    );
+    assert_eq!(std::fs::read(directory.join("genesis.bin")).unwrap(), bytes);
+    let instructions = std::fs::read_to_string(directory.join("START.txt")).unwrap();
+    assert_eq!(instructions.matches(" --run --genesis ").count(), 4);
+    assert!(instructions.contains("PUBLIC TEST FIXTURES"));
+}
+
+#[test]
+fn supplied_key_provisioning_refuses_existing_chain_or_journal() {
+    let fixture = Fixture::new();
+    let network = fixture.0.join("network");
+    assert!(
+        Command::new(env!("CARGO_BIN_EXE_cli"))
+            .arg("devnet")
+            .arg(&network)
+            .arg("1")
+            .output()
+            .unwrap()
+            .status
+            .success()
+    );
+    let data = fixture.0.join("validator");
+    let provision = || {
+        Command::new(env!("CARGO_BIN_EXE_cli"))
+            .arg("init-validator")
+            .arg(network.join("genesis.bin"))
+            .arg(network.join("node-1/validator.seed"))
+            .arg(&data)
+            .output()
+            .unwrap()
+    };
+    assert!(provision().status.success());
+    let journal = std::fs::read(data.join("signing.journal")).unwrap();
+    assert!(!provision().status.success());
+    assert_eq!(
+        std::fs::read(data.join("signing.journal")).unwrap(),
+        journal
+    );
+    // Loss of the original journal must not silently authorize new signing state.
+    std::fs::remove_file(data.join("signing.journal")).unwrap();
+    std::fs::write(data.join("chain.bin"), []).unwrap();
+    assert!(!provision().status.success());
+    assert!(!data.join("signing.journal").exists());
+}
