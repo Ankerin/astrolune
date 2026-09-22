@@ -113,7 +113,7 @@ jobs:
           "$bin/daemon" --data-dir "$data_dir" --blocks 3 --p2p-listen 127.0.0.1:0 --rpc-listen 127.0.0.2:0
           "$bin/daemon" --data-dir "$data_dir" --blocks 2 --p2p-listen 127.0.0.1:0 --rpc-listen 127.0.0.2:0
           "$bin/daemon" --data-dir "$data_dir" --blocks 0
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.11"
       - name: Package binaries with checksums and build metadata
