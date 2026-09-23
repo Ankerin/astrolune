@@ -33,6 +33,12 @@ All notable changes to AstroLune will be documented in this file. The format fol
 
 ### Added
 
+- Append-only block/state-delta logs for new certified validator and observer directories, durable head publication, on-demand disk history reads, and non-destructive legacy archive compatibility.
+- Streaming recovery, historical snapshot replay, crash-tail and uncertain-publication tests, progress beyond 4096 blocks, and daemon shutdown on local history read corruption.
+
+- Explicit non-voting full nodes with independently verified finalized catch-up, re-execution, account/payment RPC, and certified history serving without consensus keys or journals.
+- Shared validator/observer archive authentication, persistent observer role separation, optional observers in devnet provisioning, and multi-process TLS payment/restart tests.
+
 - Mutually authenticated TLS 1.3 peer sessions with explicit CA trust, mandatory ALPN, startup identity validation, separate random transport keys, and absolute handshake/packet deadlines.
 - TLS provisioning in `cli devnet` and standalone `cli init-network-tls`, explicit loopback-only plaintext mode, negative authentication/deadline tests, and multi-process payment/recovery tests over TLS.
 

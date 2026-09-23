@@ -162,7 +162,11 @@ cargo run -p cargo-contract -- --help
 cargo run -p cli -- devnet target/local-network 4
 ```
 
+Add `--observer` to provision an additional non-voting full node with its own TLS identity and RPC endpoint. [Observer setup and recovery](docs/21-observer-nodes.md) describe independent verification and operation without consensus keys.
+
 Run the four commands in `target/local-network/START.txt` in separate terminals. Validators exchange signed proposals and votes over mutual TLS 1.3, gossip native payments, publish certified blocks, and catch up after reconnecting. Consensus and wallet keys are public test fixtures; separate random TLS identities are provisioned automatically. See [network setup, recovery, protocol bounds, and limitations](docs/19-reference-network.md).
+
+New network directories use an [append-only chain log](docs/22-append-only-chain-storage.md). Existing archives remain readable with their original limits; startup identifies the storage format.
 
 ### Local demonstration chain
 

@@ -179,7 +179,7 @@ fn decode_payload(payload: &[u8]) -> Result<InMemoryStorage, DecodeError> {
     Ok(storage)
 }
 
-fn read_block(decoder: &mut Decoder<'_>) -> Result<Block, DecodeError> {
+pub(super) fn read_block(decoder: &mut Decoder<'_>) -> Result<Block, DecodeError> {
     let header = BlockHeader::decode(decoder.read_exact(200)?)?;
     let count = length(decoder, MAX_TRANSACTIONS)?;
     if count > decoder.remaining() / 150 {
@@ -198,7 +198,7 @@ fn read_block(decoder: &mut Decoder<'_>) -> Result<Block, DecodeError> {
     })
 }
 
-fn length(decoder: &mut Decoder<'_>, limit: usize) -> Result<usize, DecodeError> {
+pub(super) fn length(decoder: &mut Decoder<'_>, limit: usize) -> Result<usize, DecodeError> {
     let value = usize::try_from(decoder.read_u64()?).map_err(|_| DecodeError::LimitExceeded)?;
     if value > limit {
         return Err(DecodeError::LimitExceeded);
@@ -206,7 +206,10 @@ fn length(decoder: &mut Decoder<'_>, limit: usize) -> Result<usize, DecodeError>
     Ok(value)
 }
 
-fn read_blob<'a>(decoder: &mut Decoder<'a>, limit: usize) -> Result<&'a [u8], DecodeError> {
+pub(super) fn read_blob<'a>(
+    decoder: &mut Decoder<'a>,
+    limit: usize,
+) -> Result<&'a [u8], DecodeError> {
     let size = length(decoder, limit)?;
     decoder.read_exact(size)
 }

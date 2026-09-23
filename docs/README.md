@@ -31,6 +31,8 @@ For a concise source-tree map, read [`../ARCHITECTURE.md`](../ARCHITECTURE.md).
 | [18-signed-proposals-and-participants.md](18-signed-proposals-and-participants.md) | signed proposer envelopes, explicit round-robin designation, reference node participant, and recovery |
 | [19-reference-network.md](19-reference-network.md) | certified daemon networking, peer exchange, payment gossip, provisioning, catch-up, and restart recovery |
 | [20-authenticated-transport.md](20-authenticated-transport.md) | mutual TLS 1.3, independent transport keys, trust boundaries, migration, and deadline enforcement |
+| [21-observer-nodes.md](21-observer-nodes.md) | non-voting full nodes, independent verification, payment gossip, RPC, and role-safe recovery |
+| [22-append-only-chain-storage.md](22-append-only-chain-storage.md) | append-only block/delta log, atomic publication, recovery, compatibility, and remaining limits |
 
 Legacy-shaped filenames such as `03-vm-and-gas.md`, `05-contract-languages.md`, and `06-deferred-services.md` are retained temporarily to preserve links. Their contents describe the current Rust architecture.
 

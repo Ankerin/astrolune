@@ -22,11 +22,17 @@ use std::{
     path::{Path, PathBuf},
     time::{Duration, Instant},
 };
-use storage::FileBackedStorage;
+use storage::ChainStorage;
 use types::{Block, Hash256, Transaction, ValidatorId};
 
 /// The reference driver deliberately bounds membership and retains a fixed committee.
 pub const MAX_NETWORK_VALIDATORS: usize = 32;
+
+/// Shared authenticated recovery state for voting and non-voting network nodes.
+pub(crate) struct RecoveredNetwork {
+    pub(crate) storage: ChainStorage,
+    pub(crate) producer: BlockProducer,
+}
 
 /// Distinguishes untrusted peer input from local durability failures that must stop signing.
 #[derive(Debug)]
@@ -66,10 +72,10 @@ impl From<ValidatorError> for NetworkNodeError {
         }
     }
 }
-fn input(error: impl std::fmt::Display) -> NetworkNodeError {
+pub(crate) fn input(error: impl std::fmt::Display) -> NetworkNodeError {
     NetworkNodeError::Input(error.to_string())
 }
-fn local(error: impl std::fmt::Display) -> NetworkNodeError {
+pub(crate) fn local(error: impl std::fmt::Display) -> NetworkNodeError {
     NetworkNodeError::Local(error.to_string())
 }
 
@@ -128,6 +134,56 @@ impl StaticNetwork {
         )
         .map_err(input)
     }
+    pub(crate) fn recover(&self, directory: &Path) -> Result<RecoveredNetwork, NetworkNodeError> {
+        let network = self;
+        let initial = network.genesis.materialize().map_err(input)?;
+        let mut storage = ChainStorage::open(directory.join("chain.bin")).map_err(local)?;
+        if storage.checkpoint().is_none() {
+            storage
+                .initialize_genesis(network.hash, initial.clone())
+                .map_err(local)?;
+        }
+        let checkpoint = *storage
+            .checkpoint()
+            .ok_or_else(|| local("missing checkpoint"))?;
+        if usize::try_from(checkpoint.height).ok() != Some(storage.block_count()) {
+            return Err(input(
+                "certified network requires complete history from genesis",
+            ));
+        }
+        if storage.state().get(&genesis::genesis_key()) != Some(network.hash.as_bytes().as_slice())
+            || (checkpoint.height == 0
+                && (checkpoint.block != network.hash || checkpoint.state_root != initial.root()))
+        {
+            return Err(input("archive genesis mismatch"));
+        }
+        let mut parent = network.hash;
+        for height in 1..=checkpoint.height {
+            let (block, encoded) = storage
+                .read_finalized(height)
+                .map_err(local)?
+                .ok_or_else(|| input("incomplete certified history"))?;
+            if block.header.height != height || block.header.parent != parent {
+                return Err(input("history does not descend from trusted genesis"));
+            }
+            let certificate = consensus::FinalityCertificate::decode(&encoded).map_err(input)?;
+            network
+                .committee(height)?
+                .verify_certificate(&certificate, &block.header)
+                .map_err(input)?;
+            parent = block.header.compute_hash();
+        }
+        if parent != checkpoint.block {
+            return Err(input("history checkpoint mismatch"));
+        }
+        let producer = BlockProducer::from_checkpoint(
+            network.producer_config(),
+            Some(checkpoint),
+            storage.state().clone(),
+        )?;
+        Ok(RecoveredNetwork { storage, producer })
+    }
+
     fn producer_config(&self) -> ProducerConfig {
         ProducerConfig {
             chain_id: self.chain_id(),
@@ -143,8 +199,7 @@ impl StaticNetwork {
 pub struct NetworkNode {
     network: StaticNetwork,
     participant: Option<RoundRobinValidator>,
-    storage: FileBackedStorage,
-    history: BTreeMap<u64, Hash256>,
+    storage: ChainStorage,
     voter: ValidatorId,
     proposal: Option<SignedBlockProposal>,
     valid: Option<(Block, PrevoteCertificate)>,
@@ -168,57 +223,10 @@ impl NetworkNode {
                 "round timeout must be between 100 and 60000 milliseconds",
             ));
         }
-        let initial = network.genesis.materialize().map_err(input)?;
-        let mut storage = FileBackedStorage::open(directory.join("chain.bin")).map_err(local)?;
-        if storage.checkpoint().is_none() {
-            storage
-                .initialize_genesis(network.hash, initial.clone())
-                .map_err(local)?;
-        }
+        let RecoveredNetwork { storage, producer } = network.recover(directory)?;
         let checkpoint = *storage
             .checkpoint()
             .ok_or_else(|| local("missing checkpoint"))?;
-        if usize::try_from(checkpoint.height).ok() != Some(storage.block_count()) {
-            return Err(input(
-                "certified network requires complete history from genesis",
-            ));
-        }
-        if storage.state().get(&genesis::genesis_key()) != Some(network.hash.as_bytes().as_slice())
-            || (checkpoint.height == 0
-                && (checkpoint.block != network.hash || checkpoint.state_root != initial.root()))
-        {
-            return Err(input("archive genesis mismatch"));
-        }
-        let mut history = BTreeMap::new();
-        let mut parent = checkpoint.block;
-        for height in (1..=checkpoint.height).rev() {
-            let block = storage
-                .get_block(&parent)
-                .ok_or_else(|| input("incomplete certified history"))?;
-            if block.header.height != height {
-                return Err(input("history height mismatch"));
-            }
-            let certificate = consensus::FinalityCertificate::decode(
-                storage
-                    .get_certificate(&parent)
-                    .ok_or_else(|| input("missing finality"))?,
-            )
-            .map_err(input)?;
-            network
-                .committee(height)?
-                .verify_certificate(&certificate, &block.header)
-                .map_err(input)?;
-            history.insert(height, parent);
-            parent = block.header.parent;
-        }
-        if parent != network.hash || history.len() != storage.block_count() {
-            return Err(input("history does not descend from trusted genesis"));
-        }
-        let producer = BlockProducer::from_checkpoint(
-            network.producer_config(),
-            Some(checkpoint),
-            storage.state().clone(),
-        )?;
         let voter = signer.validator_id(&signer.key_handle()).map_err(local)?;
         let local_voter =
             LocalBft::new(network.committee(producer.height())?, signer, network.hash)
@@ -232,7 +240,6 @@ impl NetworkNode {
             network,
             participant: Some(participant),
             storage,
-            history,
             voter,
             proposal: None,
             valid: None,
@@ -257,7 +264,7 @@ impl NetworkNode {
     }
     /// Current committed storage view.
     #[must_use]
-    pub const fn storage(&self) -> &FileBackedStorage {
+    pub const fn storage(&self) -> &ChainStorage {
         &self.storage
     }
     /// Current next height and trusted genesis for synchronization.
@@ -285,19 +292,12 @@ impl NetworkNode {
         if request.genesis != self.network.hash {
             return Err(input("peer genesis mismatch"));
         }
-        let messages = if let Some(hash) = self.history.get(&request.height) {
+        let messages = if let Some((block, encoded)) =
+            self.storage.read_finalized(request.height).map_err(local)?
+        {
             vec![NetworkMessage::Finalized {
-                block: self
-                    .storage
-                    .get_block(hash)
-                    .ok_or_else(|| local("missing retained block"))?
-                    .clone(),
-                certificate: consensus::FinalityCertificate::decode(
-                    self.storage
-                        .get_certificate(hash)
-                        .ok_or_else(|| local("missing retained finality"))?,
-                )
-                .map_err(local)?,
+                block,
+                certificate: consensus::FinalityCertificate::decode(&encoded).map_err(local)?,
             }]
         } else if request.height == self.request().height {
             let mut messages = self.consensus_messages();
@@ -613,7 +613,6 @@ impl NetworkNode {
             .storage
             .checkpoint()
             .ok_or_else(|| local("missing committed checkpoint"))?;
-        self.history.insert(checkpoint.height, checkpoint.block);
         let (producer, previous) = self
             .participant
             .take()

@@ -6,9 +6,10 @@
 //! This crate is node infrastructure. It is not a user-data storage or file-
 //! sharing service and creates no storage marketplace.
 //!
-//! `InMemoryStorage` and `FileBackedStorage` implement the `NodeStorage` boundary.
-//! The file backend is a bounded atomic archive for development and recovery tests;
-//! production-scale indexing and authenticated finality remain separate concerns.
+//! `ChainStorage` selects append-only logs for new network directories and preserves
+//! existing bounded `FileBackedStorage` archives. All backends implement `NodeStorage`.
+//! The log retains bodies on disk, with an in-memory height index and latest state.
+//! Finality authentication remains the caller's responsibility.
 
 #![forbid(unsafe_code)]
 #![allow(clippy::missing_errors_doc)]
@@ -19,9 +20,14 @@ use state::{InMemoryState, StateDiff, StateError};
 use types::{Block, Hash256};
 
 mod archive;
+mod chain;
+mod log;
+mod log_record;
 mod persistent;
 mod snapshot;
 
+pub use chain::ChainStorage;
+pub use log::AppendOnlyStorage;
 pub use persistent::FileBackedStorage;
 
 /// Maximum encoded reference chain archive size (256 MiB).
@@ -80,6 +86,7 @@ pub trait NodeStorage {
     ) -> Result<Checkpoint, StorageError>;
 
     /// Prunes data older than the local retention policy without deleting required proofs.
+    /// A full-history backend can return `StorageError::Unsupported`.
     fn prune(&mut self, before_height: u64) -> Result<(), StorageError>;
 }
 
@@ -112,6 +119,8 @@ pub enum StorageError {
     Locked,
     /// Publication occurred but durability is uncertain; reopen before further work.
     DurabilityUnknown,
+    /// This backend cannot perform the requested retention/import operation.
+    Unsupported,
 }
 
 impl std::fmt::Display for StorageError {
@@ -126,6 +135,7 @@ impl std::fmt::Display for StorageError {
             Self::DurabilityUnknown => {
                 write!(f, "storage durability is uncertain; reopen required")
             }
+            Self::Unsupported => write!(f, "operation is not supported by this storage backend"),
         }
     }
 }

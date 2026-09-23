@@ -52,18 +52,27 @@ fn daemon_command() -> String {
 }
 
 pub(crate) fn devnet() -> Result<(), CliError> {
-    let mut args = std::env::args_os().skip(2);
+    let mut args = std::env::args_os().skip(2).peekable();
     let directory = PathBuf::from(
         args.next()
-            .ok_or_else(|| error("usage: cli devnet <new-directory> [validators]"))?,
+            .ok_or_else(|| error("usage: cli devnet <new-directory> [validators] [--observer]"))?,
     );
-    let count: u8 = args.next().map_or(Ok(4), |value| {
-        value
-            .to_str()
-            .ok_or_else(|| error("invalid validator count"))?
-            .parse()
-            .map_err(error)
-    })?;
+    let count: u8 = if args.peek().is_some_and(|value| value == "--observer") {
+        4
+    } else {
+        args.next().map_or(Ok(4), |value| {
+            value
+                .to_str()
+                .ok_or_else(|| error("invalid validator count"))?
+                .parse()
+                .map_err(error)
+        })?
+    };
+    let with_observer = match args.next() {
+        None => false,
+        Some(value) if value == "--observer" => true,
+        Some(_) => return Err(error("expected --observer after validator count")),
+    };
     if args.next().is_some() || !(1..=32).contains(&count) {
         return Err(error("validator count must be 1..32"));
     }
@@ -119,7 +128,7 @@ pub(crate) fn devnet() -> Result<(), CliError> {
             context,
             [index; 32],
         )?);
-        let peers: Vec<_> = (1..=count)
+        let peers: Vec<_> = (u8::from(!with_observer)..=count)
             .filter(|peer| *peer != index)
             .map(|peer| format!("127.0.0.1:{}", 18000 + u16::from(peer)))
             .collect();
@@ -130,6 +139,9 @@ pub(crate) fn devnet() -> Result<(), CliError> {
         };
         writeln!(instructions, "{} --run --genesis \"{}\" --validators \"{}\" --validator-key \"{}\" --tls-dir \"{}\" --data-dir \"{}\" --p2p-listen 127.0.0.1:{} --rpc-listen 127.0.0.1:{}{peer_flag}", daemon_command(), directory.join("genesis.bin").display(), directory.join("validators.bin").display(), data.join("validator.seed").display(), data.join("tls").display(), data.display(), 18000 + u16::from(index), 19000 + u16::from(index)).map_err(error)?;
     }
+    if with_observer {
+        append_observer(&directory, count, &authority, &mut instructions)?;
+    }
     write_new(&directory.join("START.txt"), instructions.as_bytes())?;
     println!(
         "Created {count} reference validators in {}",
@@ -139,6 +151,23 @@ pub(crate) fn devnet() -> Result<(), CliError> {
     println!("Funded test wallet: {wallet}");
     println!("Start commands: {}", directory.join("START.txt").display());
     Ok(())
+}
+
+fn append_observer(
+    directory: &Path,
+    count: u8,
+    authority: &TransportAuthority,
+    instructions: &mut String,
+) -> Result<(), CliError> {
+    let data = directory.join("observer");
+    std::fs::create_dir(&data).map_err(error)?;
+    provision_tls(authority, &data.join("tls"), "observer")?;
+    let peers: Vec<_> = (1..=count)
+        .map(|index| format!("127.0.0.1:{}", 18000 + u16::from(index)))
+        .collect();
+    writeln!(instructions, "{} --observer --run --genesis \"{}\" --validators \"{}\" --tls-dir \"{}\" --data-dir \"{}\" --p2p-listen 127.0.0.1:18000 --rpc-listen 127.0.0.1:19000 --peers {}",
+        daemon_command(), directory.join("genesis.bin").display(), directory.join("validators.bin").display(),
+        data.join("tls").display(), data.display(), peers.join(",")).map_err(error)
 }
 
 fn provision_tls(

@@ -1,7 +1,7 @@
 // Copyright (c) 2026 Astrolune contributors
 // SPDX-License-Identifier: MIT
 
-//! Append-only, exclusively locked reference signing journal.
+//! Exclusively locked signing journal with bounded protected-watermark rollover.
 
 use crate::{
     KeystoreError, PRECOMMIT_PHASE, SigningContext, SigningLock, SigningPosition, SigningSafety,
@@ -11,19 +11,27 @@ use std::io::{Read, Seek, SeekFrom, Write};
 use std::path::{Path, PathBuf};
 use types::{Hash256, hash::domain_hash};
 
+mod rollover;
+#[cfg(test)]
+mod rollover_tests;
+use rollover::Rollover;
+
 const HEADER_BYTES: usize = 108;
 const RECORD_BYTES: usize = 85;
 const PROTECTED_RECORD_BYTES: usize = 154;
 const HEADER_DOMAIN: &[u8] = b"astrolune.signing.journal.v1";
 const RECORD_DOMAIN: &[u8] = b"astrolune.signing.decision.v1";
 
-/// Maximum durable decisions; no automatic pruning or reset is permitted.
+/// Retained prefix decisions. Version 1 stops here; protected journals roll over.
 pub const MAX_JOURNAL_RECORDS: u64 = 100_000;
 /// Maximum reference journal size, including its header and chained checksums.
 pub const MAX_JOURNAL_BYTES: u64 = HEADER_BYTES as u64 + RECORD_BYTES as u64 * MAX_JOURNAL_RECORDS;
-/// Maximum version-2 journal size, including atomically reserved BFT locks.
+/// Version-2 append-only prefix size, before protected watermark rollover.
 pub const MAX_PROTECTED_JOURNAL_BYTES: u64 =
     HEADER_BYTES as u64 + PROTECTED_RECORD_BYTES as u64 * MAX_JOURNAL_RECORDS;
+/// Maximum protected journal size including the fixed-size rollover extension.
+pub const MAX_ROLLOVER_JOURNAL_BYTES: u64 =
+    MAX_PROTECTED_JOURNAL_BYTES + rollover::EXTENSION_BYTES as u64;
 
 pub(crate) struct Journal {
     file: File,
@@ -33,6 +41,7 @@ pub(crate) struct Journal {
     poisoned: bool,
     protected: bool,
     safety: Option<SigningSafety>,
+    rollover: Option<Rollover>,
 }
 
 impl Drop for Journal {
@@ -258,7 +267,7 @@ impl Journal {
         let path = canonical_path(path)?;
         let mut file = OpenOptions::new()
             .read(true)
-            .append(true)
+            .write(true)
             .create_new(true)
             .open(&path)
             .map_err(|error| {
@@ -283,6 +292,7 @@ impl Journal {
             poisoned: false,
             protected,
             safety: None,
+            rollover: None,
         })
     }
 
@@ -295,14 +305,14 @@ impl Journal {
         // Never creates a missing journal, even if the key is available.
         let mut file = OpenOptions::new()
             .read(true)
-            .append(true)
+            .write(true)
             .open(&path)
             .map_err(|_| KeystoreError::JournalFailure)?;
         lock(&file)?;
         let metadata = file.metadata().map_err(|_| KeystoreError::JournalFailure)?;
         let length = metadata.len();
         if !metadata.is_file()
-            || !(HEADER_BYTES as u64..=MAX_PROTECTED_JOURNAL_BYTES).contains(&length)
+            || !(HEADER_BYTES as u64..=MAX_ROLLOVER_JOURNAL_BYTES).contains(&length)
         {
             return Err(KeystoreError::InvalidJournal);
         }
@@ -328,10 +338,16 @@ impl Journal {
         } else {
             RECORD_BYTES
         };
-        if !(length - HEADER_BYTES as u64).is_multiple_of(record_size as u64) {
+        let rolled = protected && length == MAX_ROLLOVER_JOURNAL_BYTES;
+        let prefix_length = if rolled {
+            MAX_PROTECTED_JOURNAL_BYTES
+        } else {
+            length
+        };
+        if !(prefix_length - HEADER_BYTES as u64).is_multiple_of(record_size as u64) {
             return Err(KeystoreError::InvalidJournal);
         }
-        let count = (length - HEADER_BYTES as u64) / record_size as u64;
+        let count = (prefix_length - HEADER_BYTES as u64) / record_size as u64;
         if count > MAX_JOURNAL_RECORDS {
             return Err(KeystoreError::InvalidJournal);
         }
@@ -343,6 +359,7 @@ impl Journal {
             poisoned: false,
             protected,
             safety: None,
+            rollover: None,
         };
         for sequence in 1..=count {
             let mut bytes = [0; PROTECTED_RECORD_BYTES];
@@ -373,6 +390,9 @@ impl Journal {
             journal.last = Some((position, message));
             journal.tip = tip;
         }
+        if rolled {
+            journal.recover_rollover()?;
+        }
         journal.check_length()?;
         // A preceding failed sync may have left a complete record in the OS cache.
         // Re-establish durability before allowing even an idempotent signature retry.
@@ -382,6 +402,20 @@ impl Journal {
             .and_then(|()| sync_parent(&path))
             .map_err(|_| KeystoreError::JournalFailure)?;
         Ok(journal)
+    }
+
+    fn recover_rollover(&mut self) -> Result<(), KeystoreError> {
+        let mut bytes = [0; rollover::EXTENSION_BYTES];
+        self.file
+            .read_exact(&mut bytes)
+            .map_err(|_| KeystoreError::InvalidJournal)?;
+        let rollover = Rollover::decode(self.tip, self.last, self.safety, &bytes)?;
+        let latest = rollover.latest();
+        self.count = latest.sequence;
+        self.last = Some((latest.position, latest.message));
+        self.safety = Some(latest.safety);
+        self.rollover = Some(rollover);
+        Ok(())
     }
 
     pub(crate) const fn last_position(&self) -> Option<SigningPosition> {
@@ -397,7 +431,11 @@ impl Journal {
         } else {
             RECORD_BYTES
         };
-        let expected = HEADER_BYTES as u64 + self.count * record_size as u64;
+        let expected = if self.rollover.is_some() {
+            MAX_ROLLOVER_JOURNAL_BYTES
+        } else {
+            HEADER_BYTES as u64 + self.count * record_size as u64
+        };
         if !self
             .file
             .metadata()
@@ -405,6 +443,19 @@ impl Journal {
         {
             self.poisoned = true;
             return Err(KeystoreError::InvalidJournal);
+        }
+        if let Some(rollover) = &self.rollover {
+            let mut bytes = [0; rollover::EXTENSION_BYTES];
+            if self
+                .file
+                .seek(SeekFrom::Start(MAX_PROTECTED_JOURNAL_BYTES))
+                .and_then(|_| self.file.read_exact(&mut bytes))
+                .is_err()
+                || bytes.as_slice() != rollover.encode()
+            {
+                self.poisoned = true;
+                return Err(KeystoreError::InvalidJournal);
+            }
         }
         Ok(())
     }
@@ -477,10 +528,10 @@ impl Journal {
                 };
             }
         }
-        if self.count == MAX_JOURNAL_RECORDS {
+        if !self.protected && self.count == MAX_JOURNAL_RECORDS {
             return Err(KeystoreError::LimitExceeded);
         }
-        let bytes = if let Some(next) = safety {
+        if let Some(next) = safety {
             validate_safety(
                 position,
                 next,
@@ -488,18 +539,87 @@ impl Journal {
                     .zip(self.safety)
                     .map(|((position, _), safety)| (position, safety)),
             )?;
-            protected_record(self.count + 1, position, message, self.tip, next)
+        }
+        let sequence = self
+            .count
+            .checked_add(1)
+            .ok_or(KeystoreError::LimitExceeded)?;
+        if self.protected && self.count == MAX_JOURNAL_RECORDS && self.rollover.is_none() {
+            self.activate_rollover(|file, bytes| {
+                file.write_all(bytes)?;
+                file.sync_all()
+            })?;
+        }
+        let update = self
+            .rollover
+            .as_ref()
+            .map(|rollover| {
+                rollover.prepare(
+                    sequence,
+                    position,
+                    message,
+                    safety.ok_or(KeystoreError::InvalidSafety)?,
+                )
+            })
+            .transpose()?;
+        let (offset, bytes) = if let Some((slot, bytes)) = &update {
+            (Rollover::slot_offset(*slot), bytes.clone())
+        } else if let Some(next) = safety {
+            (
+                HEADER_BYTES as u64 + self.count * PROTECTED_RECORD_BYTES as u64,
+                protected_record(sequence, position, message, self.tip, next),
+            )
         } else {
-            record(self.count + 1, position, message, self.tip).to_vec()
+            (
+                HEADER_BYTES as u64 + self.count * RECORD_BYTES as u64,
+                record(sequence, position, message, self.tip).to_vec(),
+            )
         };
         // Any uncertain write poisons this instance. No signature can escape until
         // reopening validates the complete prefix and synchronizes it successfully.
         self.poisoned = true;
+        self.file
+            .seek(SeekFrom::Start(offset))
+            .map_err(|_| KeystoreError::DurabilityUnknown)?;
         persist(&mut self.file, &bytes).map_err(|_| KeystoreError::DurabilityUnknown)?;
         self.last = Some((position, message));
         self.safety = safety;
-        self.tip = record_hash(self.tip, &bytes[..bytes.len() - 32]);
-        self.count += 1;
+        if let Some((slot, _)) = update {
+            self.rollover
+                .as_mut()
+                .ok_or(KeystoreError::InvalidJournal)?
+                .publish(
+                    slot,
+                    sequence,
+                    position,
+                    message,
+                    safety.ok_or(KeystoreError::InvalidSafety)?,
+                );
+        } else {
+            self.tip = record_hash(self.tip, &bytes[..bytes.len() - 32]);
+        }
+        self.count = sequence;
+        self.poisoned = false;
+        Ok(())
+    }
+
+    fn activate_rollover(
+        &mut self,
+        persist: impl FnOnce(&mut File, &[u8]) -> std::io::Result<()>,
+    ) -> Result<(), KeystoreError> {
+        if !self.protected || self.count != MAX_JOURNAL_RECORDS || self.rollover.is_some() {
+            return Err(KeystoreError::InvalidJournal);
+        }
+        let rollover = Rollover::new(self.tip, self.last, self.safety)?;
+        // Keep the original inode and its lock, including through hard-link aliases.
+        // The complete prefix is immutable; no signature is returned during activation.
+        self.poisoned = true;
+        self.file
+            .seek(SeekFrom::Start(MAX_PROTECTED_JOURNAL_BYTES))
+            .map_err(|_| KeystoreError::DurabilityUnknown)?;
+        persist(&mut self.file, &rollover.encode())
+            .map_err(|_| KeystoreError::DurabilityUnknown)?;
+        self.rollover = Some(rollover);
         self.poisoned = false;
         Ok(())
     }

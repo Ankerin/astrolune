@@ -9,6 +9,7 @@ use keystore::{DurableSigner, SigningContext};
 use node::{
     network::{NetworkNode, StaticNetwork},
     network_wire::{NetworkMessage, SyncRequest, decode_exchange, encode_exchange},
+    observer::ObserverNode,
 };
 use state::StateDatabase;
 use std::{
@@ -503,4 +504,306 @@ fn every_network_message_has_canonical_mutation_and_truncation_behavior() {
     expected_request.extend_from_slice(&request.genesis.0);
     expected_request.extend_from_slice(&1u64.to_le_bytes());
     assert_eq!(request.encode(), expected_request);
+}
+
+#[test]
+fn observer_gossips_payments_syncs_relays_and_recovers_without_signing_authority() {
+    let fixture = Fixture::new(1);
+    let path = fixture.path.join("observer");
+    let mut observer = ObserverNode::open(fixture.network.clone(), &path).unwrap();
+    let mut validator = fixture.open(1);
+    let tx = transfer();
+    observer.submit_transaction(tx.clone()).unwrap();
+    let pending = observer.respond(validator.request()).unwrap();
+    assert!(
+        decode_exchange(fixture.network.genesis_hash(), &pending)
+            .unwrap()
+            .iter()
+            .all(|message| matches!(message, NetworkMessage::Transaction(_)))
+    );
+    validator.receive(&pending).unwrap();
+    let now = Instant::now();
+    for step in 0..20 {
+        validator.tick(now + Duration::from_millis(step)).unwrap();
+        if validator.request().height >= 4 {
+            break;
+        }
+    }
+    assert_eq!(validator.request().height, 4);
+    while observer.request().height < validator.request().height {
+        assert_eq!(
+            observer
+                .receive(&validator.respond(observer.request()).unwrap())
+                .unwrap(),
+            0
+        );
+    }
+    assert_eq!(
+        observer.storage().checkpoint(),
+        validator.storage().checkpoint()
+    );
+    assert_eq!(
+        observer.storage().state().root(),
+        validator.storage().state().root()
+    );
+    assert!(observer.submit_transaction(tx.clone()).is_err());
+    assert!(
+        decode_exchange(
+            fixture.network.genesis_hash(),
+            &observer.respond(observer.request()).unwrap()
+        )
+        .unwrap()
+        .is_empty()
+    );
+    let checkpoint = *observer.storage().checkpoint().unwrap();
+    drop(observer);
+    let observer = ObserverNode::open(fixture.network.clone(), &path).unwrap();
+    assert_eq!(observer.storage().checkpoint(), Some(&checkpoint));
+    let mut late =
+        ObserverNode::open(fixture.network.clone(), &fixture.path.join("late-observer")).unwrap();
+    while late.request().height < observer.request().height {
+        assert_eq!(
+            late.receive(&observer.respond(late.request()).unwrap())
+                .unwrap(),
+            0
+        );
+    }
+    assert_eq!(
+        late.storage().state().root(),
+        observer.storage().state().root()
+    );
+    assert!(late.submit_transaction(tx).is_err());
+    for directory in [path, fixture.path.join("late-observer")] {
+        assert!(!directory.join("signing.journal").exists());
+        assert!(!directory.join("validator.seed").exists());
+        assert!(!directory.join("consensus-cache.bin").exists());
+        assert_eq!(
+            std::fs::read(directory.join(node::observer::OBSERVER_MARKER))
+                .unwrap()
+                .len(),
+            36
+        );
+    }
+}
+
+#[test]
+fn observer_rejects_forged_finality_body_mutations_gaps_and_truncated_batches() {
+    let fixture = Fixture::new(1);
+    let mut validator = fixture.open(1);
+    validator.submit_transaction(transfer()).unwrap();
+    let mut observer =
+        ObserverNode::open(fixture.network.clone(), &fixture.path.join("observer")).unwrap();
+    let initial = *observer.storage().checkpoint().unwrap();
+    let now = Instant::now();
+    for step in 0..8 {
+        validator.tick(now + Duration::from_millis(step)).unwrap();
+        if validator.request().height >= 3 {
+            break;
+        }
+    }
+    let original = validator.respond(observer.request()).unwrap();
+    let message = decode_exchange(fixture.network.genesis_hash(), &original)
+        .unwrap()
+        .remove(0);
+    for defect in 0..2 {
+        let mut mutated = message.clone();
+        let NetworkMessage::Finalized { block, certificate } = &mut mutated else {
+            panic!("finalized block expected")
+        };
+        if defect == 0 {
+            certificate.signatures[0].signature[0] ^= 1;
+        } else {
+            block.transactions[0].payload[0] ^= 1;
+        }
+        let bytes = encode_exchange(fixture.network.genesis_hash(), &[mutated]).unwrap();
+        assert_eq!(observer.receive(&bytes).unwrap(), 1);
+        assert_eq!(observer.storage().checkpoint(), Some(&initial));
+    }
+    let gap = validator
+        .respond(SyncRequest {
+            height: 2,
+            ..observer.request()
+        })
+        .unwrap();
+    assert_eq!(observer.receive(&gap).unwrap(), 1);
+    let mut truncated = original.clone();
+    truncated.pop();
+    assert!(observer.receive(&truncated).is_err());
+    assert_eq!(observer.storage().checkpoint(), Some(&initial));
+    assert!(
+        observer
+            .respond(SyncRequest {
+                genesis: Hash256([0x42; 32]),
+                height: 1
+            })
+            .is_err()
+    );
+    assert_eq!(observer.receive(&original).unwrap(), 0);
+    assert_eq!(observer.receive(&original).unwrap(), 1);
+    assert_eq!(observer.request().height, 2);
+}
+
+#[test]
+fn observer_cannot_replace_missing_quorum_or_relay_live_consensus_messages() {
+    let fixture = Fixture::new(4);
+    let mut validators = vec![fixture.open(1), fixture.open(2)];
+    let mut observer =
+        ObserverNode::open(fixture.network.clone(), &fixture.path.join("observer")).unwrap();
+    let now = Instant::now();
+    for step in 0..60 {
+        exchange(&mut validators, now + Duration::from_millis(step * 20));
+        for validator in &mut validators {
+            observer
+                .receive(&validator.respond(observer.request()).unwrap())
+                .unwrap();
+            let bytes = observer.respond(validator.request()).unwrap();
+            assert!(
+                decode_exchange(fixture.network.genesis_hash(), &bytes)
+                    .unwrap()
+                    .is_empty()
+            );
+            validator.receive(&bytes).unwrap();
+        }
+    }
+    assert_eq!(observer.request().height, 1);
+    assert!(
+        validators
+            .iter()
+            .all(|validator| validator.request().height == 1)
+    );
+}
+
+#[test]
+fn observer_role_validation_preserves_validator_data_and_rejects_corrupt_markers() {
+    let fixture = Fixture::new(1);
+    let directory = fixture.path.join("1");
+    let journal = std::fs::read(directory.join("signing.journal")).unwrap();
+    assert!(ObserverNode::open(fixture.network.clone(), &directory).is_err());
+    assert_eq!(
+        std::fs::read(directory.join("signing.journal")).unwrap(),
+        journal
+    );
+    assert!(!directory.join("chain.bin").exists());
+    let path = fixture.path.join("observer");
+    drop(ObserverNode::open(fixture.network.clone(), &path).unwrap());
+    let archive = std::fs::read(path.join("chain.bin")).unwrap();
+    std::fs::write(path.join(node::observer::OBSERVER_MARKER), b"ALOB").unwrap();
+    assert!(ObserverNode::open(fixture.network.clone(), &path).is_err());
+    assert_eq!(std::fs::read(path.join("chain.bin")).unwrap(), archive);
+}
+
+#[test]
+fn observer_recovery_rejects_demonstration_history() {
+    use node::{FullNodeService, NodeService, ProducerConfig};
+    let fixture = Fixture::new(1);
+    let path = fixture.path.join("observer");
+    std::fs::create_dir(&path).unwrap();
+    let mut demo = FullNodeService::open_with_genesis(
+        ProducerConfig {
+            chain_id: 42,
+            block_capacity: fixture.genesis.capacity,
+            ..ProducerConfig::default()
+        },
+        path.join("chain.bin"),
+        &fixture.genesis,
+    )
+    .unwrap();
+    for _ in 0..5 {
+        demo.advance().unwrap();
+    }
+    drop(demo);
+    let archive = std::fs::read(path.join("chain.bin")).unwrap();
+    assert!(ObserverNode::open(fixture.network.clone(), &path).is_err());
+    assert_eq!(std::fs::read(path.join("chain.bin")).unwrap(), archive);
+    assert!(!path.join(node::observer::OBSERVER_MARKER).exists());
+}
+
+#[test]
+fn observer_storage_failure_is_fatal_and_does_not_publish_or_consume_pending_payment() {
+    let fixture = Fixture::new(1);
+    let path = fixture.path.join("observer");
+    let mut observer = ObserverNode::open(fixture.network.clone(), &path).unwrap();
+    observer.submit_transaction(transfer()).unwrap();
+    let mut validator = fixture.open(1);
+    validator
+        .receive(&observer.respond(validator.request()).unwrap())
+        .unwrap();
+    let initial = *observer.storage().checkpoint().unwrap();
+    let now = Instant::now();
+    for step in 0..4 {
+        validator.tick(now + Duration::from_millis(step)).unwrap();
+        if validator.request().height > 1 {
+            break;
+        }
+    }
+    let bytes = validator.respond(observer.request()).unwrap();
+    let blocked = path.join("chain.bin.pending");
+    std::fs::create_dir(&blocked).unwrap();
+    assert!(matches!(
+        observer.receive(&bytes),
+        Err(node::network::NetworkNodeError::Local(_))
+    ));
+    assert_eq!(observer.storage().checkpoint(), Some(&initial));
+    assert_eq!(
+        decode_exchange(
+            fixture.network.genesis_hash(),
+            &observer.respond(observer.request()).unwrap()
+        )
+        .unwrap()
+        .len(),
+        1
+    );
+    drop(observer);
+    std::fs::remove_dir(&blocked).unwrap();
+    let mut recovered = ObserverNode::open(fixture.network.clone(), &path).unwrap();
+    assert_eq!(recovered.storage().checkpoint(), Some(&initial));
+    assert_eq!(recovered.receive(&bytes).unwrap(), 0);
+    assert_eq!(
+        recovered.storage().checkpoint(),
+        validator.storage().checkpoint()
+    );
+}
+
+#[test]
+fn legacy_validator_and_log_observer_exchange_certified_payments_and_recover() {
+    let fixture = Fixture::new(1);
+    let path = fixture.path.join("1/chain.bin");
+    let mut archive = storage::FileBackedStorage::open(&path).unwrap();
+    archive
+        .initialize_genesis(
+            fixture.network.genesis_hash(),
+            fixture.genesis.materialize().unwrap(),
+        )
+        .unwrap();
+    drop(archive);
+    let mut validator = fixture.open(1);
+    assert!(validator.storage().is_legacy_archive());
+    let directory = fixture.path.join("observer");
+    let mut observer = ObserverNode::open(fixture.network.clone(), &directory).unwrap();
+    assert!(!observer.storage().is_legacy_archive());
+    validator.submit_transaction(transfer()).unwrap();
+    let now = Instant::now();
+    for step in 0..4 {
+        validator.tick(now + Duration::from_millis(step)).unwrap();
+        if validator.request().height > 1 {
+            break;
+        }
+    }
+    observer
+        .receive(&validator.respond(observer.request()).unwrap())
+        .unwrap();
+    assert_eq!(
+        observer.storage().checkpoint(),
+        validator.storage().checkpoint()
+    );
+    drop(observer);
+    drop(validator);
+    let validator = fixture.open(1);
+    let observer = ObserverNode::open(fixture.network.clone(), &directory).unwrap();
+    assert_eq!(
+        observer.storage().state().root(),
+        validator.storage().state().root()
+    );
+    assert!(validator.storage().is_legacy_archive());
+    assert_eq!(&std::fs::read(path).unwrap()[..8], b"ASTSTORE");
 }

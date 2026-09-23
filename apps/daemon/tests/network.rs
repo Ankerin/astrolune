@@ -68,7 +68,7 @@ impl Fixture {
         std::fs::write(path.join("genesis.bin"), genesis.to_bytes()).unwrap();
         std::fs::write(path.join("validators.bin"), keys.concat()).unwrap();
         let authority = p2p::provisioning::TransportAuthority::generate().unwrap();
-        for index in 1..=4 {
+        for index in 1..=5 {
             let data = path.join(index.to_string());
             std::fs::create_dir(&data).unwrap();
             let tls = data.join("tls");
@@ -77,6 +77,9 @@ impl Fixture {
             std::fs::write(tls.join("ca.der"), &identity.ca_der).unwrap();
             std::fs::write(tls.join("cert.der"), &identity.certificate_der).unwrap();
             std::fs::write(tls.join("key.der"), &identity.private_key_der).unwrap();
+            if index == 5 {
+                continue;
+            }
             std::fs::write(data.join("validator.seed"), [index; 32]).unwrap();
             drop(
                 DurableSigner::create_protected(
@@ -98,14 +101,21 @@ impl Fixture {
     }
     fn start(&self, index: usize, peers: &[String]) -> Process {
         let data = self.path.join(index.to_string());
+        let mut command = Command::new(env!("CARGO_BIN_EXE_daemon"));
+        if index == 5 {
+            command.arg("--observer");
+        } else {
+            command
+                .arg("--validator-key")
+                .arg(data.join("validator.seed"))
+                .args(["--round-timeout-ms", "500"]);
+        }
         let mut child = Process(
-            Command::new(env!("CARGO_BIN_EXE_daemon"))
+            command
                 .arg("--genesis")
                 .arg(self.path.join("genesis.bin"))
                 .arg("--validators")
                 .arg(self.path.join("validators.bin"))
-                .arg("--validator-key")
-                .arg(data.join("validator.seed"))
                 .arg("--tls-dir")
                 .arg(data.join("tls"))
                 .arg("--data-dir")
@@ -124,8 +134,6 @@ impl Fixture {
                         .map(|(_, address)| address.clone())
                         .collect::<Vec<_>>()
                         .join(","),
-                    "--round-timeout-ms",
-                    "500",
                 ])
                 .stdout(Stdio::piped())
                 .stderr(Stdio::inherit())
@@ -147,6 +155,91 @@ impl Fixture {
             .expect("certified daemon starts its RPC listener");
         child
     }
+}
+
+#[test]
+fn observer_rpc_payment_gossip_and_restart_use_tls_without_any_consensus_seed() {
+    let fixture = Fixture::new();
+    let mut reservations: Vec<_> = (0..5)
+        .map(|_| Some(TcpListener::bind("127.0.0.1:0").unwrap()))
+        .collect();
+    let peers: Vec<_> = reservations
+        .iter()
+        .map(|listener| listener.as_ref().unwrap().local_addr().unwrap().to_string())
+        .collect();
+    drop(reservations[4].take());
+    let observer = fixture.start(5, &peers);
+    let tx = payment();
+    let submitted = call(
+        &observer.1,
+        "submit_transaction",
+        &format!(r#"{{"data":"{}"}}"#, hex(&tx.to_bytes())),
+    );
+    assert!(submitted.get("error").is_none(), "{submitted:?}");
+    let mut validators = Vec::new();
+    for index in 1..=3 {
+        drop(reservations[index - 1].take());
+        validators.push(fixture.start(index, &peers));
+    }
+    drop(reservations[3].take());
+    await_payment(&[&observer, &validators[0], &validators[1], &validators[2]]);
+    drop(observer);
+    let restarted = fixture.start(5, &peers);
+    await_payment(&[&restarted]);
+    let replay = call(
+        &restarted.1,
+        "submit_transaction",
+        &format!(r#"{{"data":"{}"}}"#, hex(&tx.to_bytes())),
+    );
+    assert!(replay.get("error").is_some());
+    drop(restarted);
+    drop(validators);
+    for name in ["validator.seed", "signing.journal", "consensus-cache.bin"] {
+        assert!(!fixture.path.join("5").join(name).exists());
+    }
+    let restored = node::observer::ObserverNode::open(
+        node::network::StaticNetwork::new(fixture.genesis.clone(), fixture.keys.clone()).unwrap(),
+        &fixture.path.join("5"),
+    )
+    .unwrap();
+    assert!(restored.storage().checkpoint().unwrap().height >= 1);
+}
+
+#[test]
+fn observer_directory_cannot_downgrade_to_demonstration_or_reuse_validator_journal() {
+    let fixture = Fixture::new();
+    let initialize = |index: &str| {
+        Command::new(env!("CARGO_BIN_EXE_daemon"))
+            .args(["--observer", "--blocks", "0"])
+            .arg("--genesis")
+            .arg(fixture.path.join("genesis.bin"))
+            .arg("--validators")
+            .arg(fixture.path.join("validators.bin"))
+            .arg("--tls-dir")
+            .arg(fixture.path.join(index).join("tls"))
+            .arg("--data-dir")
+            .arg(fixture.path.join(index))
+            .output()
+            .unwrap()
+    };
+    assert!(!initialize("1").status.success());
+    assert!(!fixture.path.join("1/chain.bin").exists());
+    assert!(initialize("5").status.success());
+    let archive = std::fs::read(fixture.path.join("5/chain.bin")).unwrap();
+    let downgrade = Command::new(env!("CARGO_BIN_EXE_daemon"))
+        .args(["--blocks", "1"])
+        .arg("--genesis")
+        .arg(fixture.path.join("genesis.bin"))
+        .arg("--data-dir")
+        .arg(fixture.path.join("5"))
+        .output()
+        .unwrap();
+    assert!(!downgrade.status.success());
+    assert_eq!(
+        std::fs::read(fixture.path.join("5/chain.bin")).unwrap(),
+        archive
+    );
+    assert!(!fixture.path.join("5/signing.journal").exists());
 }
 impl Drop for Fixture {
     fn drop(&mut self) {
@@ -386,4 +479,71 @@ fn missing_journal_and_incomplete_network_arguments_fail_without_provisioning() 
             .status
             .success()
     );
+}
+
+#[test]
+fn corrupted_history_read_stops_observer_process() {
+    use std::io::{Read, Seek, SeekFrom, Write};
+    let fixture = Fixture::new();
+    let mut reservations: Vec<_> = (0..5)
+        .map(|_| Some(TcpListener::bind("127.0.0.1:0").unwrap()))
+        .collect();
+    let peers: Vec<_> = reservations
+        .iter()
+        .map(|r| r.as_ref().unwrap().local_addr().unwrap().to_string())
+        .collect();
+    drop(reservations[4].take());
+    let mut observer = fixture.start(5, &peers);
+    let tx = payment();
+    let result = call(
+        &observer.1,
+        "submit_transaction",
+        &format!(r#"{{"data":"{}"}}"#, hex(&tx.to_bytes())),
+    );
+    assert!(result.get("error").is_none());
+    let mut validators = Vec::new();
+    for index in 1..=3 {
+        drop(reservations[index - 1].take());
+        validators.push(fixture.start(index, &peers));
+    }
+    await_payment(&[&observer]);
+    drop(validators);
+    let mut file = std::fs::OpenOptions::new()
+        .read(true)
+        .write(true)
+        .open(fixture.path.join("5/chain.bin"))
+        .unwrap();
+    // Corrupt block 1, after the genesis anchor, without changing file length.
+    file.seek(SeekFrom::Start(40)).unwrap();
+    let mut length = [0; 8];
+    file.read_exact(&mut length).unwrap();
+    let at = 40 + 40 + u64::from_le_bytes(length) + 12;
+    file.seek(SeekFrom::Start(at)).unwrap();
+    let mut byte = [0];
+    file.read_exact(&mut byte).unwrap();
+    byte[0] ^= 1;
+    file.seek(SeekFrom::Start(at)).unwrap();
+    file.write_all(&byte).unwrap();
+    file.sync_all().unwrap();
+    let tls = p2p::tls::PeerTlsConfig::from_directory(&fixture.path.join("1/tls")).unwrap();
+    let socket = TcpStream::connect(&peers[4]).unwrap();
+    let mut stream = tls.connect(socket, Duration::from_secs(2)).unwrap();
+    let request = node::network_wire::SyncRequest {
+        genesis: fixture.genesis.commitment().unwrap(),
+        height: 1,
+    };
+    p2p::exchange::write_packet(&mut stream, &request.encode(), 48, Duration::from_secs(2))
+        .unwrap();
+    let deadline = Instant::now() + Duration::from_secs(8);
+    loop {
+        if let Some(status) = observer.0.try_wait().unwrap() {
+            assert!(!status.success());
+            break;
+        }
+        assert!(
+            Instant::now() < deadline,
+            "local history corruption must stop the daemon"
+        );
+        std::thread::sleep(Duration::from_millis(20));
+    }
 }

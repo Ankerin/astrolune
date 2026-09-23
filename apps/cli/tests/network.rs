@@ -118,6 +118,45 @@ fn standalone_tls_bundle_has_unique_secrets_and_refuses_overwrite() {
 }
 
 #[test]
+fn devnet_observer_has_transport_identity_but_no_consensus_seed_or_journal() {
+    let fixture = Fixture::new();
+    let directory = fixture.0.join("network");
+    let output = Command::new(env!("CARGO_BIN_EXE_cli"))
+        .arg("devnet")
+        .arg(&directory)
+        .arg("--observer")
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let observer = directory.join("observer");
+    p2p::tls::PeerTlsConfig::from_directory(&observer.join("tls")).unwrap();
+    assert!(!observer.join("validator.seed").exists());
+    assert!(!observer.join("signing.journal").exists());
+    let instructions = std::fs::read_to_string(directory.join("START.txt")).unwrap();
+    let commands: Vec<_> = instructions
+        .lines()
+        .filter(|line| line.contains(" --run "))
+        .collect();
+    assert_eq!(commands.len(), 5);
+    let observer_command = commands
+        .iter()
+        .find(|line| line.contains(" --observer "))
+        .unwrap();
+    assert!(!observer_command.contains("--validator-key"));
+    assert_eq!(
+        commands
+            .iter()
+            .filter(|line| line.contains("--peers 127.0.0.1:18000,"))
+            .count(),
+        4
+    );
+}
+
+#[test]
 fn supplied_key_provisioning_refuses_existing_chain_or_journal() {
     let fixture = Fixture::new();
     let network = fixture.0.join("network");

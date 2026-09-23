@@ -10,18 +10,19 @@ use config::{NetworkConfig, NodeConfig};
 use crate::DaemonError;
 
 pub(crate) const HELP: &str = "\
-AstroLune local demonstration daemon
+AstroLune node daemon
 
 Usage: daemon [--help | --version] [--run | --dry-run | --blocks N] [options]
 
 Options:
-  --run              Produce blocks indefinitely
+  --run              Run continuously
   --dry-run          Validate configuration/genesis without writing or listening
-  --blocks N         Produce N additional blocks, then exit (0: recovery only)
+  --blocks N         Advance N block heights, then exit (0: recovery only)
   --data-dir PATH    Durable chain directory (default: node-data)
   --genesis PATH     Trusted binary genesis (required on each genesis-chain start)
   --validators PATH  Public keys file; enables certified fixed-committee networking
   --validator-key PATH  Raw 32-byte seed; requires an existing signing.journal
+  --observer        Verify and relay finalized blocks without a consensus key
   --tls-dir PATH    Network ca.der, cert.der and PKCS#8 key.der (required for peers)
   --allow-plaintext  Explicit insecure loopback-only development transport
   --peers ADDR,...   Configured peers to poll and reconnect (up to 32)
@@ -47,6 +48,7 @@ pub(crate) struct Options {
     pub genesis: Option<PathBuf>,
     pub validators: Option<PathBuf>,
     pub validator_key: Option<PathBuf>,
+    pub observer: bool,
     pub tls_dir: Option<PathBuf>,
     pub allow_plaintext: bool,
     pub peers: Vec<SocketAddr>,
@@ -74,6 +76,7 @@ pub(crate) fn parse(args: impl IntoIterator<Item = OsString>) -> Result<Command,
         genesis: None,
         validators: None,
         validator_key: None,
+        observer: false,
         tls_dir: None,
         allow_plaintext: false,
         peers: Vec::new(),
@@ -98,6 +101,7 @@ pub(crate) fn parse(args: impl IntoIterator<Item = OsString>) -> Result<Command,
             }
             "--dry-run" => options.dry_run = true,
             "--allow-plaintext" => options.allow_plaintext = true,
+            "--observer" => options.observer = true,
             "--run" => {}
             "--blocks" | "--data-dir" | "--genesis" | "--p2p-listen" | "--rpc-listen"
             | "--validators" | "--validator-key" | "--tls-dir" | "--peers"
@@ -151,9 +155,16 @@ pub(crate) fn parse(args: impl IntoIterator<Item = OsString>) -> Result<Command,
 
 fn validate_network(options: &Options, seen: &BTreeSet<String>) -> Result<(), DaemonError> {
     if options.validators.is_some() {
-        if options.genesis.is_none() || options.validator_key.is_none() {
+        if options.genesis.is_none() || (!options.observer && options.validator_key.is_none()) {
             return Err(invalid(
-                "--validators requires --genesis and --validator-key",
+                "--validators requires --genesis and either --validator-key or --observer",
+            ));
+        }
+        if options.observer
+            && (options.validator_key.is_some() || seen.contains("--round-timeout-ms"))
+        {
+            return Err(invalid(
+                "--observer cannot use --validator-key or BFT round deadlines",
             ));
         }
         if options.tls_dir.is_some() == options.allow_plaintext {
@@ -177,13 +188,14 @@ fn validate_network(options: &Options, seen: &BTreeSet<String>) -> Result<(), Da
             }
         }
     } else if options.validator_key.is_some()
+        || options.observer
         || options.tls_dir.is_some()
         || options.allow_plaintext
         || !options.peers.is_empty()
         || seen.contains("--round-timeout-ms")
     {
         return Err(invalid(
-            "validator keys, TLS, peers, and BFT deadlines require --validators",
+            "observer mode, validator keys, TLS, peers, and BFT deadlines require --validators",
         ));
     }
     Ok(())
@@ -303,5 +315,30 @@ mod tests {
         }
         assert!(parse(["--tls-dir", "tls"].map(OsString::from)).is_err());
         assert!(parse(["--allow-plaintext"].map(OsString::from)).is_err());
+    }
+
+    #[test]
+    fn observer_requires_public_network_context_and_forbids_signing_options() {
+        let base = [
+            "--validators",
+            "keys",
+            "--genesis",
+            "genesis",
+            "--tls-dir",
+            "tls",
+            "--observer",
+        ];
+        assert!(parse(base.map(OsString::from)).is_ok());
+        for extra in [
+            vec!["--validator-key", "seed"],
+            vec!["--round-timeout-ms", "500"],
+        ] {
+            assert!(parse(base.iter().chain(extra.iter()).map(OsString::from)).is_err());
+        }
+        assert!(parse(["--observer", "--allow-plaintext"].map(OsString::from)).is_err());
+        assert!(
+            parse(["--observer", "--validators", "keys", "--tls-dir", "tls"].map(OsString::from))
+                .is_err()
+        );
     }
 }

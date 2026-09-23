@@ -14,7 +14,9 @@ pub mod signer;
 
 pub use durable::DurableSigner;
 pub use error::KeystoreError;
-pub use journal::{MAX_JOURNAL_BYTES, MAX_JOURNAL_RECORDS, MAX_PROTECTED_JOURNAL_BYTES};
+pub use journal::{
+    MAX_JOURNAL_BYTES, MAX_JOURNAL_RECORDS, MAX_PROTECTED_JOURNAL_BYTES, MAX_ROLLOVER_JOURNAL_BYTES,
+};
 pub use key::{
     KeyHandle, KeyPurpose, PRECOMMIT_PHASE, PREVOTE_PHASE, PROPOSAL_PHASE, SigningContext,
     SigningPosition,

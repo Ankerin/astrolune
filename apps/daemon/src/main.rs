@@ -1,7 +1,7 @@
 // Copyright (c) 2026 Astrolune contributors
 // SPDX-License-Identifier: MIT
 
-//! Local demonstration daemon with durable block and execution-state recovery.
+//! Certified validator/observer networking and a separate local demonstration mode.
 
 #![forbid(unsafe_code)]
 #![allow(clippy::print_stdout, clippy::print_stderr)]
@@ -70,9 +70,14 @@ fn run_demonstration(
 ) -> Result<(), DaemonError> {
     if options.config.data_dir.join("signing.journal").exists()
         || options.config.data_dir.join("consensus-cache.bin").exists()
+        || options
+            .config
+            .data_dir
+            .join(node::observer::OBSERVER_MARKER)
+            .exists()
     {
         return Err(DaemonError::Config(
-            "a provisioned validator directory requires certified networking (--validators)".into(),
+            "a certified network directory requires --validators and its original node role".into(),
         ));
     }
     let mut config = options.config;

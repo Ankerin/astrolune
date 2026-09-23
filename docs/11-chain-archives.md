@@ -4,6 +4,8 @@
 
 ## Scope and use
 
+This document describes the legacy archive and local demonstration mode. New certified network directories use the [append-only chain log](22-append-only-chain-storage.md); existing archives remain supported without automatic migration.
+
 `storage::FileBackedStorage` implements `NodeStorage` with an atomic, single-writer file archive. It preserves retained block bodies, opaque finality certificate bytes, checkpoints, and state snapshots across restarts. `BlockProducer::commit_block` already accepts this backend through its generic storage boundary.
 
 ```rust,no_run

@@ -145,6 +145,21 @@ impl FileBackedStorage {
         self.inner.get_certificate(hash)
     }
 
+    /// Reads a retained block and its certificate by height.
+    pub fn read_finalized(&self, height: u64) -> Result<Option<(Block, Vec<u8>)>, StorageError> {
+        self.ready()?;
+        let Some(checkpoint) = self.inner.checkpoints.get(&height) else {
+            return Ok(None);
+        };
+        let Some(block) = self.get_block(&checkpoint.block) else {
+            return Ok(None); // Imported/genesis anchor has no block body.
+        };
+        let certificate = self
+            .get_certificate(&checkpoint.block)
+            .ok_or(StorageError::Corrupt)?;
+        Ok(Some((block.clone(), certificate.to_vec())))
+    }
+
     fn ready(&self) -> Result<(), StorageError> {
         if self.recovery_required {
             Err(StorageError::DurabilityUnknown)

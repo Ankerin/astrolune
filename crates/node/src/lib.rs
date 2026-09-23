@@ -15,6 +15,7 @@ pub mod capacity;
 pub mod full_service;
 pub mod network;
 pub mod network_wire;
+pub mod observer;
 pub mod pipeline;
 pub mod producer;
 pub mod service;

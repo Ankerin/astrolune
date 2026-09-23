@@ -6,7 +6,7 @@
 use crate::{DaemonError, io_error, options::Options};
 use codec::{CanonicalDecode, CanonicalEncode};
 use node::{
-    network::{NetworkNode, NetworkNodeError, StaticNetwork},
+    network::{NetworkNodeError, StaticNetwork},
     network_wire::{MAX_EXCHANGE_BYTES, SyncRequest},
 };
 use p2p::exchange::{read_packet, write_packet};
@@ -26,8 +26,16 @@ use std::{
 
 const IO_TIMEOUT: Duration = Duration::from_secs(2);
 
+mod role;
+use role::PeerNode;
+
+struct NetworkIdentity {
+    network: StaticNetwork,
+    seed: Option<zeroize::Zeroizing<[u8; 32]>>,
+}
+
 pub(crate) fn run(options: &Options, genesis: genesis::Genesis) -> Result<(), DaemonError> {
-    let (network, seed) = load_identity(options, genesis)?;
+    let NetworkIdentity { network, seed } = load_identity(options, genesis)?;
     let transport = PeerTransport(
         options
             .tls_dir
@@ -40,6 +48,14 @@ pub(crate) fn run(options: &Options, genesis: genesis::Genesis) -> Result<(), Da
     println!("chain_id  : {}", network.chain_id());
     println!("genesis_hash: {}", network.genesis_hash());
     println!(
+        "role      : {}",
+        if options.observer {
+            "observer (no consensus signing)"
+        } else {
+            "validator"
+        }
+    );
+    println!(
         "transport : {}",
         if transport.0.is_some() {
             "TLS 1.3 / mutual authentication"
@@ -48,31 +64,25 @@ pub(crate) fn run(options: &Options, genesis: genesis::Genesis) -> Result<(), Da
         }
     );
     if options.dry_run {
+        if options.observer {
+            node::observer::ObserverNode::validate_directory(&network, &options.config.data_dir)
+                .map_err(io_error)?;
+        }
         println!("[dry-run] network configuration valid; no files written or listeners opened.");
         return Ok(());
     }
-    let context = keystore::SigningContext {
-        chain_id: network.chain_id(),
-        genesis: network.genesis_hash(),
-    };
-    // Deliberate open-only provisioning: losing the journal never creates fresh signing authority.
-    let signer = keystore::DurableSigner::open(
-        options.config.data_dir.join("signing.journal"),
-        context,
-        *seed,
-    )
-    .map_err(io_error)?;
-    drop(seed);
-    let node = NetworkNode::open(
-        network.clone(),
-        &options.config.data_dir,
-        signer,
-        Duration::from_millis(options.round_timeout_ms),
-    )
-    .map_err(io_error)?;
+    let node = PeerNode::open(options, network.clone(), seed)?;
+    println!(
+        "storage   : {}",
+        if node.storage().is_legacy_archive() {
+            "legacy archive (4096 checkpoints / 256 MiB)"
+        } else {
+            "append-only chain log"
+        }
+    );
     println!("next_height: {}", node.request().height);
     if options.max_blocks == Some(0) {
-        println!("Certified history and signing recovery complete.");
+        println!("Certified history and node-role recovery complete.");
         return Ok(());
     }
     let initial_height = node.request().height;
@@ -116,7 +126,7 @@ pub(crate) fn run(options: &Options, genesis: genesis::Genesis) -> Result<(), Da
 fn load_identity(
     options: &Options,
     genesis: genesis::Genesis,
-) -> Result<(StaticNetwork, zeroize::Zeroizing<[u8; 32]>), DaemonError> {
+) -> Result<NetworkIdentity, DaemonError> {
     let registry = read_bounded(
         options
             .validators
@@ -134,6 +144,12 @@ fn load_identity(
         .map(|key| <[u8; 32]>::try_from(key).expect("complete key chunk"))
         .collect();
     let network = StaticNetwork::new(genesis, keys).map_err(io_error)?;
+    if options.observer {
+        return Ok(NetworkIdentity {
+            network,
+            seed: None,
+        });
+    }
     let seed = zeroize::Zeroizing::new(read_bounded(
         options
             .validator_key
@@ -157,7 +173,10 @@ fn load_identity(
             "validator key is not registered in genesis".into(),
         ));
     }
-    Ok((network, seed))
+    Ok(NetworkIdentity {
+        network,
+        seed: Some(seed),
+    })
 }
 
 struct Workers {
@@ -186,7 +205,7 @@ impl PeerTransport {
 
 fn spawn_peers(
     options: &Options,
-    node: &Arc<Mutex<NetworkNode>>,
+    node: &Arc<Mutex<PeerNode>>,
     stop: &Arc<AtomicBool>,
     transport: &PeerTransport,
 ) -> Result<Workers, DaemonError> {
@@ -236,7 +255,7 @@ impl Drop for ConnectionSlot {
 
 fn drive(
     options: &Options,
-    node: &Arc<Mutex<NetworkNode>>,
+    node: &Arc<Mutex<PeerNode>>,
     listener: &TcpListener,
     active: &Arc<AtomicUsize>,
     initial_height: u64,
@@ -244,6 +263,7 @@ fn drive(
     transport: &PeerTransport,
 ) -> Result<(), DaemonError> {
     let mut reported = initial_height;
+    let storage_failed = Arc::new(AtomicBool::new(false));
     loop {
         // The fixed accept budget also prevents a connection flood from starving consensus.
         for _ in 0..8 {
@@ -256,6 +276,7 @@ fn drive(
                     let slot = ConnectionSlot(active.clone());
                     let node = node.clone();
                     let transport = transport.clone();
+                    let storage_failed = storage_failed.clone();
                     std::thread::Builder::new()
                         .name("peer-request".into())
                         .spawn(move || {
@@ -265,11 +286,22 @@ fn drive(
                                 let bytes =
                                     read_packet(&mut stream, 48, IO_TIMEOUT).map_err(io_error)?;
                                 let request = SyncRequest::decode(&bytes).map_err(io_error)?;
-                                let response = node
-                                    .lock()
-                                    .map_err(|_| io_error("node lock poisoned"))?
-                                    .respond(request)
-                                    .map_err(io_error)?;
+                                let response = {
+                                    let node =
+                                        node.lock().map_err(|_| io_error("node lock poisoned"))?;
+                                    match node.respond(request) {
+                                        Ok(response) => response,
+                                        Err(error) => {
+                                            // Set while holding the node lock, so the driver cannot
+                                            // sign again after observing a local history failure.
+                                            if matches!(error, NetworkNodeError::Local(_)) {
+                                                storage_failed.store(true, Ordering::Release);
+                                                eprintln!("Finalized history read failed: {error}");
+                                            }
+                                            return Err(io_error(error));
+                                        }
+                                    }
+                                };
                                 write_packet(&mut stream, &response, MAX_EXCHANGE_BYTES, IO_TIMEOUT)
                                     .map_err(io_error)
                             };
@@ -282,6 +314,11 @@ fn drive(
             }
         }
         let mut node = node.lock().map_err(|_| io_error("node lock poisoned"))?;
+        if storage_failed.load(Ordering::Acquire) {
+            return Err(io_error(
+                "finalized history read failed; storage recovery required",
+            ));
+        }
         for bytes in receiver.try_iter().take(4) {
             match node.receive(&bytes) {
                 Ok(_) | Err(NetworkNodeError::Input(_)) => {}
@@ -326,7 +363,7 @@ fn read_bounded(path: &std::path::Path, maximum: usize) -> Result<Vec<u8>, Daemo
 }
 
 struct NetworkStatus {
-    node: Arc<Mutex<NetworkNode>>,
+    node: Arc<Mutex<PeerNode>>,
     chain_id: u32,
 }
 impl RpcService for NetworkStatus {

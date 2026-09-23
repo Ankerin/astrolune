@@ -22,9 +22,9 @@ pub enum KeystoreError {
     InvalidPosition,
     /// The requested position precedes the durable signing watermark.
     StalePosition,
-    /// The bounded journal is full; signing stops without pruning history.
+    /// The raw journal or protected decision sequence has reached its limit.
     LimitExceeded,
-    /// An append or synchronization failed; reopen and verify before signing again.
+    /// A write or synchronization failed; reopen and verify before signing again.
     DurabilityUnknown,
     /// Key handle does not exist.
     UnknownKey,
