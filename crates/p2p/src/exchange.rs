@@ -9,16 +9,35 @@ use std::{
     time::{Duration, Instant},
 };
 
-fn remaining(deadline: Instant) -> io::Result<Duration> {
+pub(crate) fn remaining(deadline: Instant) -> io::Result<Duration> {
     deadline
         .checked_duration_since(Instant::now())
         .filter(|value| !value.is_zero())
         .ok_or_else(|| io::Error::new(io::ErrorKind::TimedOut, "packet deadline expired"))
 }
 
-fn read_exact(stream: &mut TcpStream, mut bytes: &mut [u8], deadline: Instant) -> io::Result<()> {
+/// Packet I/O whose underlying reads and writes share an absolute deadline.
+/// Buffered transports must also enforce it inside handshakes and record processing.
+pub trait PacketIo: Read + Write {
+    /// Installs an absolute deadline for the next packet operation.
+    fn set_deadline(&mut self, deadline: Instant) -> io::Result<()>;
+}
+
+impl PacketIo for TcpStream {
+    fn set_deadline(&mut self, deadline: Instant) -> io::Result<()> {
+        let timeout = Some(remaining(deadline)?);
+        self.set_read_timeout(timeout)?;
+        self.set_write_timeout(timeout)
+    }
+}
+
+fn read_exact(
+    stream: &mut impl PacketIo,
+    mut bytes: &mut [u8],
+    deadline: Instant,
+) -> io::Result<()> {
     while !bytes.is_empty() {
-        stream.set_read_timeout(Some(remaining(deadline)?))?;
+        stream.set_deadline(deadline)?;
         match stream.read(bytes) {
             Ok(0) => return Err(io::ErrorKind::UnexpectedEof.into()),
             Ok(count) => bytes = &mut bytes[count..],
@@ -32,7 +51,7 @@ fn read_exact(stream: &mut TcpStream, mut bytes: &mut [u8], deadline: Instant) -
 /// Reads one packet, checking the advertised size before allocation.
 /// A trickle of partial reads cannot extend the absolute deadline.
 pub fn read_packet(
-    stream: &mut TcpStream,
+    stream: &mut impl PacketIo,
     maximum: usize,
     timeout: Duration,
 ) -> io::Result<Vec<u8>> {
@@ -54,7 +73,7 @@ pub fn read_packet(
 
 /// Writes one bounded packet under a single deadline, including its length prefix.
 pub fn write_packet(
-    stream: &mut TcpStream,
+    stream: &mut impl PacketIo,
     bytes: &[u8],
     maximum: usize,
     timeout: Duration,
@@ -68,7 +87,7 @@ pub fn write_packet(
     let deadline = Instant::now() + timeout;
     for mut part in [&length[..], bytes] {
         while !part.is_empty() {
-            stream.set_write_timeout(Some(remaining(deadline)?))?;
+            stream.set_deadline(deadline)?;
             match stream.write(part) {
                 Ok(0) => return Err(io::ErrorKind::WriteZero.into()),
                 Ok(count) => part = &part[count..],
@@ -77,7 +96,8 @@ pub fn write_packet(
             }
         }
     }
-    Ok(())
+    stream.set_deadline(deadline)?;
+    stream.flush()
 }
 
 #[cfg(test)]

@@ -56,6 +56,7 @@ fn generated_network_has_matching_keys_and_non_overwritable_journals() {
     );
     for index in 1..=4 {
         let data = directory.join(format!("node-{index}"));
+        p2p::tls::PeerTlsConfig::from_directory(&data.join("tls")).unwrap();
         let signer = DurableSigner::open(
             data.join("signing.journal"),
             SigningContext {
@@ -82,6 +83,38 @@ fn generated_network_has_matching_keys_and_non_overwritable_journals() {
     let instructions = std::fs::read_to_string(directory.join("START.txt")).unwrap();
     assert_eq!(instructions.matches(" --run --genesis ").count(), 4);
     assert!(instructions.contains("PUBLIC TEST FIXTURES"));
+    assert_eq!(instructions.matches(" --tls-dir ").count(), 4);
+}
+
+#[test]
+fn standalone_tls_bundle_has_unique_secrets_and_refuses_overwrite() {
+    let fixture = Fixture::new();
+    let directory = fixture.0.join("tls");
+    let provision = || {
+        Command::new(env!("CARGO_BIN_EXE_cli"))
+            .arg("init-network-tls")
+            .arg(&directory)
+            .arg("3")
+            .output()
+            .unwrap()
+    };
+    assert!(provision().status.success());
+    let mut keys = std::collections::BTreeSet::new();
+    let mut root = None;
+    for index in 1..=3 {
+        let data = directory.join(format!("peer-{index}"));
+        p2p::tls::PeerTlsConfig::from_directory(&data).unwrap();
+        assert!(keys.insert(std::fs::read(data.join("key.der")).unwrap()));
+        let ca = std::fs::read(data.join("ca.der")).unwrap();
+        if let Some(root) = &root {
+            assert_eq!(&ca, root);
+        } else {
+            root = Some(ca);
+        }
+        assert!(!data.join("signing.journal").exists());
+    }
+    assert!(!provision().status.success());
+    assert!(keys.contains(&std::fs::read(directory.join("peer-1/key.der")).unwrap()));
 }
 
 #[test]

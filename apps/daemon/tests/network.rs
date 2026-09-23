@@ -1,7 +1,7 @@
 // Copyright (c) 2026 Astrolune contributors
 // SPDX-License-Identifier: MIT
 
-//! Real processes exchange signatures, gossip payments, restart, and synchronize over TCP.
+//! Real processes exchange signatures, gossip payments, restart, and synchronize over mutual TLS.
 
 use codec::CanonicalEncode;
 use crypto::blake2s::{blake2s, ed25519_public_key, ed25519_sign};
@@ -67,9 +67,16 @@ impl Fixture {
         };
         std::fs::write(path.join("genesis.bin"), genesis.to_bytes()).unwrap();
         std::fs::write(path.join("validators.bin"), keys.concat()).unwrap();
+        let authority = p2p::provisioning::TransportAuthority::generate().unwrap();
         for index in 1..=4 {
             let data = path.join(index.to_string());
             std::fs::create_dir(&data).unwrap();
+            let tls = data.join("tls");
+            std::fs::create_dir(&tls).unwrap();
+            let identity = authority.issue(&format!("node-{index}")).unwrap();
+            std::fs::write(tls.join("ca.der"), &identity.ca_der).unwrap();
+            std::fs::write(tls.join("cert.der"), &identity.certificate_der).unwrap();
+            std::fs::write(tls.join("key.der"), &identity.private_key_der).unwrap();
             std::fs::write(data.join("validator.seed"), [index; 32]).unwrap();
             drop(
                 DurableSigner::create_protected(
@@ -99,6 +106,8 @@ impl Fixture {
                 .arg(self.path.join("validators.bin"))
                 .arg("--validator-key")
                 .arg(data.join("validator.seed"))
+                .arg("--tls-dir")
+                .arg(data.join("tls"))
                 .arg("--data-dir")
                 .arg(data)
                 .args([
@@ -226,7 +235,7 @@ fn await_payment(processes: &[&Process]) {
 }
 
 #[test]
-fn tcp_quorum_payment_restart_and_late_join() {
+fn tls_quorum_payment_restart_and_late_join() {
     let fixture = Fixture::new();
     let mut reservations: Vec<_> = (0..4)
         .map(|_| Some(TcpListener::bind("127.0.0.1:0").unwrap()))
@@ -302,6 +311,42 @@ fn tcp_quorum_payment_restart_and_late_join() {
 }
 
 #[test]
+fn dry_run_checks_tls_before_touching_chain_or_signing_state() {
+    let fixture = Fixture::new();
+    let data = fixture.path.join("1");
+    let journal = std::fs::read(data.join("signing.journal")).unwrap();
+    let run = || {
+        Command::new(env!("CARGO_BIN_EXE_daemon"))
+            .arg("--genesis")
+            .arg(fixture.path.join("genesis.bin"))
+            .arg("--validators")
+            .arg(fixture.path.join("validators.bin"))
+            .arg("--validator-key")
+            .arg(data.join("validator.seed"))
+            .arg("--data-dir")
+            .arg(&data)
+            .arg("--tls-dir")
+            .arg(data.join("tls"))
+            .arg("--dry-run")
+            .output()
+            .unwrap()
+    };
+    assert!(run().status.success());
+    // A valid key from a different identity must fail matching, not silently downgrade.
+    let wrong_key = std::fs::read(fixture.path.join("2/tls/key.der")).unwrap();
+    std::fs::write(data.join("tls/key.der"), wrong_key).unwrap();
+    assert!(!run().status.success());
+    std::fs::remove_file(data.join("tls/key.der")).unwrap();
+    assert!(!run().status.success());
+    assert_eq!(
+        std::fs::read(data.join("signing.journal")).unwrap(),
+        journal
+    );
+    assert!(!data.join("chain.bin").exists());
+    assert!(!data.join("consensus-cache.bin").exists());
+}
+
+#[test]
 fn missing_journal_and_incomplete_network_arguments_fail_without_provisioning() {
     let fixture = Fixture::new();
     let downgrade = Command::new(env!("CARGO_BIN_EXE_daemon"))
@@ -323,6 +368,8 @@ fn missing_journal_and_incomplete_network_arguments_fail_without_provisioning() 
         .arg(fixture.path.join("validators.bin"))
         .arg("--validator-key")
         .arg(fixture.path.join("1/validator.seed"))
+        .arg("--tls-dir")
+        .arg(fixture.path.join("1/tls"))
         .arg("--data-dir")
         .arg(&directory)
         .args(["--blocks", "0"])

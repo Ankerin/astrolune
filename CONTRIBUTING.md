@@ -8,7 +8,8 @@ AstroLune is an early Rust blockchain project. Small, reviewable changes with ex
 
 1. Install [rustup](https://rustup.rs/).
 2. Clone the repository and enter its root. The pinned toolchain in `rust-toolchain.toml` installs Rust, Clippy, and rustfmt.
-3. Run the baseline checks:
+3. Install a C compiler for the `ring` TLS backend (MSVC C++ Build Tools on Windows with the MSVC Rust target, or GCC/Clang with the GNU target). The Rust distribution's bundled GNU linker alone is insufficient for compiling C dependencies.
+4. Run the baseline checks:
 
 ```sh
 cargo fmt --all --check

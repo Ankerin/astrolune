@@ -13,6 +13,17 @@ repository.workspace = true
 
 [dependencies]
 types = { version = "0.1.0", path = "../types" }
+rustls = { version = "0.23", default-features = false, features = ["std", "ring"] }
+zeroize = "1.8"
+rcgen = { version = "0.14", default-features = false, features = ["crypto", "ring"], optional = true }
+time = { version = "0.3", optional = true }
+
+[features]
+provisioning = ["dep:rcgen", "dep:time"]
+
+[dev-dependencies]
+rcgen = { version = "0.14", default-features = false, features = ["crypto", "ring"] }
+time = "0.3"
 
 [lints]
 workspace = true

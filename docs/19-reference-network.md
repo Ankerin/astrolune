@@ -4,7 +4,7 @@
 
 ## Working path
 
-The daemon has an explicit network mode connecting signed native payments, transaction gossip, signed proposals, weighted prevote/precommit quorums, durable locks, certified atomic publication, RPC, and sequential catch-up. Several independent processes can run this path over TCP. The original local demonstration mode remains available when `--validators` is absent.
+The daemon has an explicit network mode connecting signed native payments, transaction gossip, signed proposals, weighted prevote/precommit quorums, durable locks, certified atomic publication, RPC, and sequential catch-up. Independent processes exchange packets over [mutually authenticated TLS 1.3](20-authenticated-transport.md). The original local demonstration mode remains available when `--validators` is absent.
 
 This profile uses the **complete, fixed genesis validator set**, with at most 32 members and the round-robin designation in [document 18](18-signed-proposals-and-participants.md). Genesis weights determine voting power. It does not implement PoTB updates, weighted VRF selection, or committee rotation; `rotation_count` remains committed genesis metadata but is not activated in this explicitly selected profile. All nodes must select the same profile and trusted genesis. The contract runtime remains unfinished.
 
@@ -16,9 +16,9 @@ The testnet/local-development hardware baseline is 8 CPU cores, 16 GB RAM, and 5
 cargo run -p cli -- devnet target/local-network 4
 ```
 
-Open `target/local-network/START.txt` and run its four commands in separate terminals. P2P listeners use ports 18001–18004; RPC uses 19001–19004. The generator creates a canonical genesis, public-key registry, funded test wallet, and a separate seed and protected journal for each validator. An existing destination is rejected.
+Open `target/local-network/START.txt` and run its four commands in separate terminals. P2P listeners use ports 18001–18004; RPC uses 19001–19004. The generator creates a canonical genesis, public-key registry, funded test wallet, and a separate seed, protected journal, and TLS identity for each validator. An existing destination is rejected.
 
-**All generated keys are public deterministic test fixtures.** Validator seeds repeat bytes 1 through the requested count; `wallet.seed` repeats byte 240. The funded wallet receives 1,000,000,000 units. These fixtures are only for local development. For a one-validator smoke test, use `devnet target/single-validator 1`.
+**Consensus and wallet keys are public deterministic test fixtures.** Validator seeds repeat bytes 1 through the requested count; `wallet.seed` repeats byte 240. Transport keys are independent random secrets with one-year certificates. The funded wallet receives 1,000,000,000 units. These fixtures are only for local development. For a one-validator smoke test, use `devnet target/single-validator 1`.
 
 Generated commands use the adjacent daemon executable when available (PowerShell invocation on Windows), otherwise `cargo run`. The source-build form is:
 
@@ -27,6 +27,7 @@ cargo run -p daemon -- --run \
   --genesis target/local-network/genesis.bin \
   --validators target/local-network/validators.bin \
   --validator-key target/local-network/node-1/validator.seed \
+  --tls-dir target/local-network/node-1/tls \
   --data-dir target/local-network/node-1 \
   --p2p-listen 127.0.0.1:18001 --rpc-listen 127.0.0.1:19001 \
   --peers 127.0.0.1:18002,127.0.0.1:18003,127.0.0.1:18004
@@ -34,7 +35,7 @@ cargo run -p daemon -- --run \
 
 Use the generated single-line commands in PowerShell. Peers poll configured addresses and reconnect automatically. Configure reciprocal connections; a full mesh is the tested default. New peers and disconnected peers request their first missing finalized height until caught up. Transactions submitted to any participating RPC are gossiped and considered by subsequent proposers. RPC account and status responses expose only committed state. The existing [payment RPC](13-native-payments.md) format is unchanged.
 
-`--blocks N` stops after N additional certified heights, including imported blocks. Use `--run` for a cluster: a validator that exits no longer serves its final certificate to slower peers. `--blocks 0` authenticates local history and opens the protected journal without listening or signing. `--dry-run` checks genesis, registry, and seed membership without writing files, opening the journal, or starting listeners. Initial step timeout is 1000 ms; `--round-timeout-ms` accepts 100–60000 ms.
+`--blocks N` stops after N additional certified heights, including imported blocks. Use `--run` for a cluster: a validator that exits no longer serves its final certificate to slower peers. `--blocks 0` authenticates local history and opens the protected journal without listening or signing. `--dry-run` checks genesis, registry, seed membership, and TLS identity without writing files, opening the journal, or starting listeners. Initial step timeout is 1000 ms; `--round-timeout-ms` accepts 100–60000 ms. Existing networks can provision TLS separately with `cli init-network-tls`; see [transport migration](20-authenticated-transport.md#provisioning-and-migration). Plaintext requires explicit `--allow-plaintext` and loopback-only endpoints.
 
 ## Provision a supplied key
 
@@ -62,7 +63,7 @@ Monotonic step timers carry exact height, round, and step. Each round's deadline
 
 ## Version-1 exchange
 
-Each TCP packet starts with a 4-byte little-endian payload length. Reads and writes have an absolute two-second deadline, including partial I/O. Length is checked before allocation. Each connection carries one request and one response.
+Each application packet inside TLS starts with a 4-byte little-endian payload length. Reads and writes have an absolute two-second deadline, including partial I/O and record processing; the TLS handshake has a separate two-second deadline. Length is checked before allocation. Each connection carries one request and one response.
 
 The 48-byte request is:
 
@@ -108,4 +109,4 @@ The lower production transaction count ensures a block fits the wire bound even 
 
 Automated coverage includes three-of-four progress with an offline validator, two-of-four failure to finalize, payment gossip and replay rejection, late catch-up, all-validator restart after precommit, locked-value reproposal after lost precommits, rejection of demonstration history, malformed envelope bounds, and independent TCP daemon processes with restart and late join. The network decoder has an accepted-input canonical re-encoding fuzz target. Long fuzz campaigns and cross-platform qualification remain separate gates.
 
-The transport is plaintext TCP with authenticated consensus objects, not an authenticated encrypted session. Peer discovery, persistent sessions, robust public-network denial-of-service controls, observer-only nodes, evidence/slashing, committee handoff, formal safety/liveness models, and production telemetry remain open. Mempool admission is volatile across process loss. Reference storage still rewrites the bounded whole-chain archive (4096 checkpoints / 256 MiB); the protected journal also retains its existing decision bound. Production-scale persistence, contracts, PoTB/VRF, key custody, and independent audits are required before a public production network.
+Mutually authenticated TLS 1.3 is implemented; see [transport guarantees and limits](20-authenticated-transport.md). Peer discovery, persistent sessions, robust public-network denial-of-service controls, observer-only nodes, evidence/slashing, committee handoff, formal safety/liveness models, and production telemetry remain open. Mempool admission is volatile across process loss. Reference storage still rewrites the bounded whole-chain archive (4096 checkpoints / 256 MiB); the protected journal also retains its existing decision bound. Production-scale persistence, contracts, PoTB/VRF, key custody, and independent audits are required before a public production network.

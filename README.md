@@ -162,7 +162,7 @@ cargo run -p cargo-contract -- --help
 cargo run -p cli -- devnet target/local-network 4
 ```
 
-Run the four commands in `target/local-network/START.txt` in separate terminals. Validators exchange signed proposals and votes, gossip native payments, publish certified blocks, and catch up after reconnecting. Generated keys are public test fixtures. See [network setup, recovery, protocol bounds, and limitations](docs/19-reference-network.md).
+Run the four commands in `target/local-network/START.txt` in separate terminals. Validators exchange signed proposals and votes over mutual TLS 1.3, gossip native payments, publish certified blocks, and catch up after reconnecting. Consensus and wallet keys are public test fixtures; separate random TLS identities are provisioned automatically. See [network setup, recovery, protocol bounds, and limitations](docs/19-reference-network.md).
 
 ### Local demonstration chain
 
@@ -199,7 +199,7 @@ Without genesis, the daemon uses chain ID 7 and keeps account/submission RPC una
 
 Archive version 2 is required; old version-1 archives are rejected without migration or rewriting. The consensus library authenticates votes and certificates; see [authenticated finality](docs/15-authenticated-finality.md). `BlockProducer` provides an explicit certified commit path. The [local BFT guard](docs/17-local-bft-voting.md) verifies prevote proofs and preserves vote locks across timeouts and restarts using a [protected durable journal](docs/16-durable-signing.md).
 
-The [reference round-robin participant](docs/18-signed-proposals-and-participants.md) authenticates signed proposals and coordinates execution, voting, round changes, and atomic publication. The [network driver](docs/19-reference-network.md) connects it to the daemon, TCP exchange, timers, durable proposal recovery, and certified catch-up. Weighted VRF selection, rotating committees, encrypted transport, and production qualification remain unfinished.
+The [reference round-robin participant](docs/18-signed-proposals-and-participants.md) authenticates signed proposals and coordinates execution, voting, round changes, and atomic publication. The [network driver](docs/19-reference-network.md) connects it to the daemon, mutually authenticated TLS exchange, timers, durable proposal recovery, and certified catch-up. [Transport identity validation and provisioning](docs/20-authenticated-transport.md) are implemented. Weighted VRF selection, rotating committees, and production qualification remain unfinished.
 
 </details>
 

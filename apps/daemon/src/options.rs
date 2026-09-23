@@ -22,6 +22,8 @@ Options:
   --genesis PATH     Trusted binary genesis (required on each genesis-chain start)
   --validators PATH  Public keys file; enables certified fixed-committee networking
   --validator-key PATH  Raw 32-byte seed; requires an existing signing.journal
+  --tls-dir PATH    Network ca.der, cert.der and PKCS#8 key.der (required for peers)
+  --allow-plaintext  Explicit insecure loopback-only development transport
   --peers ADDR,...   Configured peers to poll and reconnect (up to 32)
   --round-timeout-ms N  Initial BFT step deadline (100..60000; default 1000)
   --p2p-listen ADDR  Peer socket address (default: 127.0.0.1:17330)
@@ -45,6 +47,8 @@ pub(crate) struct Options {
     pub genesis: Option<PathBuf>,
     pub validators: Option<PathBuf>,
     pub validator_key: Option<PathBuf>,
+    pub tls_dir: Option<PathBuf>,
+    pub allow_plaintext: bool,
     pub peers: Vec<SocketAddr>,
     pub round_timeout_ms: u64,
 }
@@ -70,6 +74,8 @@ pub(crate) fn parse(args: impl IntoIterator<Item = OsString>) -> Result<Command,
         genesis: None,
         validators: None,
         validator_key: None,
+        tls_dir: None,
+        allow_plaintext: false,
         peers: Vec::new(),
         round_timeout_ms: 1000,
     };
@@ -91,9 +97,11 @@ pub(crate) fn parse(args: impl IntoIterator<Item = OsString>) -> Result<Command,
                 });
             }
             "--dry-run" => options.dry_run = true,
+            "--allow-plaintext" => options.allow_plaintext = true,
             "--run" => {}
             "--blocks" | "--data-dir" | "--genesis" | "--p2p-listen" | "--rpc-listen"
-            | "--validators" | "--validator-key" | "--peers" | "--round-timeout-ms" => {
+            | "--validators" | "--validator-key" | "--tls-dir" | "--peers"
+            | "--round-timeout-ms" => {
                 let value = args
                     .next()
                     .ok_or_else(|| invalid(&format!("missing value for {flag}")))?;
@@ -116,6 +124,10 @@ pub(crate) fn parse(args: impl IntoIterator<Item = OsString>) -> Result<Command,
                     options.validator_key = Some(PathBuf::from(value));
                     continue;
                 }
+                if flag == "--tls-dir" {
+                    options.tls_dir = Some(PathBuf::from(value));
+                    continue;
+                }
                 let value = value
                     .to_str()
                     .ok_or_else(|| invalid("non-UTF-8 option value"))?;
@@ -129,25 +141,52 @@ pub(crate) fn parse(args: impl IntoIterator<Item = OsString>) -> Result<Command,
             "--run cannot be combined with --dry-run or --blocks",
         ));
     }
+    validate_network(&options, &seen)?;
+    options
+        .config
+        .validate()
+        .map_err(|error| invalid(&format!("{error:?}")))?;
+    Ok(Command::Run(Box::new(options)))
+}
+
+fn validate_network(options: &Options, seen: &BTreeSet<String>) -> Result<(), DaemonError> {
     if options.validators.is_some() {
         if options.genesis.is_none() || options.validator_key.is_none() {
             return Err(invalid(
                 "--validators requires --genesis and --validator-key",
             ));
         }
+        if options.tls_dir.is_some() == options.allow_plaintext {
+            return Err(invalid(
+                "choose --tls-dir or explicit loopback-only --allow-plaintext",
+            ));
+        }
+        if options.allow_plaintext {
+            let listener: SocketAddr = options
+                .config
+                .network
+                .p2p_listen
+                .parse()
+                .map_err(|_| invalid("invalid P2P listener"))?;
+            if !listener.ip().is_loopback()
+                || options.peers.iter().any(|peer| !peer.ip().is_loopback())
+            {
+                return Err(invalid(
+                    "plaintext transport requires loopback listeners and peers",
+                ));
+            }
+        }
     } else if options.validator_key.is_some()
+        || options.tls_dir.is_some()
+        || options.allow_plaintext
         || !options.peers.is_empty()
         || seen.contains("--round-timeout-ms")
     {
         return Err(invalid(
-            "validator keys, peers, and BFT deadlines require --validators",
+            "validator keys, TLS, peers, and BFT deadlines require --validators",
         ));
     }
-    options
-        .config
-        .validate()
-        .map_err(|error| invalid(&format!("{error:?}")))?;
-    Ok(Command::Run(Box::new(options)))
+    Ok(())
 }
 
 fn parse_value(options: &mut Options, flag: &str, value: &str) -> Result<(), DaemonError> {
@@ -236,5 +275,33 @@ mod tests {
         };
         assert_eq!(options.max_blocks, Some(0));
         assert_eq!(options.config.data_dir, PathBuf::from("local chain"));
+    }
+
+    #[test]
+    fn certified_transport_requires_explicit_secure_configuration() {
+        let base = [
+            "--validators",
+            "keys",
+            "--genesis",
+            "genesis",
+            "--validator-key",
+            "seed",
+        ];
+        for extra in [
+            vec![],
+            vec!["--tls-dir", "tls", "--allow-plaintext"],
+            vec!["--allow-plaintext", "--p2p-listen", "0.0.0.0:1234"],
+            vec!["--allow-plaintext", "--peers", "192.0.2.1:1234"],
+        ] {
+            assert!(
+                parse(base.iter().chain(extra.iter()).map(OsString::from)).is_err(),
+                "{extra:?}"
+            );
+        }
+        for extra in [vec!["--tls-dir", "tls"], vec!["--allow-plaintext"]] {
+            assert!(parse(base.iter().chain(extra.iter()).map(OsString::from)).is_ok());
+        }
+        assert!(parse(["--tls-dir", "tls"].map(OsString::from)).is_err());
+        assert!(parse(["--allow-plaintext"].map(OsString::from)).is_err());
     }
 }

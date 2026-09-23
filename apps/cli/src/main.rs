@@ -61,6 +61,7 @@ Commands:
   genesis <file>  Verify binary genesis and derive its initial state root
   devnet <directory> [validators]  Create a local test network (default: 4)
   init-validator <genesis> <seed> <directory>  Provision a protected signing journal
+  init-network-tls <directory> [peers]  Create independent TLS identities (default: 4)
   help     Show this message
   version  Show version
 ";
@@ -92,6 +93,7 @@ fn run() -> Result<(), CliError> {
         Some("genesis") => cmd_genesis(),
         Some("devnet") => network::devnet(),
         Some("init-validator") => network::init_validator(),
+        Some("init-network-tls") => network::init_network_tls(),
         Some(cmd) => {
             eprintln!("unknown command: {cmd}\n\n{HELP}");
             std::process::exit(2);

@@ -18,6 +18,7 @@ config = { version = "0.1.0", path = "../../crates/config" }
 crypto = { version = "0.1.0", path = "../../crates/crypto" }
 genesis = { version = "0.1.0", path = "../../crates/genesis" }
 keystore = { version = "0.1.0", path = "../../crates/keystore" }
+p2p = { version = "0.1.0", path = "../../crates/p2p", features = ["provisioning"] }
 types = { version = "0.1.0", path = "../../crates/types" }
 zeroize = "1.8"
 

@@ -8,6 +8,7 @@ use codec::{CanonicalDecode, CanonicalEncode};
 use crypto::blake2s::{blake2s, ed25519_public_key};
 use genesis::{Allocation, Genesis, GenesisValidator};
 use keystore::{DurableSigner, SigningContext};
+use p2p::provisioning::TransportAuthority;
 use std::{
     fmt::Write as _,
     io::{Read, Write},
@@ -67,6 +68,7 @@ pub(crate) fn devnet() -> Result<(), CliError> {
         return Err(error("validator count must be 1..32"));
     }
     std::fs::create_dir(&directory).map_err(error)?;
+    let authority = TransportAuthority::generate().map_err(error)?;
     let keys: Vec<_> = (1..=count)
         .map(|index| ed25519_public_key(&[index; 32]))
         .collect();
@@ -105,11 +107,12 @@ pub(crate) fn devnet() -> Result<(), CliError> {
     write_new(&directory.join("validators.bin"), &keys.concat())?;
     write_new(&directory.join("wallet.seed"), &[240; 32])?;
     let mut instructions = String::from(
-        "Local reference network. ALL KEYS ARE PUBLIC TEST FIXTURES.\nNever use these keys or this genesis for valuable funds.\n\nStart each command in a separate terminal from the repository root:\n\n",
+        "Local reference network. CONSENSUS AND WALLET KEYS ARE PUBLIC TEST FIXTURES.\nNever use these keys or this genesis for valuable funds.\nTransport keys are independent random secrets, valid for one year.\n\nStart each command in a separate terminal from the repository root:\n\n",
     );
     for index in 1..=count {
         let data = directory.join(format!("node-{index}"));
         std::fs::create_dir(&data).map_err(error)?;
+        provision_tls(&authority, &data.join("tls"), &format!("node-{index}"))?;
         write_new(&data.join("validator.seed"), &[index; 32])?;
         drop(DurableSigner::create_protected(
             data.join("signing.journal"),
@@ -125,16 +128,58 @@ pub(crate) fn devnet() -> Result<(), CliError> {
         } else {
             format!(" --peers {}", peers.join(","))
         };
-        writeln!(instructions, "{} --run --genesis \"{}\" --validators \"{}\" --validator-key \"{}\" --data-dir \"{}\" --p2p-listen 127.0.0.1:{} --rpc-listen 127.0.0.1:{}{peer_flag}", daemon_command(), directory.join("genesis.bin").display(), directory.join("validators.bin").display(), data.join("validator.seed").display(), data.display(), 18000 + u16::from(index), 19000 + u16::from(index)).map_err(error)?;
+        writeln!(instructions, "{} --run --genesis \"{}\" --validators \"{}\" --validator-key \"{}\" --tls-dir \"{}\" --data-dir \"{}\" --p2p-listen 127.0.0.1:{} --rpc-listen 127.0.0.1:{}{peer_flag}", daemon_command(), directory.join("genesis.bin").display(), directory.join("validators.bin").display(), data.join("validator.seed").display(), data.join("tls").display(), data.display(), 18000 + u16::from(index), 19000 + u16::from(index)).map_err(error)?;
     }
     write_new(&directory.join("START.txt"), instructions.as_bytes())?;
     println!(
         "Created {count} reference validators in {}",
         directory.display()
     );
-    println!("All generated keys are PUBLIC TEST FIXTURES.");
+    println!("Consensus and wallet keys are PUBLIC TEST FIXTURES; TLS keys are random secrets.");
     println!("Funded test wallet: {wallet}");
     println!("Start commands: {}", directory.join("START.txt").display());
+    Ok(())
+}
+
+fn provision_tls(
+    authority: &TransportAuthority,
+    directory: &Path,
+    name: &str,
+) -> Result<(), CliError> {
+    let identity = authority.issue(name).map_err(error)?;
+    std::fs::create_dir(directory).map_err(error)?;
+    write_new(&directory.join("ca.der"), &identity.ca_der)?;
+    write_new(&directory.join("cert.der"), &identity.certificate_der)?;
+    write_new(&directory.join("key.der"), &identity.private_key_der)
+}
+
+pub(crate) fn init_network_tls() -> Result<(), CliError> {
+    let mut args = std::env::args_os().skip(2);
+    let directory = PathBuf::from(
+        args.next()
+            .ok_or_else(|| error("usage: cli init-network-tls <new-directory> [peers]"))?,
+    );
+    let count: u8 = args.next().map_or(Ok(4), |value| {
+        value
+            .to_str()
+            .ok_or_else(|| error("invalid peer count"))?
+            .parse()
+            .map_err(error)
+    })?;
+    if args.next().is_some() || !(1..=32).contains(&count) {
+        return Err(error("peer count must be 1..32"));
+    }
+    std::fs::create_dir(&directory).map_err(error)?;
+    let authority = TransportAuthority::generate().map_err(error)?;
+    for index in 1..=count {
+        let name = format!("peer-{index}");
+        provision_tls(&authority, &directory.join(&name), &name)?;
+    }
+    write_new(&directory.join("README.txt"), b"AstroLune mutual TLS identities.\nGive each peer only its own peer-N directory; keep key.der secret.\nStart with --tls-dir <peer-N>. Certificates expire one year after generation.\nThe CA private key is not saved. To add peers or renew, provision a new bundle and coordinate a trust-root replacement on all peers, or use an externally managed CA.\nConsensus seeds and signing journals are unrelated and must be preserved.\n")?;
+    println!(
+        "Created {count} independent TLS identities in {}",
+        directory.display()
+    );
     Ok(())
 }
 

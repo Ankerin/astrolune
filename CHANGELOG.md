@@ -33,6 +33,9 @@ All notable changes to AstroLune will be documented in this file. The format fol
 
 ### Added
 
+- Mutually authenticated TLS 1.3 peer sessions with explicit CA trust, mandatory ALPN, startup identity validation, separate random transport keys, and absolute handshake/packet deadlines.
+- TLS provisioning in `cli devnet` and standalone `cli init-network-tls`, explicit loopback-only plaintext mode, negative authentication/deadline tests, and multi-process payment/recovery tests over TLS.
+
 - Opt-in certified daemon network with fixed genesis membership, signed round-robin proposals, real weighted BFT quorums, monotonic timers, payment gossip, and sequential certified catch-up.
 - Bounded versioned network envelopes and TCP packets with absolute I/O deadlines; protected signer provisioning, a durable proposal/evidence cache, and independent authentication of recovered history.
 - `cli devnet` local fixtures and launch instructions, `cli init-validator` explicit journal provisioning, real multi-process network/restart tests, quorum-loss and locked-round recovery tests, and a network decoder fuzz target.

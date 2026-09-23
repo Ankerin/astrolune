@@ -10,6 +10,7 @@ use node::{
     network_wire::{MAX_EXCHANGE_BYTES, SyncRequest},
 };
 use p2p::exchange::{read_packet, write_packet};
+use p2p::tls::{PeerStream, PeerTlsConfig};
 use rpc::{RpcError, RpcRequest, RpcResponse, RpcService, TcpRpcServer};
 use state::StateDatabase;
 use std::{
@@ -27,9 +28,25 @@ const IO_TIMEOUT: Duration = Duration::from_secs(2);
 
 pub(crate) fn run(options: &Options, genesis: genesis::Genesis) -> Result<(), DaemonError> {
     let (network, seed) = load_identity(options, genesis)?;
+    let transport = PeerTransport(
+        options
+            .tls_dir
+            .as_deref()
+            .map(PeerTlsConfig::from_directory)
+            .transpose()
+            .map_err(io_error)?,
+    );
     println!("AstroLune certified reference network (fixed committee / round-robin)");
     println!("chain_id  : {}", network.chain_id());
     println!("genesis_hash: {}", network.genesis_hash());
+    println!(
+        "transport : {}",
+        if transport.0.is_some() {
+            "TLS 1.3 / mutual authentication"
+        } else {
+            "INSECURE loopback plaintext"
+        }
+    );
     if options.dry_run {
         println!("[dry-run] network configuration valid; no files written or listeners opened.");
         return Ok(());
@@ -78,7 +95,7 @@ pub(crate) fn run(options: &Options, genesis: genesis::Genesis) -> Result<(), Da
         })
         .map_err(io_error)?;
     let stop = Arc::new(AtomicBool::new(false));
-    let workers = spawn_peers(options, &node, &stop)?;
+    let workers = spawn_peers(options, &node, &stop, &transport)?;
     let active = Arc::new(AtomicUsize::new(0));
     let result = drive(
         options,
@@ -87,6 +104,7 @@ pub(crate) fn run(options: &Options, genesis: genesis::Genesis) -> Result<(), Da
         &active,
         initial_height,
         &workers.receiver,
+        &transport,
     );
     stop.store(true, Ordering::Release);
     for worker in workers.handles {
@@ -147,10 +165,30 @@ struct Workers {
     handles: Vec<std::thread::JoinHandle<()>>,
 }
 
+#[derive(Clone)]
+struct PeerTransport(Option<PeerTlsConfig>);
+
+impl PeerTransport {
+    fn connect(&self, stream: TcpStream) -> std::io::Result<PeerStream> {
+        match &self.0 {
+            Some(tls) => tls.connect(stream, IO_TIMEOUT),
+            None => PeerStream::plaintext_local(stream, IO_TIMEOUT),
+        }
+    }
+
+    fn accept(&self, stream: TcpStream) -> std::io::Result<PeerStream> {
+        match &self.0 {
+            Some(tls) => tls.accept(stream, IO_TIMEOUT),
+            None => PeerStream::plaintext_local(stream, IO_TIMEOUT),
+        }
+    }
+}
+
 fn spawn_peers(
     options: &Options,
     node: &Arc<Mutex<NetworkNode>>,
     stop: &Arc<AtomicBool>,
+    transport: &PeerTransport,
 ) -> Result<Workers, DaemonError> {
     let (sender, receiver) = mpsc::sync_channel(4);
     let mut handles = Vec::new();
@@ -159,6 +197,7 @@ fn spawn_peers(
         let node = node.clone();
         let stop = stop.clone();
         let sender = sender.clone();
+        let transport = transport.clone();
         handles.push(
             std::thread::Builder::new()
                 .name(format!("peer-{address}"))
@@ -170,7 +209,8 @@ fn spawn_peers(
                         let request = node.request();
                         drop(node);
                         let exchange = || -> std::io::Result<Vec<u8>> {
-                            let mut stream = TcpStream::connect_timeout(&address, IO_TIMEOUT)?;
+                            let stream = TcpStream::connect_timeout(&address, IO_TIMEOUT)?;
+                            let mut stream = transport.connect(stream)?;
                             write_packet(&mut stream, &request.encode(), 48, IO_TIMEOUT)?;
                             read_packet(&mut stream, MAX_EXCHANGE_BYTES, IO_TIMEOUT)
                         };
@@ -201,24 +241,27 @@ fn drive(
     active: &Arc<AtomicUsize>,
     initial_height: u64,
     receiver: &mpsc::Receiver<Vec<u8>>,
+    transport: &PeerTransport,
 ) -> Result<(), DaemonError> {
     let mut reported = initial_height;
     loop {
         // The fixed accept budget also prevents a connection flood from starving consensus.
         for _ in 0..8 {
             match listener.accept() {
-                Ok((mut stream, _)) => {
+                Ok((stream, _)) => {
                     if active.load(Ordering::Acquire) >= options.config.network.max_peers {
                         continue;
                     }
                     active.fetch_add(1, Ordering::AcqRel);
                     let slot = ConnectionSlot(active.clone());
                     let node = node.clone();
+                    let transport = transport.clone();
                     std::thread::Builder::new()
                         .name("peer-request".into())
                         .spawn(move || {
                             let _slot = slot;
-                            let mut serve = || -> Result<(), DaemonError> {
+                            let serve = || -> Result<(), DaemonError> {
+                                let mut stream = transport.accept(stream).map_err(io_error)?;
                                 let bytes =
                                     read_packet(&mut stream, 48, IO_TIMEOUT).map_err(io_error)?;
                                 let request = SyncRequest::decode(&bytes).map_err(io_error)?;

@@ -10,6 +10,9 @@ pub mod error;
 pub mod exchange;
 pub mod frame;
 pub mod message;
+#[cfg(any(feature = "provisioning", test))]
+pub mod provisioning;
+pub mod tls;
 pub mod transport;
 
 pub use error::NetworkError;
