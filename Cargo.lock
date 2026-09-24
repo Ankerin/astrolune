@@ -101,9 +101,13 @@ dependencies = [
  "codec",
  "config",
  "crypto",
+ "execution",
  "genesis",
  "keystore",
  "p2p",
+ "rpc",
+ "state",
+ "transaction",
  "types",
  "zeroize",
 ]
@@ -566,6 +570,7 @@ dependencies = [
 name = "rpc"
 version = "0.1.0"
 dependencies = [
+ "codec",
  "types",
 ]
 

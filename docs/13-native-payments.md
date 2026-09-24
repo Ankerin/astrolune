@@ -2,6 +2,9 @@
 
 # 13. Signed Native Payments
 
+For offline signing, saved-transaction inspection and real account/submission
+commands, see the [CLI wallet guide](24-wallet-and-rpc-client.md).
+
 ## Activation and compatibility
 
 Genesis-backed node services and `daemon --genesis genesis.bin` execute native payments against committed account state. The sender's public key travels inside the signed payment payload, and its derived address must match the transaction sender. No separate key registration is required for wallet accounts. Validator-key registration and authenticated consensus remain separate work.

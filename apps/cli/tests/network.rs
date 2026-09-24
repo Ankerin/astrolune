@@ -48,6 +48,16 @@ fn generated_network_has_matching_keys_and_non_overwritable_journals() {
     let bytes = std::fs::read(directory.join("genesis.bin")).unwrap();
     let genesis = genesis::Genesis::decode(&bytes).unwrap();
     assert_eq!(genesis.validators.len(), 4);
+    let wallet =
+        transaction::address_from_public_key(&crypto::blake2s::ed25519_public_key(&[240; 32]));
+    assert_eq!(
+        genesis.allocations,
+        vec![genesis::Allocation {
+            address: wallet,
+            amount: 1_000_000_000,
+        }]
+    );
+    assert!(String::from_utf8_lossy(&output.stdout).contains(&wallet.to_string()));
     assert_eq!(
         std::fs::read(directory.join("validators.bin"))
             .unwrap()

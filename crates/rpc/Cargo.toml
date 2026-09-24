@@ -12,6 +12,7 @@ authors.workspace = true
 repository.workspace = true
 
 [dependencies]
+codec = { version = "0.1.0", path = "../codec" }
 types = { version = "0.1.0", path = "../types" }
 
 [lints]

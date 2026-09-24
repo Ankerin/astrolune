@@ -54,11 +54,11 @@ sequence:u64 || height:u64 || round:u32 || phase:u8 || message_digest:32
              || locked_round:u32 || locked_block:32 || record_checksum:32
 ```
 
-The checksum covers the preceding checksum followed by all 122 bytes of the decision body. A missing lock is encoded only as flag 0, round 0, and an all-zero block. Flag 1 permits every block hash, including zero. Other tags and alternative nil encodings fail. The limit remains 100000 decisions, now at most 15400108 bytes.
+The checksum covers the preceding checksum followed by all 122 bytes of the decision body. A missing lock is encoded only as flag 0, round 0, and an all-zero block. Flag 1 permits every block hash, including zero. Other tags and alternative nil encodings fail. The append-only prefix retains 100000 decisions (15400108 bytes). Protected journals then use [two alternating watermarks](23-signing-journal-rollover.md), keeping the original prefix unchanged and bounding the complete file at 15400456 bytes.
 
 Signing and recovery both enforce a nonzero committee root, a lock round no greater than the signing round, and a fixed committee throughout one height. An existing lock cannot disappear, move backwards, or change its block at the same locked round. Exact retries must preserve the digest and all safety metadata. A later height can establish a new committee and reset the lock. These structural checks do not verify consensus evidence: low-level `sign_protected` callers remain responsible for deriving the correct message and safety state; normal vote callers use `LocalBft`.
 
-Protected journals reject raw `sign_consensus`/`Vote::sign_with` calls, and version-1 journals reject protected requests. The lock metadata and digest share one appended record and one `sync_all` before signature output. An uncertain write disables the signer; reopening either recovers the entire decision and lock or rejects the partial record. The version-1 locking, directory durability, and hostile-storage/valid-prefix rollback limitations still apply.
+Protected journals reject raw `sign_consensus`/`Vote::sign_with` calls, and version-1 journals reject protected requests. The lock metadata and digest share one complete record and one `sync_all` before signature output; after rollover this record occupies an alternating watermark slot. An uncertain write disables the signer; reopening either recovers the entire decision and lock or rejects the partial record. The version-1 locking, directory durability, and hostile-storage/valid-prefix rollback limitations still apply.
 
 ## Verification
 

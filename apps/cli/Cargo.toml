@@ -16,9 +16,13 @@ publish = false
 codec = { version = "0.1.0", path = "../../crates/codec" }
 config = { version = "0.1.0", path = "../../crates/config" }
 crypto = { version = "0.1.0", path = "../../crates/crypto" }
+execution = { version = "0.1.0", path = "../../crates/execution" }
 genesis = { version = "0.1.0", path = "../../crates/genesis" }
 keystore = { version = "0.1.0", path = "../../crates/keystore" }
 p2p = { version = "0.1.0", path = "../../crates/p2p", features = ["provisioning"] }
+rpc = { version = "0.1.0", path = "../../crates/rpc" }
+state = { version = "0.1.0", path = "../../crates/state" }
+transaction = { version = "0.1.0", path = "../../crates/transaction" }
 types = { version = "0.1.0", path = "../../crates/types" }
 zeroize = "1.8"
 

@@ -14,7 +14,7 @@ use std::{
     io::{Read, Write},
     path::{Path, PathBuf},
 };
-use types::{Address, Resources, ValidatorId};
+use types::{Resources, ValidatorId};
 
 fn error(value: impl std::fmt::Display) -> CliError {
     CliError::Config(value.to_string())
@@ -89,7 +89,7 @@ pub(crate) fn devnet() -> Result<(), CliError> {
         })
         .collect();
     validators.sort_by_key(|validator| validator.id);
-    let wallet = Address(blake2s(&ed25519_public_key(&[240; 32])).0);
+    let wallet = transaction::address_from_public_key(&ed25519_public_key(&[240; 32]));
     let genesis = Genesis {
         version: 1,
         chain_id: 42,

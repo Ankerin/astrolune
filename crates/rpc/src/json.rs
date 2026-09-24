@@ -13,7 +13,7 @@ use types::{Address, Hash256};
 /// A JSON value represented as a tree of owned strings and primitives.
 ///
 /// This is a simplified JSON representation sufficient for RPC messages.
-/// It does not support floating-point numbers or full Unicode escaping.
+/// It supports Unicode escapes and surrogate pairs, but not floating-point numbers.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum JsonValue {
     /// JSON null.
@@ -97,6 +97,7 @@ impl std::error::Error for JsonError {}
 struct Parser {
     input: Vec<char>,
     pos: usize,
+    depth: usize,
 }
 
 impl Parser {
@@ -104,6 +105,7 @@ impl Parser {
         Self {
             input: input.chars().collect(),
             pos: 0,
+            depth: 0,
         }
     }
 
@@ -121,7 +123,7 @@ impl Parser {
 
     fn skip_whitespace(&mut self) {
         while let Some(ch) = self.peek() {
-            if ch.is_ascii_whitespace() {
+            if matches!(ch, ' ' | '\t' | '\n' | '\r') {
                 self.advance();
             } else {
                 break;
@@ -143,7 +145,13 @@ impl Parser {
 
     fn parse_value(&mut self) -> Result<JsonValue, JsonError> {
         self.skip_whitespace();
-        match self.peek() {
+        if self.depth >= 32 {
+            return Err(JsonError {
+                message: "JSON nesting limit exceeded".into(),
+            });
+        }
+        self.depth += 1;
+        let result = match self.peek() {
             Some('{') => self.parse_object(),
             Some('[') => self.parse_array(),
             Some('"') => self.parse_string().map(JsonValue::String),
@@ -156,13 +164,16 @@ impl Parser {
             None => Err(JsonError {
                 message: "unexpected end of input".into(),
             }),
-        }
+        };
+        self.depth -= 1;
+        result
     }
 
     fn parse_object(&mut self) -> Result<JsonValue, JsonError> {
         self.expect('{')?;
         self.skip_whitespace();
         let mut fields = Vec::new();
+        let mut keys = std::collections::BTreeSet::new();
 
         if self.peek() == Some('}') {
             self.advance();
@@ -172,6 +183,11 @@ impl Parser {
         loop {
             self.skip_whitespace();
             let key = self.parse_string()?;
+            if !keys.insert(key.clone()) {
+                return Err(JsonError {
+                    message: "duplicate object key".into(),
+                });
+            }
             self.skip_whitespace();
             self.expect(':')?;
             let value = self.parse_value()?;
@@ -241,12 +257,43 @@ impl Parser {
                                 message: "incomplete unicode escape".into(),
                             })?);
                         }
+                        if !hex.bytes().all(|byte| byte.is_ascii_hexdigit()) {
+                            return Err(JsonError {
+                                message: "invalid unicode escape".into(),
+                            });
+                        }
                         let code_point = u32::from_str_radix(&hex, 16).map_err(|e| JsonError {
                             message: format!("invalid unicode escape: {e}"),
                         })?;
-                        if let Some(ch) = char::from_u32(code_point) {
-                            result.push(ch);
-                        }
+                        let code_point = if (0xD800..=0xDBFF).contains(&code_point) {
+                            self.expect('\\')?;
+                            self.expect('u')?;
+                            let mut low = String::new();
+                            for _ in 0..4 {
+                                low.push(self.advance().ok_or(JsonError {
+                                    message: "incomplete surrogate pair".into(),
+                                })?);
+                            }
+                            if !low.bytes().all(|byte| byte.is_ascii_hexdigit()) {
+                                return Err(JsonError {
+                                    message: "invalid surrogate pair".into(),
+                                });
+                            }
+                            let low = u32::from_str_radix(&low, 16).map_err(|_| JsonError {
+                                message: "invalid surrogate pair".into(),
+                            })?;
+                            if !(0xDC00..=0xDFFF).contains(&low) {
+                                return Err(JsonError {
+                                    message: "invalid surrogate pair".into(),
+                                });
+                            }
+                            0x10000 + ((code_point - 0xD800) << 10) + low - 0xDC00
+                        } else {
+                            code_point
+                        };
+                        result.push(char::from_u32(code_point).ok_or(JsonError {
+                            message: "invalid Unicode scalar".into(),
+                        })?);
                     }
                     Some(ch) => {
                         return Err(JsonError {
@@ -259,6 +306,11 @@ impl Parser {
                         });
                     }
                 },
+                Some(ch) if ch < '\u{0020}' => {
+                    return Err(JsonError {
+                        message: "unescaped control character".into(),
+                    });
+                }
                 Some(ch) => result.push(ch),
                 None => {
                     return Err(JsonError {
@@ -274,8 +326,14 @@ impl Parser {
         if self.peek() == Some('-') {
             self.advance();
         }
+        let digits_start = self.pos;
         while self.peek().is_some_and(|c| c.is_ascii_digit()) {
             self.advance();
+        }
+        if self.pos > digits_start + 1 && self.input[digits_start] == '0' {
+            return Err(JsonError {
+                message: "leading zero in number".into(),
+            });
         }
         let s: String = self.input[start..self.pos].iter().collect();
         let n: i64 = s.parse().map_err(|_| JsonError {

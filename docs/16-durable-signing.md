@@ -8,6 +8,8 @@
 
 Creation is explicit with `DurableSigner::create(path, context, seed)` and refuses to overwrite any existing file. Recovery uses `open` with the same seed, chain ID, and nonzero trusted genesis commitment. It never initializes a missing journal. Invalid namespaces, malformed bytes, and interrupted files are rejected without rewriting or truncating them. The journal contains the public key, not the private seed; it binds the key independently of caller-chosen labels. The consensus handle derives from the validator ID and rejects other purposes.
 
+Protected version-2 journals support [bounded watermark rollover](23-signing-journal-rollover.md) after 100,000 decisions, preserving the original locked file and BFT safety state. The version-1 raw journal described below retains its original decision limit.
+
 Protected version-2 journals now also reserve [signed proposals](18-signed-proposals-and-participants.md) in phase 0 through `LocalBft::propose`, preserving lock metadata and checking exact retries after restart.
 
 The original `MockKeystore` and `crypto::Ed25519Keystore` remain in-memory helpers. They do not acquire durable behavior through this change.
@@ -52,7 +54,7 @@ The reference limit is 100000 decisions, or 8500108 bytes including the header. 
 
 ## Persistence and failure behavior
 
-The signer holds an exclusive OS lock on the journal file until it is dropped. It writes to the same file in append mode; there is no replacement window or removable sidecar lock. Cooperative opens through another path or hard link contend on the same file lock. Symbolic file aliases are rejected. Journal directories and file ownership must remain under the operator's control.
+The signer holds an exclusive OS lock on the journal file until it is dropped. It appends prefix records through explicit offsets in the same file; protected rollover later rewrites only its two fixed slots. There is no replacement window or removable sidecar lock. Cooperative opens through another path or hard link contend on the same file lock. Symbolic file aliases are rejected. Journal directories and file ownership must remain under the operator's control.
 
 For each new decision, the signer appends the complete record and calls `sync_all` before computing and returning an Ed25519 signature. It checks the expected file length before accepting any decision, including an idempotent retry. Unexpected length changes disable the instance.
 
@@ -66,7 +68,7 @@ The checksum chain detects accidental corruption; it is not a defense against a 
 
 Genesis binding identifies the journal's namespace; the version-1 vote wire format still carries the chain ID rather than the genesis hash. The protocol must assign chain IDs consistently, and committee trust must come from finalized state. There is no automatic conversion of in-memory signing history or previous experimental signatures into durable history.
 
-The daemon does not yet provision keys or open signing journals, and still simulates finality. Encrypted key custody, authenticated genesis key registration, rollback-resistant anchors, distributed voting/timer orchestration, committee handoff, daemon integration, and independent review remain open.
+The certified daemon opens existing protected journals and authenticates genesis key registration; explicit CLI provisioning and fixed-committee voting/timers are implemented. Local demonstration mode remains separate. Encrypted key custody, rollback-resistant anchors, rotating committee handoff and independent review remain open.
 
 ## Verification
 

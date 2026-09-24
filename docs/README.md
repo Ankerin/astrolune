@@ -33,6 +33,8 @@ For a concise source-tree map, read [`../ARCHITECTURE.md`](../ARCHITECTURE.md).
 | [20-authenticated-transport.md](20-authenticated-transport.md) | mutual TLS 1.3, independent transport keys, trust boundaries, migration, and deadline enforcement |
 | [21-observer-nodes.md](21-observer-nodes.md) | non-voting full nodes, independent verification, payment gossip, RPC, and role-safe recovery |
 | [22-append-only-chain-storage.md](22-append-only-chain-storage.md) | append-only block/delta log, atomic publication, recovery, compatibility, and remaining limits |
+| [23-signing-journal-rollover.md](23-signing-journal-rollover.md) | bounded protected signing, alternating watermarks, recovery, and compatibility |
+| [24-wallet-and-rpc-client.md](24-wallet-and-rpc-client.md) | offline payment signing, real account/status queries, bounded RPC, submission and retry semantics |
 
 Legacy-shaped filenames such as `03-vm-and-gas.md`, `05-contract-languages.md`, and `06-deferred-services.md` are retained temporarily to preserve links. Their contents describe the current Rust architecture.
 

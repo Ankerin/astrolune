@@ -8,6 +8,14 @@ All notable changes to AstroLune will be documented in this file. The format fol
 
 ### Fixed
 
+- Fund newly generated devnets at the domain-separated wallet address accepted by
+  signed-payment execution; the former raw public-key hash could not spend its
+  allocation. Existing genesis files are not rewritten.
+
+- Replace CLI offline status and mock-key output with real node queries and public
+  wallet identity derivation. Bound shared JSON nesting and reject ambiguous
+  duplicate keys, malformed numbers/control characters and invalid Unicode escapes.
+
 - Reject relabelled non-consensus handles when requesting consensus signatures from the mock keystore.
 
 - Authenticate consensus votes before counting power; isolate heights, rounds, phases, and blocks, reject repeated nil votes, distinguish signed conflicts, and check full-width committee sums.
@@ -32,6 +40,15 @@ All notable changes to AstroLune will be documented in this file. The format fol
 - Make the codec fuzz package independently resolvable and add exact-byte re-encoding checks for transactions, state keys, and execution receipts.
 
 ### Added
+
+- Offline native-payment signing, signature/policy inspection, exclusive saved
+  transaction files and explicit submission with chain/expiry checks, transaction
+  ID verification and ambiguous-outcome reporting.
+- Typed TCP RPC client with bounded frames, strict response validation, finalized
+  account decoding and one absolute deadline per call; no automatic retry.
+
+- Bounded protected signing-journal rollover beyond 100,000 decisions using two alternating watermarks in the same exclusively locked file, preserving the immutable prefix and BFT locks.
+- Rollover fault-injection, mutation/vector, hard-link/process-lock and abrupt-exit tests, plus certified payment/restart coverage across the real journal boundary.
 
 - Append-only block/state-delta logs for new certified validator and observer directories, durable head publication, on-demand disk history reads, and non-destructive legacy archive compatibility.
 - Streaming recovery, historical snapshot replay, crash-tail and uncertain-publication tests, progress beyond 4096 blocks, and daemon shutdown on local history read corruption.

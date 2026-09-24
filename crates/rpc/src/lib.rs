@@ -9,9 +9,11 @@
 #![forbid(unsafe_code)]
 #![allow(clippy::missing_errors_doc)]
 
+pub mod client;
 pub mod json;
 pub mod server;
 
+pub use client::{ChainStatus, ClientError, TcpRpcClient};
 pub use json::{JsonRpcRequest, JsonRpcResponse};
 pub use server::TcpRpcServer;
 

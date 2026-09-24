@@ -69,6 +69,6 @@ Stop the node before backing up or restoring the directory. Keep `chain.bin` and
 | Recovery | Linear replay and certificate verification from genesis |
 | Historical snapshots | Replayed on demand; latest snapshot reads current committed state |
 | Pruning / replacing history | Explicitly unsupported by the log; snapshot import requires an empty store |
-| Signing journal | Existing 100,000-decision bound remains |
+| Signing journal | [Protected journals roll over](23-signing-journal-rollover.md) after 100,000 decisions at fixed size; raw version-1 journals retain their bound |
 
-Tests cover differential replay against the reference store, ordered duplicate writes/deletes, historical snapshots, all byte truncations/mutations of a committed fixture, every unpublished tail cut, corrupt/missing heads, live read corruption, writer exclusion, abrupt child-process exit, uncertain publication, legacy compatibility, and actual TLS daemon shutdown after a corrupted history read. Production state indexing, bounded startup, retention/compaction, safe signing-journal rollover, sustained load and power-loss testing remain open.
+Tests cover differential replay against the reference store, ordered duplicate writes/deletes, historical snapshots, all byte truncations/mutations of a committed fixture, every unpublished tail cut, corrupt/missing heads, live read corruption, writer exclusion, abrupt child-process exit, uncertain publication, legacy compatibility, and actual TLS daemon shutdown after a corrupted history read. Production state indexing, bounded startup, retention/compaction, rollback-resistant key custody, sustained load and power-loss testing remain open.

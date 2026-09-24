@@ -31,7 +31,7 @@ Canonical encodings, protocol domains, hashes, addresses, signatures, checked re
 
 Signed envelopes, validation order, account/state commitments, immutable snapshots, proofs, state diffs, atomic commit, recovery, pruning, and snapshot exchange.
 
-Current progress: signed admission validates existing transaction fields against an account view. Merkle state commitments, membership and absence proofs, immutable snapshots, bounded transitions, atomic state/whole-chain archive recovery, and verified snapshot exchange are implemented with rollback tests. Proposal execution stays private until successful commit. Sequential signed payment overlays, balance/nonce transitions, fixed reference fees, execution revalidation, and daemon account/submission RPC are implemented. The [versioned transaction envelope](docs/14-versioned-transactions.md), expiry enforcement, and post-commit expiry eviction are implemented. [Append-only block/delta logs](docs/22-append-only-chain-storage.md) now provide durable publication, disk history reads, linear replay and legacy compatibility for new network directories. Production fee governance, state indexing, retention and signing-journal rollover remain open. Local daemon block/state restart integration is implemented; daemon signing-state integration and independent authentication of recovered history are implemented in the certified reference-network profile. See [state and recovery](docs/10-state-and-recovery.md) and [chain archives](docs/11-chain-archives.md).
+Current progress: signed admission validates existing transaction fields against an account view. Merkle state commitments, membership and absence proofs, immutable snapshots, bounded transitions, atomic state/whole-chain archive recovery, and verified snapshot exchange are implemented with rollback tests. Proposal execution stays private until successful commit. Sequential signed payment overlays, balance/nonce transitions, fixed reference fees, execution revalidation, and daemon account/submission RPC are implemented. The [versioned transaction envelope](docs/14-versioned-transactions.md), expiry enforcement, and post-commit expiry eviction are implemented. [Append-only block/delta logs](docs/22-append-only-chain-storage.md) now provide durable publication, disk history reads, linear replay and legacy compatibility for new network directories. [Protected signing-journal rollover](docs/23-signing-journal-rollover.md) now continues after the former decision cap with constant file size and lock-preserving recovery. Production fee governance, state indexing, retention and rollback-resistant key custody remain open. Local daemon block/state restart integration is implemented; daemon signing-state integration and independent authentication of recovered history are implemented in the certified reference-network profile. See [state and recovery](docs/10-state-and-recovery.md) and [chain archives](docs/11-chain-archives.md).
 
 ## M3 — deterministic Rust contracts
 
@@ -56,6 +56,13 @@ Current progress: [certified reference networking](docs/19-reference-network.md)
 ## M7 — ecosystem
 
 Wallet integration and DNS registry and resolver.
+
+Current progress: the [native-payment CLI wallet](docs/24-wallet-and-rpc-client.md)
+derives real public identities, signs payments offline to non-overwritable files,
+checks signatures and policy, reads finalized accounts/status, and submits saved
+transactions with explicit ambiguous-outcome handling. The typed RPC client has
+bounded frames, strict response checks and whole-call deadlines. Encrypted key
+custody, receipt/proof queries, finality waiting and DNS implementation remain open.
 
 ## M8 — public testnet and production gates
 

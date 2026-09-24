@@ -166,7 +166,13 @@ Add `--observer` to provision an additional non-voting full node with its own TL
 
 Run the four commands in `target/local-network/START.txt` in separate terminals. Validators exchange signed proposals and votes over mutual TLS 1.3, gossip native payments, publish certified blocks, and catch up after reconnecting. Consensus and wallet keys are public test fixtures; separate random TLS identities are provisioned automatically. See [network setup, recovery, protocol bounds, and limitations](docs/19-reference-network.md).
 
-New network directories use an [append-only chain log](docs/22-append-only-chain-storage.md). Existing archives remain readable with their original limits; startup identifies the storage format.
+New network directories use an [append-only chain log](docs/22-append-only-chain-storage.md). Existing archives remain readable with their original limits; startup identifies the storage format. [Protected signing journals](docs/23-signing-journal-rollover.md) continue beyond 100,000 decisions through bounded watermark rollover.
+
+The [native-payment CLI wallet](docs/24-wallet-and-rpc-client.md) can query real
+status/balances, derive wallet addresses, sign payments offline, inspect saved
+transactions and submit them through validator or observer RPC. Submission
+reports admission separately from finalization and preserves the signed file
+when the network outcome is uncertain.
 
 ### Local demonstration chain
 

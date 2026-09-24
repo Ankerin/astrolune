@@ -807,3 +807,82 @@ fn legacy_validator_and_log_observer_exchange_certified_payments_and_recover() {
     assert!(validator.storage().is_legacy_archive());
     assert_eq!(&std::fs::read(path).unwrap()[..8], b"ASTSTORE");
 }
+
+#[test]
+fn network_crosses_full_signing_journal_recovers_and_finalizes_payments() {
+    use consensus::{Vote, VotePhase};
+    use types::hash::domain_hash;
+    let fixture = Fixture::new(1);
+    let path = fixture.path.join("1/signing.journal");
+    // Build the documented full v2 prefix: 100,000 reserved nil prevotes during
+    // an extended outage. No test-only reduction of the production limit.
+    let mut prefix = std::fs::read(&path).unwrap();
+    let mut tip = Hash256(prefix[76..108].try_into().unwrap());
+    let committee = fixture.network.committee(1).unwrap();
+    let voter = ValidatorId(blake2s(&ed25519_public_key(&[1; 32])).0);
+    for sequence in 1..=keystore::MAX_JOURNAL_RECORDS {
+        let round = u32::try_from(sequence - 1).unwrap();
+        let vote = Vote {
+            chain_id: 42,
+            height: 1,
+            committee_root: committee.root(),
+            round,
+            phase: VotePhase::Prevote,
+            block: None,
+            voter,
+            signature: [0; 64],
+        };
+        let mut record = sequence.to_le_bytes().to_vec();
+        record.extend_from_slice(&1u64.to_le_bytes());
+        record.extend_from_slice(&round.to_le_bytes());
+        record.push(keystore::PREVOTE_PHASE);
+        record.extend_from_slice(vote.signing_hash().as_bytes());
+        record.extend_from_slice(committee.root().as_bytes());
+        record.extend_from_slice(&[0; 37]); // No BFT lock.
+        let mut input = tip.0.to_vec();
+        input.extend_from_slice(&record);
+        tip = domain_hash(b"astrolune.signing.decision.v1", &input);
+        record.extend_from_slice(tip.as_bytes());
+        prefix.extend_from_slice(&record);
+    }
+    std::fs::write(&path, &prefix).unwrap();
+    assert_eq!(prefix.len() as u64, keystore::MAX_PROTECTED_JOURNAL_BYTES);
+    let mut node = fixture.open(1);
+    assert_eq!(node.round(), 99_999);
+    let now = Instant::now();
+    node.tick(now).unwrap();
+    node.tick(now + Duration::from_secs(20_000)).unwrap(); // Nil precommit activates rollover.
+    assert_eq!(
+        std::fs::metadata(&path).unwrap().len(),
+        keystore::MAX_ROLLOVER_JOURNAL_BYTES
+    );
+    drop(node);
+    let mut node = fixture.open(1);
+    node.submit_transaction(transfer()).unwrap();
+    for step in 0..16 {
+        node.tick(now + Duration::from_secs(step * 20_000)).unwrap();
+        if node.request().height >= 2 {
+            break;
+        }
+    }
+    assert_eq!(node.request().height, 2);
+    let mut observer =
+        ObserverNode::open(fixture.network.clone(), &fixture.path.join("observer")).unwrap();
+    observer
+        .receive(&node.respond(observer.request()).unwrap())
+        .unwrap();
+    assert_eq!(observer.storage().checkpoint(), node.storage().checkpoint());
+    let checkpoint = *node.storage().checkpoint().unwrap();
+    drop(node);
+    assert_eq!(&std::fs::read(&path).unwrap()[..prefix.len()], prefix);
+    let mut recovered = fixture.open(1);
+    assert_eq!(recovered.storage().checkpoint(), Some(&checkpoint));
+    for step in 0..4 {
+        recovered.tick(now + Duration::from_millis(step)).unwrap();
+    }
+    assert!(recovered.request().height > 2);
+    assert_eq!(
+        std::fs::metadata(path).unwrap().len(),
+        keystore::MAX_ROLLOVER_JOURNAL_BYTES
+    );
+}

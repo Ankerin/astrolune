@@ -4,8 +4,9 @@
 //! `AstroLune` operator and developer command-line entry point.
 //!
 //! Subcommands:
-//! - `status` — display chain status summary
-//! - `keys` — create a mock keystore and show registered key info
+//! - `status` / `account` - read finalized state through RPC
+//! - `keys` / `wallet-address` - derive a public wallet identity
+//! - `sign-payment` / `inspect-payment` / `submit` - signed native payments
 //! - `verify` — validate a node configuration
 //! - `genesis <file>` — verify canonical genesis and derive the initial state root
 
@@ -15,10 +16,9 @@
 use std::path::PathBuf;
 
 use config::{NetworkConfig, NodeConfig, SecretRef};
-use keystore::{KeyPurpose, MockKeystore, Signer};
-use types::{Hash256, ValidatorId};
 
 mod network;
+mod wallet;
 
 /// Application error type.
 #[derive(Debug)]
@@ -29,6 +29,8 @@ enum CliError {
     Config(String),
     /// Keystore operation failed.
     Keystore(keystore::KeystoreError),
+    /// Wallet input, signing, or RPC operation failed.
+    Wallet(String),
 }
 
 impl core::fmt::Display for CliError {
@@ -37,6 +39,7 @@ impl core::fmt::Display for CliError {
             Self::Genesis(msg) => write!(f, "genesis error: {msg}"),
             Self::Config(msg) => write!(f, "configuration error: {msg}"),
             Self::Keystore(err) => write!(f, "keystore error: {err}"),
+            Self::Wallet(msg) => write!(f, "wallet error: {msg}"),
         }
     }
 }
@@ -55,8 +58,13 @@ AstroLune command-line interface
 Usage: cli <command> [options]
 
 Commands:
-  status   Show chain status summary
-  keys     Create and query a mock keystore
+  status [rpc-address]  Read the node's finalized chain status
+  account <address> [rpc-address]  Read finalized balance and next nonce
+  wallet-address <seed-file>  Derive public wallet identity (alias: keys)
+  sign-payment <chain-id> <seed-file> <recipient> <amount> <nonce> <expires-at> <output>
+           Sign a payment offline and save it without overwriting any file
+  inspect-payment <file>  Verify and display a signed payment offline
+  submit <file> [rpc-address]  Send a saved payment once; acceptance is not finality
   verify   Validate a node configuration
   genesis <file>  Verify binary genesis and derive its initial state root
   devnet <directory> [validators] [--observer]  Create a local test network (default: 4)
@@ -64,6 +72,10 @@ Commands:
   init-network-tls <directory> [peers]  Create independent TLS identities (default: 4)
   help     Show this message
   version  Show version
+
+RPC defaults to ASTROLUNE_RPC_ADDR or 127.0.0.1:17331 (numeric IP:port).
+Amounts are integer smallest units; expires-at is the last valid block height.
+Seed files contain exactly 32 raw bytes. Never pass seed bytes on the command line.
 ";
 
 fn main() {
@@ -79,16 +91,18 @@ fn main() {
 
 fn run() -> Result<(), CliError> {
     match std::env::args().nth(1).as_deref() {
-        None | Some("--help" | "-h") => {
+        None | Some("help" | "--help" | "-h") => {
             print!("{HELP}");
             Ok(())
         }
-        Some("--version" | "-V") => {
+        Some("version" | "--version" | "-V") => {
             println!("cli {}", env!("CARGO_PKG_VERSION"));
             Ok(())
         }
-        Some("status") => cmd_status(),
-        Some("keys") => cmd_keys(),
+        Some(
+            command @ ("status" | "account" | "keys" | "wallet-address" | "sign-payment"
+            | "inspect-payment" | "submit"),
+        ) => wallet::run(command, &std::env::args_os().skip(2).collect::<Vec<_>>()),
         Some("verify") => cmd_verify(),
         Some("genesis") => cmd_genesis(),
         Some("devnet") => network::devnet(),
@@ -134,73 +148,6 @@ fn cmd_genesis() -> Result<(), CliError> {
     Ok(())
 }
 
-/// Display a chain status summary.
-#[allow(clippy::unnecessary_wraps)]
-fn cmd_status() -> Result<(), CliError> {
-    let chain_id = parse_chain_id_arg();
-    let rpc_addr = parse_rpc_arg();
-
-    println!("AstroLune Node Status");
-    println!("====================");
-    println!("  chain_id : {chain_id}");
-    println!("  rpc      : {rpc_addr}");
-    println!("  version  : {}", env!("CARGO_PKG_VERSION"));
-    println!("  status   : offline (engineering baseline)");
-    Ok(())
-}
-
-/// Create a mock keystore and demonstrate key operations.
-fn cmd_keys() -> Result<(), CliError> {
-    let mut ks = MockKeystore::new();
-
-    let entries = [
-        ("validator-primary", [1u8; 32], KeyPurpose::Consensus),
-        ("validator-secondary", [2u8; 32], KeyPurpose::Consensus),
-        ("p2p-signing", [3u8; 32], KeyPurpose::Network),
-    ];
-
-    for (id, bytes, purpose) in &entries {
-        ks.insert(*id, ValidatorId::from_bytes(*bytes), *purpose);
-    }
-
-    println!("Key Handles");
-    println!("===========");
-
-    // Verify each key can be looked up via the Signer trait
-    for (id, expected_vid, purpose) in &entries {
-        let handle = keystore::KeyHandle {
-            id: (*id).into(),
-            purpose: *purpose,
-        };
-        let vid = ks.validator_id(&handle)?;
-        assert_eq!(vid, ValidatorId::from_bytes(*expected_vid));
-
-        let purpose_str = match purpose {
-            KeyPurpose::Consensus => "consensus",
-            KeyPurpose::Network => "network",
-            KeyPurpose::Service => "service",
-            KeyPurpose::Wallet => "wallet",
-        };
-        println!("  {id:24} ({purpose_str})");
-    }
-
-    // Demonstrate consensus signing
-    let handle = keystore::KeyHandle {
-        id: "validator-primary".into(),
-        purpose: KeyPurpose::Consensus,
-    };
-    let pos = keystore::SigningPosition {
-        height: 1,
-        round: 0,
-        phase: 0,
-    };
-    let msg = Hash256::from_bytes([42; 32]);
-    let sig = ks.sign_consensus(&handle.clone(), pos, msg)?;
-    println!("\n  consensus sig (height=1, round=0): {} bytes", sig.len());
-
-    Ok(())
-}
-
 /// Validate a node configuration.
 fn cmd_verify() -> Result<(), CliError> {
     let data_dir = std::env::args()
@@ -231,17 +178,4 @@ fn cmd_verify() -> Result<(), CliError> {
     println!("  rpc       : {}", config.network.rpc_listen);
     println!("  max_peers : {}", config.network.max_peers);
     Ok(())
-}
-
-/// Parse `chain_id` from environment or default to 7.
-fn parse_chain_id_arg() -> u32 {
-    std::env::var("ASTROLUNE_CHAIN_ID")
-        .ok()
-        .and_then(|s| s.parse().ok())
-        .unwrap_or(7)
-}
-
-/// Parse RPC address from environment or default.
-fn parse_rpc_arg() -> String {
-    std::env::var("ASTROLUNE_RPC_ADDR").unwrap_or_else(|_| "127.0.0.1:17331".into())
 }
