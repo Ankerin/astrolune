@@ -28,6 +28,7 @@ pub struct BftFinalityEngine {
     votes: BTreeMap<(ValidatorId, VotePhase), Vote>,
     power: BTreeMap<(VotePhase, Option<Hash256>), u128>,
     certificate: Option<FinalityCertificate>,
+    evidence: BTreeMap<ValidatorId, crate::DoubleVoteEvidence>,
 }
 
 impl BftFinalityEngine {
@@ -60,6 +61,7 @@ impl BftFinalityEngine {
             votes: BTreeMap::new(),
             power: BTreeMap::new(),
             certificate: None,
+            evidence: BTreeMap::new(),
         }
     }
 
@@ -95,6 +97,13 @@ impl BftFinalityEngine {
     pub const fn certificate(&self) -> Option<&FinalityCertificate> {
         self.certificate.as_ref()
     }
+
+    /// At most one authenticated double-vote proof per committee member, retained
+    /// across round changes in this collector. Callers must export/persist proofs
+    /// if they need them beyond this collector's lifetime.
+    pub fn evidence(&self) -> impl Iterator<Item = &crate::DoubleVoteEvidence> {
+        self.evidence.values()
+    }
 }
 
 impl FinalityEngine for BftFinalityEngine {
@@ -105,6 +114,14 @@ impl FinalityEngine for BftFinalityEngine {
         let power = self.context.verify_vote(&vote)?;
         let key = (vote.voter, vote.phase);
         if let Some(previous) = self.votes.get(&key) {
+            if previous.block != vote.block && !self.evidence.contains_key(&vote.voter) {
+                let proof = crate::DoubleVoteEvidence::from_votes(
+                    &self.context,
+                    previous.clone(),
+                    vote.clone(),
+                )?;
+                self.evidence.insert(vote.voter, proof);
+            }
             return Err(if previous.block == vote.block {
                 ConsensusError::DuplicateVote
             } else {

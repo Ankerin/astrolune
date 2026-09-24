@@ -207,6 +207,7 @@ pub struct NetworkNode {
     cache_path: PathBuf,
     timer: Option<(TimeoutEvent, Instant)>,
     base_timeout: Duration,
+    evidence: crate::evidence::EvidenceStore,
 }
 
 impl NetworkNode {
@@ -237,6 +238,7 @@ impl NetworkNode {
             network.committee(checkpoint.height + 1)?,
         )?;
         let mut result = Self {
+            evidence: crate::evidence::EvidenceStore::open(directory, &network)?,
             network,
             participant: Some(participant),
             storage,
@@ -256,6 +258,11 @@ impl NetworkNode {
         self.participant
             .as_ref()
             .expect("participant available outside height handoff")
+    }
+    /// Verified local double-vote proofs, durably retained at most once per member.
+    /// Their presence does not alter active weights or finalize an economic penalty.
+    pub fn evidence(&self) -> impl Iterator<Item = &consensus::DoubleVoteEvidence> {
+        self.evidence.records()
     }
     fn participant_mut(&mut self) -> &mut RoundRobinValidator {
         self.participant
@@ -379,12 +386,7 @@ impl NetworkNode {
                 self.advance_height()?;
             }
             NetworkMessage::Vote(vote) => {
-                let key = (vote.voter, vote.phase);
-                if self.votes.get(&key) == Some(&vote) {
-                    return Ok(());
-                }
-                self.participant_mut().receive_vote(vote.clone())?;
-                self.votes.insert(key, vote);
+                self.receive_peer_vote(vote)?;
             }
             NetworkMessage::ValidValue { block, proof } => {
                 let proof =
@@ -483,6 +485,23 @@ impl NetworkNode {
     fn record_local(&mut self, vote: Vote) -> Result<(), NetworkNodeError> {
         self.votes.insert((vote.voter, vote.phase), vote);
         self.persist_cache()
+    }
+
+    fn receive_peer_vote(&mut self, vote: Vote) -> Result<(), NetworkNodeError> {
+        let key = (vote.voter, vote.phase);
+        if self.votes.get(&key) == Some(&vote) {
+            return Ok(());
+        }
+        let result = self.participant_mut().receive_vote(vote.clone());
+        if result.is_err() {
+            let proofs: Vec<_> = self.participant().evidence().cloned().collect();
+            for proof in proofs {
+                self.evidence.persist(proof)?;
+            }
+        }
+        result?;
+        self.votes.insert(key, vote);
+        Ok(())
     }
 
     /// Drives one bounded unit of work using a monotonic clock. No synthetic votes exist.

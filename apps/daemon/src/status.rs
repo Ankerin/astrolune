@@ -22,6 +22,13 @@ impl RpcService for ChainStatus {
     fn handle(&self, request: RpcRequest) -> Result<RpcResponse, RpcError> {
         let mut node = self.node.lock().map_err(|_| RpcError::Unavailable)?;
         match request {
+            RpcRequest::Block(height) => {
+                let block = node
+                    .storage()
+                    .read_finalized(height)
+                    .map_err(|_| RpcError::Unavailable)?;
+                Ok(RpcResponse::Block(block.map(|(block, _)| Box::new(block))))
+            }
             RpcRequest::ChainStatus => {
                 let checkpoint = node.storage().checkpoint();
                 Ok(RpcResponse::ChainStatus {

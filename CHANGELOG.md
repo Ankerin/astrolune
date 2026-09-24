@@ -41,6 +41,11 @@ All notable changes to AstroLune will be documented in this file. The format fol
 
 ### Added
 
+- Canonical authenticated double-vote proofs, bounded BFT evidence retention,
+  durable validator evidence files with restart verification and CLI proof tools.
+- Conservative integer-only PoTB policy workbench over authenticated contiguous
+  finalized history; candidate scores remain separate from active genesis weights.
+
 - Offline native-payment signing, signature/policy inspection, exclusive saved
   transaction files and explicit submission with chain/expiry checks, transaction
   ID verification and ambiguous-outcome reporting.

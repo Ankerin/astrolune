@@ -83,6 +83,10 @@ pub struct RoundRobinValidator {
 }
 
 impl RoundRobinValidator {
+    /// Verified double-vote proofs retained by this height's vote collector.
+    pub fn evidence(&self) -> impl Iterator<Item = &consensus::DoubleVoteEvidence> {
+        self.collector.evidence()
+    }
     /// Binds a recovered signer, execution state, and independently trusted committee.
     /// The caller authenticates the checkpoint/genesis before constructing the producer.
     pub fn new(

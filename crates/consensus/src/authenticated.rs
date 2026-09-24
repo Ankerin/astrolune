@@ -64,6 +64,10 @@ pub struct AuthenticatedCommittee {
 }
 
 impl AuthenticatedCommittee {
+    /// Authenticated member identities in canonical identity order.
+    pub fn members(&self) -> impl Iterator<Item = ValidatorId> + '_ {
+        self.powers.keys().copied()
+    }
     /// Returns the trusted voting power of a registered committee member.
     #[must_use]
     pub fn voting_power(&self, validator: ValidatorId) -> Option<u128> {

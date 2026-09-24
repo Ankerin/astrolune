@@ -17,6 +17,7 @@ use std::path::PathBuf;
 
 use config::{NetworkConfig, NodeConfig, SecretRef};
 
+mod evidence;
 mod network;
 mod wallet;
 
@@ -65,6 +66,8 @@ Commands:
            Sign a payment offline and save it without overwriting any file
   inspect-payment <file>  Verify and display a signed payment offline
   submit <file> [rpc-address]  Send a saved payment once; acceptance is not finality
+  evidence-create <genesis> <validators> <vote-a> <vote-b> <output>  Verify and save a double-vote proof
+  evidence-verify <genesis> <validators> <proof>  Independently verify a double-vote proof
   verify   Validate a node configuration
   genesis <file>  Verify binary genesis and derive its initial state root
   devnet <directory> [validators] [--observer]  Create a local test network (default: 4)
@@ -104,6 +107,7 @@ fn run() -> Result<(), CliError> {
             | "inspect-payment" | "submit"),
         ) => wallet::run(command, &std::env::args_os().skip(2).collect::<Vec<_>>()),
         Some("verify") => cmd_verify(),
+        Some(command @ ("evidence-create" | "evidence-verify")) => evidence::run(command),
         Some("genesis") => cmd_genesis(),
         Some("devnet") => network::devnet(),
         Some("init-validator") => network::init_validator(),

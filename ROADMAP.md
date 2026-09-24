@@ -49,6 +49,11 @@ Current progress: authenticated fixed-height vote collection separates rounds/ph
 
 ## M6 — node and networking
 
+PoTB progress: [double-vote evidence and a policy workbench](docs/25-potb-evidence.md)
+now verify offences, retain durable bounded proofs and evaluate capped integer
+scores over finalized history. Canonical evidence inclusion, active weight
+transitions, admission, VRF and committee handoff are still required.
+
 Authenticated encrypted transport, peer discovery, rate limiting, compact blocks, finalized sync, bounded queues, stage pipelining, speculative work, external RPC, and adaptive-capacity governance.
 
 Current progress: [certified reference networking](docs/19-reference-network.md) connects independent daemon processes with fixed genesis membership, signed proposals/votes, step timers, payment gossip, bounded mutually authenticated TLS 1.3 exchanges, protected journals, durable available-value recovery, and sequential certified catch-up. Local devnet generation and explicit signer provisioning are implemented. Real process tests cover quorum operation, RPC payments, restart, and late join. [TLS identity validation and provisioning](docs/20-authenticated-transport.md) are implemented with independent transport keys and deadline tests. [Non-voting full nodes](docs/21-observer-nodes.md) now independently authenticate history, execute imported blocks, relay payments, serve RPC, and recover without signing authority. Discovery, public-network hardening, production storage, and rotating consensus remain open.

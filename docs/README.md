@@ -35,6 +35,9 @@ For a concise source-tree map, read [`../ARCHITECTURE.md`](../ARCHITECTURE.md).
 | [22-append-only-chain-storage.md](22-append-only-chain-storage.md) | append-only block/delta log, atomic publication, recovery, compatibility, and remaining limits |
 | [23-signing-journal-rollover.md](23-signing-journal-rollover.md) | bounded protected signing, alternating watermarks, recovery, and compatibility |
 | [24-wallet-and-rpc-client.md](24-wallet-and-rpc-client.md) | offline payment signing, real account/status queries, bounded RPC, submission and retry semantics |
+| [25-potb-evidence.md](25-potb-evidence.md) | authenticated double-vote evidence, durable outbox, experimental scoring and activation limits |
+| [26-product-and-community.md](26-product-and-community.md) | universal-network positioning, pilot programme, community and funding materials |
+| [27-explorer-rpc.md](27-explorer-rpc.md) | finalized block history, TCP framing, browser gateway and explorer display limits |
 
 Legacy-shaped filenames such as `03-vm-and-gas.md`, `05-contract-languages.md`, and `06-deferred-services.md` are retained temporarily to preserve links. Their contents describe the current Rust architecture.
 

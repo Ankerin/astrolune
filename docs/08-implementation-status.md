@@ -11,6 +11,8 @@ As of 2026-09-24, this repository contains a Rust 2024 workspace with:
 - normalized access leases and dependency-preserving greedy execution-wave planning;
 - compileable interfaces for cryptography, genesis, transactions, PoTB committees, BFT votes, state, runtime, execution, persistence, synchronization, P2P, RPC, configuration, keystore, telemetry, and node coordination;
 - a tested in-memory mempool reference policy, genesis validation, configuration secret redaction, quorum arithmetic, decoder boundary helpers, and workspace integration invariants;
+- authenticated double-vote evidence, bounded durable validator evidence outboxes, offline evidence CLI verification, and experimental deterministic PoTB scoring; no live weight activation or automatic slashing;
+- bounded finalized-block history RPC for read-only explorers, alongside status and account reads;
 - a Rust contract SDK boundary;
 - library and executable scaffolds for DNS;
 - operator CLI with genesis verification, validator/devnet provisioning and a native-payment wallet, a network-capable daemon, and a minimal `cargo-contract` entry point;

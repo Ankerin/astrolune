@@ -10,6 +10,7 @@
 
 #![forbid(unsafe_code)]
 #![allow(clippy::missing_errors_doc)]
+mod evidence;
 
 pub mod capacity;
 pub mod full_service;

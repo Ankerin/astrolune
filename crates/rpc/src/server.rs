@@ -147,6 +147,21 @@ impl TcpRpcServer {
         rpc_req: &crate::json::JsonRpcRequest,
     ) -> crate::json::JsonRpcResponse {
         let request = match rpc_req.method.as_str() {
+            "block" => {
+                let height = rpc_req.params.get("height").and_then(|value| match value {
+                    JsonValue::String(text)
+                        if !text.is_empty() && text.bytes().all(|b| b.is_ascii_digit()) =>
+                    {
+                        text.parse::<u64>().ok()
+                    }
+                    JsonValue::Number(number) => u64::try_from(*number).ok(),
+                    _ => None,
+                });
+                let Some(height) = height else {
+                    return rpc_error(rpc_req.id, -32602, "invalid or missing block height");
+                };
+                RpcRequest::Block(height)
+            }
             "chain_status" => RpcRequest::ChainStatus,
             "account" => {
                 // Extract the address parameter
@@ -200,6 +215,11 @@ impl TcpRpcServer {
     /// Converts an `RpcResponse` to a JSON-RPC response.
     fn response_to_json(id: i64, response: RpcResponse) -> crate::json::JsonRpcResponse {
         match response {
+            RpcResponse::Block(None) => rpc_success(id, JsonValue::Null),
+            RpcResponse::Block(Some(block)) => match crate::block::to_json(&block) {
+                Some(value) => rpc_success(id, value),
+                None => rpc_error(id, -32600, "block response exceeds limit"),
+            },
             RpcResponse::ChainStatus {
                 chain_id,
                 finalized_height,
@@ -295,6 +315,42 @@ fn parse_hex_bytes(hex: &str) -> Result<Vec<u8>, String> {
 mod tests {
     use super::*;
     use crate::InMemoryRpcService;
+
+    #[test]
+    fn block_height_accepts_full_width_decimal_and_rejects_invalid_input() {
+        let service: Arc<Mutex<dyn RpcService>> = Arc::new(Mutex::new(InMemoryRpcService::new(42)));
+        for value in [
+            JsonValue::Number(0),
+            JsonValue::String(u64::MAX.to_string()),
+        ] {
+            let req = crate::json::JsonRpcRequest {
+                id: 1,
+                method: "block".into(),
+                params: JsonValue::Object(vec![("height".into(), value)]),
+            };
+            assert_eq!(
+                TcpRpcServer::dispatch(&service, &req).result,
+                Some(JsonValue::Null)
+            );
+        }
+        for value in [
+            JsonValue::Number(-1),
+            JsonValue::Null,
+            JsonValue::String("+1".into()),
+            JsonValue::String("18446744073709551616".into()),
+            JsonValue::String("1.2".into()),
+        ] {
+            let req = crate::json::JsonRpcRequest {
+                id: 1,
+                method: "block".into(),
+                params: JsonValue::Object(vec![("height".into(), value)]),
+            };
+            assert_eq!(
+                TcpRpcServer::dispatch(&service, &req).error.unwrap().code,
+                -32602
+            );
+        }
+    }
 
     #[test]
     fn parse_hex_address_valid() {

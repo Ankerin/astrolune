@@ -370,6 +370,13 @@ impl RpcService for NetworkStatus {
     fn handle(&self, request: RpcRequest) -> Result<RpcResponse, RpcError> {
         let mut node = self.node.lock().map_err(|_| RpcError::Unavailable)?;
         match request {
+            RpcRequest::Block(height) => {
+                let block = node
+                    .storage()
+                    .read_finalized(height)
+                    .map_err(|_| RpcError::Unavailable)?;
+                Ok(RpcResponse::Block(block.map(|(block, _)| Box::new(block))))
+            }
             RpcRequest::ChainStatus => {
                 let checkpoint = node.storage().checkpoint().ok_or(RpcError::Unavailable)?;
                 Ok(RpcResponse::ChainStatus {

@@ -15,6 +15,7 @@ publish = false
 [dependencies]
 codec = { version = "0.1.0", path = "../../crates/codec" }
 config = { version = "0.1.0", path = "../../crates/config" }
+consensus = { version = "0.1.0", path = "../../crates/consensus" }
 crypto = { version = "0.1.0", path = "../../crates/crypto" }
 execution = { version = "0.1.0", path = "../../crates/execution" }
 genesis = { version = "0.1.0", path = "../../crates/genesis" }

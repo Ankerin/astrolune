@@ -9,6 +9,7 @@
 #![forbid(unsafe_code)]
 #![allow(clippy::missing_errors_doc)]
 
+mod block;
 pub mod client;
 pub mod json;
 pub mod server;
@@ -26,6 +27,8 @@ use types::{Address, Hash256};
 pub enum RpcRequest {
     /// Returns chain status.
     ChainStatus,
+    /// Reads one retained finalized block by exact height.
+    Block(u64),
     /// Returns one finalized account view.
     Account(Address),
     /// Submits canonical signed transaction bytes.
@@ -35,6 +38,8 @@ pub enum RpcRequest {
 /// Public response produced by the service boundary.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum RpcResponse {
+    /// Finalized block body; absent for an unknown/pruned/genesis-only height.
+    Block(Option<Box<types::Block>>),
     /// Chain identity and finalized head.
     ChainStatus {
         /// Chain replay-protection identifier.
@@ -145,6 +150,7 @@ impl InMemoryRpcService {
 impl RpcService for InMemoryRpcService {
     fn handle(&self, request: RpcRequest) -> Result<RpcResponse, RpcError> {
         match request {
+            RpcRequest::Block(_) => Ok(RpcResponse::Block(None)),
             RpcRequest::ChainStatus => Ok(RpcResponse::ChainStatus {
                 chain_id: self.chain_id,
                 finalized_height: self.finalized_height,

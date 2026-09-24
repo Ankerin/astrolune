@@ -21,6 +21,106 @@ use transaction::{Payment, address_from_public_key, signing_hash};
 use types::{AccountState, Address, Hash256, Resources, Transaction, ValidatorId};
 
 static NEXT: AtomicU64 = AtomicU64::new(0);
+
+#[test]
+fn double_vote_proofs_are_durable_bounded_and_never_count_forged_accusations() {
+    let fixture = Fixture::new(4);
+    let mut node = fixture.open(1);
+    let context = fixture.network.committee(1).unwrap();
+    let mut first = consensus::Vote {
+        chain_id: 42,
+        committee_root: context.root(),
+        height: 1,
+        round: 0,
+        phase: consensus::VotePhase::Prevote,
+        block: None,
+        voter: ValidatorId(blake2s(&ed25519_public_key(&[2; 32])).0),
+        signature: [0; 64],
+    };
+    first.signature = ed25519_sign(&[2; 32], &first.signing_hash().0);
+    let mut second = first.clone();
+    second.block = Some(Hash256([44; 32]));
+    second.signature = ed25519_sign(&[2; 32], &second.signing_hash().0);
+    let packet = |vote| {
+        encode_exchange(
+            fixture.network.genesis_hash(),
+            &[NetworkMessage::Vote(vote)],
+        )
+        .unwrap()
+    };
+    assert_eq!(node.receive(&packet(first.clone())).unwrap(), 0);
+    let mut forged = second.clone();
+    forged.signature[0] ^= 1;
+    assert_eq!(node.receive(&packet(forged)).unwrap(), 1);
+    assert_eq!(node.evidence().count(), 0);
+    assert!(!fixture.path.join("1/equivocation").exists());
+    assert_eq!(node.receive(&packet(second.clone())).unwrap(), 1);
+    let proof = node.evidence().next().unwrap().clone();
+    proof.verify(&context).unwrap();
+    for _ in 0..10 {
+        assert_eq!(node.receive(&packet(second.clone())).unwrap(), 1);
+    }
+    assert_eq!(node.evidence().count(), 1);
+    let path = fixture
+        .path
+        .join("1/equivocation")
+        .join(format!("{}.bin", first.voter));
+    assert_eq!(std::fs::read(&path).unwrap(), proof.encode());
+    drop(node);
+    let recovered = fixture.open(1);
+    assert_eq!(recovered.evidence().next(), Some(&proof));
+    assert_eq!(recovered.storage().checkpoint().unwrap().height, 0);
+    drop(recovered);
+    let mut bytes = proof.encode();
+    bytes[379] ^= 1;
+    std::fs::write(&path, bytes).unwrap();
+    let signer = DurableSigner::open(
+        fixture.path.join("1/signing.journal"),
+        SigningContext {
+            chain_id: 42,
+            genesis: fixture.network.genesis_hash(),
+        },
+        [1; 32],
+    )
+    .unwrap();
+    assert!(
+        NetworkNode::open(
+            fixture.network.clone(),
+            &fixture.path.join("1"),
+            signer,
+            Duration::from_millis(100)
+        )
+        .is_err()
+    );
+}
+
+#[test]
+fn evidence_persistence_failure_is_local_and_never_silently_dropped() {
+    let fixture = Fixture::new(4);
+    let mut node = fixture.open(1);
+    std::fs::write(fixture.path.join("1/equivocation"), b"not a directory").unwrap();
+    let context = fixture.network.committee(1).unwrap();
+    let mut votes = Vec::new();
+    for block in [None, Some(Hash256([7; 32]))] {
+        let mut vote = consensus::Vote {
+            chain_id: 42,
+            committee_root: context.root(),
+            height: 1,
+            round: 0,
+            phase: consensus::VotePhase::Prevote,
+            block,
+            voter: ValidatorId(blake2s(&ed25519_public_key(&[2; 32])).0),
+            signature: [0; 64],
+        };
+        vote.signature = ed25519_sign(&[2; 32], &vote.signing_hash().0);
+        votes.push(NetworkMessage::Vote(vote));
+    }
+    assert!(matches!(
+        node.receive(&encode_exchange(fixture.network.genesis_hash(), &votes).unwrap()),
+        Err(node::network::NetworkNodeError::Local(_))
+    ));
+    assert_eq!(node.evidence().count(), 0);
+}
 struct Fixture {
     path: PathBuf,
     network: StaticNetwork,
