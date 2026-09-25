@@ -47,12 +47,12 @@ PoTB state transitions and evidence, audited VRF provider, weighted sampler, par
 
 Current progress: authenticated fixed-height vote collection separates rounds/phases/blocks, rejects equivocation and replays, and emits bounded canonical certificates. The producer can verify a trusted committee and certificate before atomic execution/state publication. [Protocol details](docs/15-authenticated-finality.md). [Durable signing](docs/16-durable-signing.md), monotonic decision recovery, process locking, and typed vote signing are implemented/tested. [Local BFT voting](docs/17-local-bft-voting.md), verified prevote proofs, timeout transitions, and atomic version-2 vote/lock recovery are implemented/tested, including payment execution and certified archive recovery. [Signed proposals and a reference round-robin participant](docs/18-signed-proposals-and-participants.md) now coordinate authenticated proposal signing, execution, vote collection, timeout events, and atomic publication. [Certified reference networking](docs/19-reference-network.md) now adds daemon integration, monotonic timers, persisted available values, explicit provisioning, and certified catch-up. Weighted VRF selection, committee handoff, formal distributed liveness, and production network qualification remain open.
 
-## M6 — node and networking
-
 PoTB progress: [double-vote evidence and a policy workbench](docs/25-potb-evidence.md)
 now verify offences, retain durable bounded proofs and evaluate capped integer
 scores over finalized history. Canonical evidence inclusion, active weight
 transitions, admission, VRF and committee handoff are still required.
+
+## M6 — node and networking
 
 Authenticated encrypted transport, peer discovery, rate limiting, compact blocks, finalized sync, bounded queues, stage pipelining, speculative work, external RPC, and adaptive-capacity governance.
 

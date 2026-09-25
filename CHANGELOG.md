@@ -8,6 +8,9 @@ All notable changes to AstroLune will be documented in this file. The format fol
 
 ### Fixed
 
+- Replace stale simulated-network consensus documentation with the certified
+  fixed-committee implementation boundary and explicit PoTB activation limits.
+
 - Fund newly generated devnets at the domain-separated wallet address accepted by
   signed-payment execution; the former raw public-key hash could not spend its
   allocation. Existing genesis files are not rewritten.
