@@ -481,9 +481,29 @@ fn missing_journal_and_incomplete_network_arguments_fail_without_provisioning() 
     );
 }
 
+fn corrupt_first_finalized(path: &std::path::Path) {
+    use std::io::{Read, Seek, SeekFrom, Write};
+    let mut file = std::fs::OpenOptions::new()
+        .read(true)
+        .write(true)
+        .open(path)
+        .unwrap();
+    // Corrupt block 1, after the genesis anchor, without changing file length.
+    file.seek(SeekFrom::Start(40)).unwrap();
+    let mut length = [0; 8];
+    file.read_exact(&mut length).unwrap();
+    let at = 40 + 40 + u64::from_le_bytes(length) + 12;
+    file.seek(SeekFrom::Start(at)).unwrap();
+    let mut byte = [0];
+    file.read_exact(&mut byte).unwrap();
+    byte[0] ^= 1;
+    file.seek(SeekFrom::Start(at)).unwrap();
+    file.write_all(&byte).unwrap();
+    file.sync_all().unwrap();
+}
+
 #[test]
 fn corrupted_history_read_stops_observer_process() {
-    use std::io::{Read, Seek, SeekFrom, Write};
     let fixture = Fixture::new();
     let mut reservations: Vec<_> = (0..5)
         .map(|_| Some(TcpListener::bind("127.0.0.1:0").unwrap()))
@@ -508,23 +528,7 @@ fn corrupted_history_read_stops_observer_process() {
     }
     await_payment(&[&observer]);
     drop(validators);
-    let mut file = std::fs::OpenOptions::new()
-        .read(true)
-        .write(true)
-        .open(fixture.path.join("5/chain.bin"))
-        .unwrap();
-    // Corrupt block 1, after the genesis anchor, without changing file length.
-    file.seek(SeekFrom::Start(40)).unwrap();
-    let mut length = [0; 8];
-    file.read_exact(&mut length).unwrap();
-    let at = 40 + 40 + u64::from_le_bytes(length) + 12;
-    file.seek(SeekFrom::Start(at)).unwrap();
-    let mut byte = [0];
-    file.read_exact(&mut byte).unwrap();
-    byte[0] ^= 1;
-    file.seek(SeekFrom::Start(at)).unwrap();
-    file.write_all(&byte).unwrap();
-    file.sync_all().unwrap();
+    corrupt_first_finalized(&fixture.path.join("5/chain.bin"));
     let tls = p2p::tls::PeerTlsConfig::from_directory(&fixture.path.join("1/tls")).unwrap();
     let socket = TcpStream::connect(&peers[4]).unwrap();
     let mut stream = tls.connect(socket, Duration::from_secs(2)).unwrap();
@@ -543,6 +547,49 @@ fn corrupted_history_read_stops_observer_process() {
         assert!(
             Instant::now() < deadline,
             "local history corruption must stop the daemon"
+        );
+        std::thread::sleep(Duration::from_millis(20));
+    }
+}
+
+#[test]
+fn corrupted_history_read_over_rpc_stops_observer_process() {
+    let fixture = Fixture::new();
+    let mut reservations: Vec<_> = (0..5)
+        .map(|_| Some(TcpListener::bind("127.0.0.1:0").unwrap()))
+        .collect();
+    let peers: Vec<_> = reservations
+        .iter()
+        .map(|r| r.as_ref().unwrap().local_addr().unwrap().to_string())
+        .collect();
+    drop(reservations[4].take());
+    let mut observer = fixture.start(5, &peers);
+    let tx = payment();
+    let result = call(
+        &observer.1,
+        "submit_transaction",
+        &format!(r#"{{"data":"{}"}}"#, hex(&tx.to_bytes())),
+    );
+    assert!(result.get("error").is_none());
+    let mut validators = Vec::new();
+    for index in 1..=3 {
+        drop(reservations[index - 1].take());
+        validators.push(fixture.start(index, &peers));
+    }
+    await_payment(&[&observer]);
+    drop(validators);
+    corrupt_first_finalized(&fixture.path.join("5/chain.bin"));
+    let result = call(&observer.1, "block", r#"{"height":1}"#);
+    assert!(result.get("error").is_some());
+    let deadline = Instant::now() + Duration::from_secs(8);
+    loop {
+        if let Some(status) = observer.0.try_wait().unwrap() {
+            assert!(!status.success());
+            break;
+        }
+        assert!(
+            Instant::now() < deadline,
+            "RPC corruption must stop the daemon"
         );
         std::thread::sleep(Duration::from_millis(20));
     }

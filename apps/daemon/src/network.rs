@@ -87,11 +87,13 @@ pub(crate) fn run(options: &Options, genesis: genesis::Genesis) -> Result<(), Da
     }
     let initial_height = node.request().height;
     let node = Arc::new(Mutex::new(node));
+    let storage_failed = Arc::new(AtomicBool::new(false));
     let listener = TcpListener::bind(&options.config.network.p2p_listen).map_err(io_error)?;
     listener.set_nonblocking(true).map_err(io_error)?;
     let rpc = Arc::new(Mutex::new(NetworkStatus {
         node: node.clone(),
         chain_id: network.chain_id(),
+        storage_failed: storage_failed.clone(),
     }));
     let rpc = TcpRpcServer::bind(rpc, &options.config.network.rpc_listen).map_err(io_error)?;
     println!("p2p       : {}", listener.local_addr().map_err(io_error)?);
@@ -106,12 +108,15 @@ pub(crate) fn run(options: &Options, genesis: genesis::Genesis) -> Result<(), Da
         .map_err(io_error)?;
     let stop = Arc::new(AtomicBool::new(false));
     let workers = spawn_peers(options, &node, &stop, &transport)?;
-    let active = Arc::new(AtomicUsize::new(0));
+    let signals = DriveSignals {
+        active: Arc::new(AtomicUsize::new(0)),
+        storage_failed,
+    };
     let result = drive(
         options,
         &node,
         &listener,
-        &active,
+        &signals,
         initial_height,
         &workers.receiver,
         &transport,
@@ -253,30 +258,34 @@ impl Drop for ConnectionSlot {
     }
 }
 
+struct DriveSignals {
+    active: Arc<AtomicUsize>,
+    storage_failed: Arc<AtomicBool>,
+}
+
 fn drive(
     options: &Options,
     node: &Arc<Mutex<PeerNode>>,
     listener: &TcpListener,
-    active: &Arc<AtomicUsize>,
+    signals: &DriveSignals,
     initial_height: u64,
     receiver: &mpsc::Receiver<Vec<u8>>,
     transport: &PeerTransport,
 ) -> Result<(), DaemonError> {
     let mut reported = initial_height;
-    let storage_failed = Arc::new(AtomicBool::new(false));
     loop {
         // The fixed accept budget also prevents a connection flood from starving consensus.
         for _ in 0..8 {
             match listener.accept() {
                 Ok((stream, _)) => {
-                    if active.load(Ordering::Acquire) >= options.config.network.max_peers {
+                    if signals.active.load(Ordering::Acquire) >= options.config.network.max_peers {
                         continue;
                     }
-                    active.fetch_add(1, Ordering::AcqRel);
-                    let slot = ConnectionSlot(active.clone());
+                    signals.active.fetch_add(1, Ordering::AcqRel);
+                    let slot = ConnectionSlot(signals.active.clone());
                     let node = node.clone();
                     let transport = transport.clone();
-                    let storage_failed = storage_failed.clone();
+                    let storage_failed = signals.storage_failed.clone();
                     std::thread::Builder::new()
                         .name("peer-request".into())
                         .spawn(move || {
@@ -314,7 +323,7 @@ fn drive(
             }
         }
         let mut node = node.lock().map_err(|_| io_error("node lock poisoned"))?;
-        if storage_failed.load(Ordering::Acquire) {
+        if signals.storage_failed.load(Ordering::Acquire) {
             return Err(io_error(
                 "finalized history read failed; storage recovery required",
             ));
@@ -365,16 +374,20 @@ fn read_bounded(path: &std::path::Path, maximum: usize) -> Result<Vec<u8>, Daemo
 struct NetworkStatus {
     node: Arc<Mutex<PeerNode>>,
     chain_id: u32,
+    storage_failed: Arc<AtomicBool>,
 }
 impl RpcService for NetworkStatus {
     fn handle(&self, request: RpcRequest) -> Result<RpcResponse, RpcError> {
         let mut node = self.node.lock().map_err(|_| RpcError::Unavailable)?;
         match request {
             RpcRequest::Block(height) => {
-                let block = node
-                    .storage()
-                    .read_finalized(height)
-                    .map_err(|_| RpcError::Unavailable)?;
+                let block = node.storage().read_finalized(height).map_err(|error| {
+                    // A locally corrupt certified block must stop voting even when
+                    // RPC discovers it before peer catch-up does.
+                    self.storage_failed.store(true, Ordering::Release);
+                    eprintln!("Finalized history read failed: {error}");
+                    RpcError::Unavailable
+                })?;
                 Ok(RpcResponse::Block(block.map(|(block, _)| Box::new(block))))
             }
             RpcRequest::ChainStatus => {
