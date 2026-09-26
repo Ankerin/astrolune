@@ -58,7 +58,7 @@ pub fn ed25519_verify(public_key: &[u8; 32], message: &[u8], signature: &[u8; 64
 
 /// BLAKE2s hashing and signature verification against registered validator keys.
 ///
-/// VRF verification fails closed until a protocol VRF suite is selected.
+/// VRF verification uses canonical RFC 9381 ECVRF proofs and the same key registry.
 #[derive(Default)]
 pub struct Blake2sProvider {
     keys: BTreeMap<ValidatorId, VerifyingKey>,
@@ -103,13 +103,10 @@ impl crate::CryptoProvider for Blake2sProvider {
         })
     }
 
-    fn verify_vrf(
-        &self,
-        _validator: ValidatorId,
-        _seed: Hash256,
-        _output: &crate::VrfOutput,
-    ) -> bool {
-        false
+    fn verify_vrf(&self, validator: ValidatorId, seed: Hash256, output: &crate::VrfOutput) -> bool {
+        self.keys
+            .get(&validator)
+            .is_some_and(|key| crate::vrf::verify_vrf(&key.to_bytes(), seed, output).is_ok())
     }
 }
 

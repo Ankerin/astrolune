@@ -19,6 +19,7 @@ use config::{NetworkConfig, NodeConfig, SecretRef};
 
 mod evidence;
 mod network;
+mod vrf;
 mod wallet;
 
 /// Application error type.
@@ -68,6 +69,10 @@ Commands:
   submit <file> [rpc-address]  Send a saved payment once; acceptance is not finality
   evidence-create <genesis> <validators> <vote-a> <vote-b> <output>  Verify and save a double-vote proof
   evidence-verify <genesis> <validators> <proof>  Independently verify a double-vote proof
+  vrf-prove <genesis> <seed-file> <epoch> <height> <parent-randomness> <committee|producer> <round> <output>
+           Create a registered validator's context-bound VRF proof offline
+  vrf-verify <genesis> <public-key> <epoch> <height> <parent-randomness> <committee|producer> <round> <proof>
+           Independently verify the proof and claimed randomness
   verify   Validate a node configuration
   genesis <file>  Verify binary genesis and derive its initial state root
   devnet <directory> [validators] [--observer]  Create a local test network (default: 4)
@@ -108,6 +113,8 @@ fn run() -> Result<(), CliError> {
         ) => wallet::run(command, &std::env::args_os().skip(2).collect::<Vec<_>>()),
         Some("verify") => cmd_verify(),
         Some(command @ ("evidence-create" | "evidence-verify")) => evidence::run(command),
+        Some(command @ ("vrf-prove" | "vrf-verify")) =>
+            vrf::run(command, &std::env::args_os().skip(2).collect::<Vec<_>>()),
         Some("genesis") => cmd_genesis(),
         Some("devnet") => network::devnet(),
         Some("init-validator") => network::init_validator(),

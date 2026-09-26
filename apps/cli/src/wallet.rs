@@ -90,13 +90,13 @@ fn client(address: Option<&OsString>) -> Result<TcpRpcClient, CliError> {
     TcpRpcClient::new(address, Duration::from_secs(5)).map_err(error)
 }
 
-fn text(value: &OsStr) -> Result<&str, CliError> {
+pub(super) fn text(value: &OsStr) -> Result<&str, CliError> {
     value
         .to_str()
         .ok_or_else(|| error("argument must be valid UTF-8"))
 }
 
-fn integer(value: &OsStr) -> Result<u64, CliError> {
+pub(super) fn integer(value: &OsStr) -> Result<u64, CliError> {
     let value = text(value)?;
     if value.is_empty() || !value.bytes().all(|byte| byte.is_ascii_digit()) {
         return Err(error("expected an unsigned decimal integer"));
@@ -108,7 +108,7 @@ fn parse_address(value: &OsStr) -> Result<Address, CliError> {
     decode_hex(text(value)?).map(Address).map_err(error)
 }
 
-fn read_seed(path: &Path) -> Result<Zeroizing<[u8; 32]>, CliError> {
+pub(super) fn read_seed(path: &Path) -> Result<Zeroizing<[u8; 32]>, CliError> {
     let mut bytes = Zeroizing::new(Vec::with_capacity(33));
     File::open(path)
         .map_err(error)?
@@ -190,7 +190,7 @@ fn validate_payment(tx: &Transaction) -> Result<Payment, CliError> {
     Ok(payment)
 }
 
-fn write_new(path: &Path, bytes: &[u8]) -> Result<(), CliError> {
+pub(super) fn write_new(path: &Path, bytes: &[u8]) -> Result<(), CliError> {
     let mut file = OpenOptions::new()
         .write(true)
         .create_new(true)

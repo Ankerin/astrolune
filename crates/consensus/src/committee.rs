@@ -36,7 +36,8 @@ pub struct Committee {
     pub members: Vec<CommitteeMember>,
 }
 
-/// Selects committee replacements with probability proportional to `PoTB` weight.
+/// Legacy infallible selection interface used only by demonstration fixtures.
+/// Authenticated weighted selection uses [`crate::VerifiedVrfSampler`].
 pub trait CommitteeSelector {
     /// Builds the next committee while retaining the configured fraction of
     /// current members. Implementations must be deterministic after `VRF` proof

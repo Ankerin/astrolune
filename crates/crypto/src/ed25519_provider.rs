@@ -126,6 +126,17 @@ impl Ed25519Keystore {
         Ok(entry.signing_key.sign(message).to_bytes())
     }
 
+    /// Produces a context-bound VRF proof without exposing the signing seed.
+    pub fn prove_vrf(
+        &self,
+        key_id: &KeyId,
+        input: crate::VrfInput,
+    ) -> Result<crate::VrfOutput, CryptoError> {
+        let entry = self.keys.get(&key_id.0).ok_or(CryptoError::KeyNotFound)?;
+        let secret = Zeroizing::new(entry.signing_key.to_bytes());
+        crate::prove_vrf(&secret, input)
+    }
+
     /// Signs a consensus message at a specific position with equivocation protection.
     ///
     /// The position is (height, round, phase). Once a message is signed at a

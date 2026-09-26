@@ -9,8 +9,8 @@ use std::path::PathBuf;
 use codec::{DecodeError, Decoder, PROTOCOL_VERSION};
 use config::{NetworkConfig, NodeConfig, SecretRef};
 use consensus::{
-    Committee, CommitteeMember, CommitteeSelector, FinalityEngine, PotbWeight, WeightedSampler,
-    quorum_power,
+    Committee, CommitteeMember, CommitteeSelector, DemonstrationSampler, FinalityEngine,
+    PotbWeight, quorum_power,
 };
 use dns::{InMemoryResolver, Record, Resolver};
 use execution::{ExecutorConfig, SimpleExecutor};
@@ -194,7 +194,7 @@ fn committee_rotation_feeds_finality() {
         },
     ];
 
-    let sampler = WeightedSampler;
+    let sampler = DemonstrationSampler;
     let next = sampler.rotate(&committee, &candidates, 1);
     assert_eq!(next.height, 1);
     assert_eq!(next.members.len(), 3);

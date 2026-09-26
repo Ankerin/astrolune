@@ -30,9 +30,6 @@ gradual committee rotation, and prevote/precommit BFT finality in a modular Rust
 
 </div>
 
-> [!WARNING]
-> AstroLune includes a **working reference network** for signed native payments and fixed-committee BFT finality. PoTB/VRF, contracts, production networking, and independent audits remain unfinished; it must not secure economic value.
-
 ## Overview
 
 AstroLune is a research and engineering workspace for a modular blockchain node. The repository focuses on explicit boundaries, deterministic behavior, bounded resources, and interfaces that can evolve into versioned protocol specifications.

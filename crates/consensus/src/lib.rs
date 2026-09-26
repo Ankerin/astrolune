@@ -18,6 +18,7 @@ pub mod prevote;
 pub mod proposal;
 pub mod sampler;
 pub mod vote;
+pub mod vrf_selection;
 pub mod weight;
 
 pub use authenticated::{AuthenticatedCommittee, MAX_COMMITTEE_MEMBERS};
@@ -29,8 +30,9 @@ pub use finality::{BftFinalityEngine, FinalityEngine};
 pub use local::{LocalBft, LocalBftError, VotingStep};
 pub use prevote::PrevoteCertificate;
 pub use proposal::Proposal;
-pub use sampler::WeightedSampler;
+pub use sampler::DemonstrationSampler;
 pub use vote::{Vote, VotePhase};
+pub use vrf_selection::{VerifiedVrfSampler, VrfValidator};
 pub use weight::{PotbWeight, quorum_power};
 
 #[cfg(test)]
@@ -80,7 +82,7 @@ mod tests {
             ],
         };
 
-        let sampler = WeightedSampler;
+        let sampler = DemonstrationSampler;
 
         let candidates = vec![
             make_candidate(5, 50, 0x05),

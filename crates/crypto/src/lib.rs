@@ -6,7 +6,7 @@
 //! This crate provides domain-separated hashing, digital signature interfaces,
 //! and Merkle tree construction. Hashing uses `RustCrypto` BLAKE2s-256 and
 //! signatures use ed25519-dalek strict verification. The `MockCryptoProvider`
-//! is only for tests and local demonstrations. VRF remains unimplemented.
+//! is only for tests and local demonstrations. VRF uses RFC 9381 ECVRF.
 
 #![forbid(unsafe_code)]
 #![allow(clippy::missing_errors_doc)]
@@ -14,19 +14,21 @@
 pub mod blake2s;
 pub mod ed25519_provider;
 pub mod error;
+pub mod vrf;
 
 pub use blake2s::{Blake2sProvider, blake2s as blake2s_hash};
 pub use ed25519_provider::Ed25519Keystore;
 pub use error::CryptoError;
+pub use vrf::{VrfInput, VrfRole, prove_vrf};
 
 use types::{Hash256, ValidatorId};
 
-/// A weighted VRF proof and output used for committee eligibility.
+/// An RFC 9381 ECVRF proof and its domain-hashed 256-bit output.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct VrfOutput {
     /// Pseudorandom output interpreted as a big-endian integer.
     pub randomness: Hash256,
-    /// Provider-specific canonical proof bytes.
+    /// Exactly 80 canonical ECVRF-EDWARDS25519-SHA512-TAI proof bytes.
     pub proof: Vec<u8>,
 }
 
@@ -38,7 +40,7 @@ pub trait CryptoProvider: Send + Sync {
     /// Verifies a validator signature.
     fn verify_signature(&self, signer: ValidatorId, message: &[u8], signature: &[u8; 64]) -> bool;
 
-    /// Verifies the VRF output for a validator and epoch seed.
+    /// Verifies a registered validator's VRF against a [`VrfInput::seed`] digest.
     fn verify_vrf(&self, validator: ValidatorId, seed: Hash256, output: &VrfOutput) -> bool;
 }
 
