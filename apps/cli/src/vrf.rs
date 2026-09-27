@@ -3,19 +3,29 @@
 
 //! Offline VRF operations against the trusted genesis registry.
 
-use std::{ffi::OsString, fs::File, io::Read, path::Path};
+use crate::{
+    CliError,
+    wallet::{integer, read_raw_seed, text, write_new},
+};
 use codec::CanonicalDecode;
 use crypto::{Blake2sProvider, CryptoProvider, VrfInput, VrfOutput, VrfRole, prove_vrf};
+use std::{ffi::OsString, fs::File, io::Read, path::Path};
 use types::Hash256;
-use crate::{CliError, wallet::{integer, read_seed, text, write_new}};
 
-fn error(value: impl std::fmt::Display) -> CliError { CliError::Config(value.to_string()) }
+fn error(value: impl std::fmt::Display) -> CliError {
+    CliError::Config(value.to_string())
+}
 
 fn read(path: &Path, maximum: usize) -> Result<Vec<u8>, CliError> {
     let mut bytes = Vec::new();
-    File::open(path).map_err(error)?.take(maximum as u64 + 1)
-        .read_to_end(&mut bytes).map_err(error)?;
-    if bytes.len() > maximum { return Err(error("VRF input exceeds its size limit")); }
+    File::open(path)
+        .map_err(error)?
+        .take(maximum as u64 + 1)
+        .read_to_end(&mut bytes)
+        .map_err(error)?;
+    if bytes.len() > maximum {
+        return Err(error("VRF input exceeds its size limit"));
+    }
     Ok(bytes)
 }
 
@@ -23,8 +33,9 @@ pub(super) fn run(command: &str, args: &[OsString]) -> Result<(), CliError> {
     let [genesis_path, key, epoch, height, parent, role, round, path] = args else {
         return Err(error("invalid VRF arguments; run cli help"));
     };
-    let genesis = genesis::Genesis::decode(&read(Path::new(genesis_path), genesis::MAX_GENESIS_BYTES)?)
-        .map_err(error)?;
+    let genesis =
+        genesis::Genesis::decode(&read(Path::new(genesis_path), genesis::MAX_GENESIS_BYTES)?)
+            .map_err(error)?;
     let input = VrfInput {
         chain_id: genesis.chain_id,
         genesis: genesis.commitment().map_err(error)?,
@@ -39,9 +50,15 @@ pub(super) fn run(command: &str, args: &[OsString]) -> Result<(), CliError> {
         round: u32::try_from(integer(round)?).map_err(error)?,
     };
     if input.height == 0 || (input.role == VrfRole::Committee && input.round != 0) {
-        return Err(error("VRF height must be positive; committee round must be zero"));
+        return Err(error(
+            "VRF height must be positive; committee round must be zero",
+        ));
     }
-    let seed = if command == "vrf-prove" { Some(read_seed(Path::new(key))?) } else { None };
+    let seed = if command == "vrf-prove" {
+        Some(read_raw_seed(Path::new(key))?)
+    } else {
+        None
+    };
     let public = if let Some(ref seed) = seed {
         crypto::blake2s::ed25519_public_key(seed)
     } else {
@@ -49,16 +66,25 @@ pub(super) fn run(command: &str, args: &[OsString]) -> Result<(), CliError> {
     };
     let mut provider = Blake2sProvider::new();
     let id = provider.register_validator(public).map_err(error)?;
-    if !genesis.validators.iter().any(|v| v.id == id && v.weight > 0) {
+    if !genesis
+        .validators
+        .iter()
+        .any(|v| v.id == id && v.weight > 0)
+    {
         return Err(error("VRF key is not an eligible genesis validator"));
     }
     let output = if let Some(ref seed) = seed {
         prove_vrf(seed, input).map_err(error)?
     } else {
-        VrfOutput::decode(&read(Path::new(path), crypto::vrf::VRF_ENVELOPE_BYTES)?).map_err(error)?
+        VrfOutput::decode(&read(Path::new(path), crypto::vrf::VRF_ENVELOPE_BYTES)?)
+            .map_err(error)?
     };
-    if !provider.verify_vrf(id, input.seed(), &output) { return Err(error("invalid VRF proof or context")); }
-    if seed.is_some() { write_new(Path::new(path), &output.encode().map_err(error)?)?; }
+    if !provider.verify_vrf(id, input.seed(), &output) {
+        return Err(error("invalid VRF proof or context"));
+    }
+    if seed.is_some() {
+        write_new(Path::new(path), &output.encode().map_err(error)?)?;
+    }
     println!("validator: {id}");
     println!("public_key: {}", Hash256(public));
     println!("input: {}", input.seed());

@@ -9,11 +9,13 @@ mod backend;
 mod error;
 mod validator;
 mod version;
+mod wasm;
 
 pub use backend::*;
 pub use error::*;
 pub use validator::*;
 pub use version::*;
+pub use wasm::*;
 
 #[cfg(test)]
 mod tests {

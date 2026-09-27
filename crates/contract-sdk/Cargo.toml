@@ -14,8 +14,12 @@ repository.workspace = true
 [lib]
 crate-type = ["rlib"]
 
+[features]
+default = ["alloc"]
+alloc = []
+
 [dependencies]
-types = { version = "0.1.0", path = "../types" }
+contract-abi = { version = "0.1.0", path = "../contract-abi" }
 
 [lints]
 workspace = true

@@ -16,7 +16,7 @@ Rust ownership prevents many memory bugs but does not create consensus determini
 |---|---|---|
 | `codec` | canonical bounded encoding primitives | interface baseline; decoder helpers tested |
 | `types` | shared hashes, addresses, resources, transactions, blocks, receipts | interface baseline |
-| `crypto` | hashing, signature, and VRF provider boundary | interface baseline; no provider |
+| `crypto` | hashing, signature, and VRF provider boundary | BLAKE2s, strict Ed25519 and RFC 9381 ECVRF |
 | `genesis` | chain parameters and initial validator/allocation validation | interface baseline; pure validation implemented |
 | `transaction` | staged transaction validation and lane assignment | interface baseline |
 | `consensus` | PoTB weights, committee rotation, votes, and BFT finality | interface baseline; quorum helper tested |
@@ -27,7 +27,7 @@ Rust ownership prevents many memory bugs but does not create consensus determini
 | Package | Responsibility | Current status |
 |---|---|---|
 | `state` | leases, immutable snapshots, diffs, database API | interface baseline |
-| `runtime` | canonical contract modules and interpreter/AOT/JIT backends | interface baseline |
+| `runtime` | canonical contract modules and interpreter/AOT/JIT backends | integer WebAssembly ABI v2 interpreter; alternate backends pending |
 | `execution` | waves, lanes, scheduling, optimistic execution | interface baseline |
 | `mempool` | bounded local admission and deterministic selection policy | in-memory reference behavior tested |
 | `storage` | validator-local finalized chain/state persistence | interface baseline |

@@ -40,6 +40,19 @@ impl Fixture {
             .output()
             .unwrap()
     }
+    fn with_password(&self, args: &[&str], password: &[u8]) -> Output {
+        use std::process::Stdio;
+        let mut process = Command::new(env!("CARGO_BIN_EXE_cli"))
+            .current_dir(&self.0)
+            .args(args)
+            .stdin(Stdio::piped())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            .spawn()
+            .unwrap();
+        process.stdin.take().unwrap().write_all(password).unwrap();
+        process.wait_with_output().unwrap()
+    }
     fn sign(&self, recipient: Address) -> Output {
         self.command(&[
             "sign-payment",
@@ -56,6 +69,68 @@ impl Fixture {
         Transaction::decode(&std::fs::read(self.0.join("payment.bin")).unwrap()).unwrap()
     }
 }
+
+#[test]
+fn vault_passwords_stay_off_argv_and_unlocked_keys_sign_normal_transactions() {
+    let fixture = Fixture::new();
+    let password = b"correct horse battery staple\n";
+    let encrypted = success(
+        &fixture.with_password(&["wallet-encrypt", "wallet.seed", "wallet.vault"], password),
+    );
+    assert!(!encrypted.contains("correct horse"));
+    assert!(!encrypted.contains(&"f0".repeat(32)));
+    assert_eq!(
+        std::fs::metadata(fixture.0.join("wallet.vault"))
+            .unwrap()
+            .len(),
+        keystore::vault::WALLET_VAULT_BYTES as u64
+    );
+    let recipient = Address([77; 32]);
+    let signed = fixture.with_password(
+        &[
+            "sign-payment",
+            "42",
+            "wallet.vault",
+            &recipient.to_string(),
+            "123",
+            "0",
+            "1000",
+            "vault-payment.bin",
+        ],
+        password,
+    );
+    success(&signed);
+    success(&fixture.sign(recipient));
+    assert_eq!(
+        std::fs::read(fixture.0.join("vault-payment.bin")).unwrap(),
+        std::fs::read(fixture.0.join("payment.bin")).unwrap()
+    );
+    assert!(
+        !fixture
+            .with_password(
+                &["wallet-address", "wallet.vault"],
+                b"wrong long password\n"
+            )
+            .status
+            .success()
+    );
+    assert!(
+        !fixture
+            .with_password(&["wallet-encrypt", "wallet.seed", "wallet.vault"], password)
+            .status
+            .success()
+    );
+    let created = success(&fixture.with_password(&["wallet-create", "fresh.vault"], password));
+    assert_ne!(created.lines().next(), encrypted.lines().next());
+    let raw = std::fs::read(fixture.0.join("wallet.vault")).unwrap();
+    std::fs::write(fixture.0.join("truncated.vault"), &raw[..32]).unwrap();
+    assert!(
+        !fixture
+            .with_password(&["wallet-address", "truncated.vault"], password)
+            .status
+            .success()
+    );
+}
 impl Drop for Fixture {
     fn drop(&mut self) {
         let _ = std::fs::remove_dir_all(&self.0);
@@ -68,6 +143,84 @@ fn success(output: &Output) -> String {
         String::from_utf8_lossy(&output.stderr)
     );
     String::from_utf8(output.stdout.clone()).unwrap()
+}
+
+#[test]
+fn contract_commands_activate_explicitly_sign_inspect_and_execute() {
+    use transaction::{contract_address, contract_code_key};
+    let fixture = Fixture::new();
+    success(&fixture.command(&["devnet", "network", "1", "--contracts"]));
+    let genesis =
+        genesis::Genesis::decode(&std::fs::read(fixture.0.join("network/genesis.bin")).unwrap())
+            .unwrap();
+    assert_eq!(genesis.runtime_version, 2);
+    let code = wat::parse_str(r#"(module (memory (export "memory") 1 1) (func (export "call") (result i32) i32.const 0))"#).unwrap();
+    std::fs::write(fixture.0.join("contract.wasm"), &code).unwrap();
+    let arguments = [
+        "sign-deploy",
+        "network/genesis.bin",
+        "wallet.seed",
+        "contract.wasm",
+        "0",
+        "1000",
+        "deploy.bin",
+    ];
+    let output = success(&fixture.command(&arguments));
+    let deploy =
+        Transaction::decode(&std::fs::read(fixture.0.join("deploy.bin")).unwrap()).unwrap();
+    let address = contract_address(genesis.chain_id, deploy.sender, deploy.nonce);
+    assert!(output.contains(&address.to_string()));
+    assert!(
+        !fixture.command(&arguments).status.success(),
+        "must not overwrite"
+    );
+    success(&fixture.command(&["inspect-transaction", "deploy.bin"]));
+    let mut state = genesis.materialize().unwrap();
+    let root = state.root();
+    let context = ValidationContext {
+        chain_id: genesis.chain_id,
+        next_height: 1,
+        max_transaction_bytes: 65_536,
+    };
+    execution::execute_signed(&mut state, &[deploy], root, context, genesis.capacity).unwrap();
+    assert_eq!(
+        state.get(&contract_code_key(address)),
+        Some(code.as_slice())
+    );
+    std::fs::write(fixture.0.join("input.bin"), []).unwrap();
+    std::fs::write(fixture.0.join("keys.txt"), []).unwrap();
+    success(&fixture.command(&[
+        "sign-call",
+        "network/genesis.bin",
+        "wallet.seed",
+        &address.to_string(),
+        "input.bin",
+        "keys.txt",
+        "1",
+        "1000",
+        "1000",
+        "call.bin",
+    ]));
+    let call = Transaction::decode(&std::fs::read(fixture.0.join("call.bin")).unwrap()).unwrap();
+    success(&fixture.command(&["inspect-transaction", "call.bin"]));
+    let root = state.root();
+    execution::execute_signed(&mut state, &[call], root, context, genesis.capacity).unwrap();
+    success(&fixture.command(&["devnet", "legacy", "1"]));
+    assert!(
+        !fixture
+            .command(&[
+                "sign-deploy",
+                "legacy/genesis.bin",
+                "wallet.seed",
+                "contract.wasm",
+                "0",
+                "1000",
+                "denied.bin"
+            ])
+            .status
+            .success()
+    );
+    assert!(!fixture.0.join("denied.bin").exists());
 }
 
 #[test]

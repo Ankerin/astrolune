@@ -74,12 +74,13 @@ pub(super) fn run(command: &str, args: &[OsString]) -> Result<(), CliError> {
             Ok(())
         }
         ("inspect-payment", [path]) => print_payment(&read_payment(Path::new(path))?),
+        ("inspect-transaction", [path]) => print_transaction(&read_transaction(Path::new(path))?),
         ("submit", [path] | [path, _]) => submit(Path::new(path), &client(args.get(1))?),
         _ => Err(error("invalid arguments; run cli help for command usage")),
     }
 }
 
-fn client(address: Option<&OsString>) -> Result<TcpRpcClient, CliError> {
+pub(super) fn client(address: Option<&OsString>) -> Result<TcpRpcClient, CliError> {
     let address = address
         .cloned()
         .or_else(|| std::env::var_os("ASTROLUNE_RPC_ADDR"))
@@ -109,6 +110,25 @@ fn parse_address(value: &OsStr) -> Result<Address, CliError> {
 }
 
 pub(super) fn read_seed(path: &Path) -> Result<Zeroizing<[u8; 32]>, CliError> {
+    let mut bytes = Zeroizing::new(Vec::with_capacity(keystore::vault::WALLET_VAULT_BYTES + 1));
+    File::open(path)
+        .map_err(error)?
+        .take(keystore::vault::WALLET_VAULT_BYTES as u64 + 1)
+        .read_to_end(&mut bytes)
+        .map_err(error)?;
+    if bytes.len() == keystore::vault::WALLET_VAULT_BYTES {
+        return keystore::vault::decrypt_wallet_seed(&bytes, &crate::vault::password()?)
+            .map_err(error);
+    }
+    if bytes.starts_with(b"ALVAULT1") {
+        return Err(error("truncated or oversized wallet vault"));
+    }
+    let seed = <[u8; 32]>::try_from(bytes.as_slice())
+        .map_err(|_| error("expected a 32-byte raw seed or wallet vault"))?;
+    Ok(Zeroizing::new(seed))
+}
+
+pub(super) fn read_raw_seed(path: &Path) -> Result<Zeroizing<[u8; 32]>, CliError> {
     let mut bytes = Zeroizing::new(Vec::with_capacity(33));
     File::open(path)
         .map_err(error)?
@@ -191,11 +211,14 @@ fn validate_payment(tx: &Transaction) -> Result<Payment, CliError> {
 }
 
 pub(super) fn write_new(path: &Path, bytes: &[u8]) -> Result<(), CliError> {
-    let mut file = OpenOptions::new()
-        .write(true)
-        .create_new(true)
-        .open(path)
-        .map_err(error)?;
+    let mut options = OpenOptions::new();
+    options.write(true).create_new(true);
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::OpenOptionsExt;
+        options.mode(0o600);
+    }
+    let mut file = options.open(path).map_err(error)?;
     file.write_all(bytes)
         .and_then(|()| file.sync_all())
         .map_err(error)?;
@@ -239,7 +262,7 @@ fn print_payment(tx: &Transaction) -> Result<(), CliError> {
 }
 
 fn submit(path: &Path, client: &TcpRpcClient) -> Result<(), CliError> {
-    let tx = read_payment(path)?;
+    let tx = read_transaction(path)?;
     let status = client.chain_status().map_err(error)?;
     if status.chain_id != tx.chain_id {
         return Err(error(
@@ -251,7 +274,7 @@ fn submit(path: &Path, client: &TcpRpcClient) -> Result<(), CliError> {
             "payment has expired for the next block; nothing sent",
         ));
     }
-    print_payment(&tx)?;
+    print_transaction(&tx)?;
     let expected = compute_tx_id(&tx);
     match client.submit_transaction(&tx.to_bytes()) {
         Ok(received) if received == expected => {
@@ -266,5 +289,27 @@ fn submit(path: &Path, client: &TcpRpcClient) -> Result<(), CliError> {
                 Err(failure) => failure.to_string(),
             }
         ))),
+    }
+}
+
+fn read_transaction(path: &Path) -> Result<Transaction, CliError> {
+    let bytes = crate::contracts::read_bounded(path, MAX_TRANSACTION_BYTES)?;
+    let tx = Transaction::decode(&bytes).map_err(error)?;
+    match tx.lane {
+        TransactionLane::Contracts => {
+            crate::contracts::validate(&tx)?;
+        }
+        _ => {
+            validate_payment(&tx)?;
+        }
+    }
+    Ok(tx)
+}
+
+fn print_transaction(tx: &Transaction) -> Result<(), CliError> {
+    if tx.lane == TransactionLane::Contracts {
+        crate::contracts::print(tx)
+    } else {
+        print_payment(tx)
     }
 }

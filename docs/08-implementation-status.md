@@ -4,7 +4,7 @@
 
 ## 8.1 Current baseline
 
-As of 2026-09-24, this repository contains a Rust 2024 workspace with:
+As of 2026-09-27, this repository contains a Rust 2024 workspace with:
 
 - canonical shared types and bounded decoder primitives;
 - standard BLAKE2s-256 and strict Ed25519 backends, canonical transaction commitments, and state-aware signed admission;
@@ -21,7 +21,7 @@ As of 2026-09-24, this repository contains a Rust 2024 workspace with:
 - a local demonstration service (`FullNodeService`) that simulates finality while coordinating execution and storage;
 - a daemon with both local demonstration and certified fixed-committee network modes, bounded peer exchange, payment gossip, protected signing recovery, and RPC status tied to durable commits.
 
-The repository now runs a **certified reference network** for native payments and fixed-committee BFT across independent daemon processes. A [reference CLI wallet](24-wallet-and-rpc-client.md) supports offline signing and real RPC submission. PoTB/VRF, rotating membership, contracts, production transport/storage, production wallet custody, and ecosystem deployment remain unfinished. See [network setup and current limits](19-reference-network.md).
+The repository now runs a **certified reference network** for native payments and fixed-committee BFT across independent daemon processes. A [reference CLI wallet](24-wallet-and-rpc-client.md) supports offline signing and real RPC submission. Live PoTB/VRF activation, rotating membership, production transport/storage, DNS, receipt/proof queries and source-package tooling remain unfinished. Verified VRF selection, the WASM runtime and signed contract activation are implemented; see [VRF](28-vrf-and-weighted-selection.md), [runtime](29-parallel-payments-and-wasm.md) and [contracts](30-signed-contracts.md). See [network setup and current limits](19-reference-network.md).
 
 ## 8.2 Component status
 
@@ -30,17 +30,17 @@ The repository now runs a **certified reference network** for native payments an
 | Canonical codec | primitive, version-1 transaction, block-header, and receipt codecs implemented; strict lengths/flags, version/lane rejection, and transaction preflight validation tested; version-1 consensus vote/certificate and bounded reference-network envelopes implemented/tested; production compatibility qualification remains open |
 | Shared protocol types | interface baseline |
 | Genesis | bounded version-1 decoding, validated BLAKE2s commitment, account/validator state materialization, CLI verification, atomic daemon activation and restart identity checks implemented; exact genesis-key registry and explicit protected signer provisioning implemented |
-| Cryptography and VRF | standard BLAKE2s-256 and strict Ed25519 implemented/tested; registered validator-key verification; VRF remains unimplemented and fails closed |
-| PoTB and BFT | checked committee commitments, registered Ed25519 vote authentication, bounded round-specific quorum collection, and independently verified version-1 certificates implemented/tested; protected local prevote/precommit locks, verified valid-round proofs, and timeout transitions implemented/tested; signed proposals and explicit reference round-robin designation implemented/tested; reference monotonic timers and fixed-committee daemon networking implemented/tested; weighted VRF selection, rotating committees, and formal distributed liveness remain open |
-| Keystore | single-key Ed25519 signer, bounded decision journal with protected watermark rollover, chain/genesis/key binding, monotonic watermark, atomic version-2 vote/lock records, process locking, restart and uncertain-write recovery implemented/tested; daemon open-only journal recovery and explicit CLI provisioning implemented/tested; encrypted key custody and anti-rollback anchors remain open |
+| Cryptography and VRF | standard BLAKE2s-256 and strict Ed25519 implemented/tested; registered validator-key verification; strict registered-key RFC 9381 VRF verification/generation and RFC/malleability/context tests implemented |
+| PoTB and BFT | checked committee commitments, registered Ed25519 vote authentication, bounded round-specific quorum collection, and independently verified version-1 certificates implemented/tested; protected local prevote/precommit locks, verified valid-round proofs, and timeout transitions implemented/tested; signed proposals and explicit reference round-robin designation implemented/tested; reference monotonic timers and fixed-committee daemon networking implemented/tested; verified weighted VRF selection and rotation computation implemented; daemon rotation and formal distributed liveness remain open |
+| Keystore | single-key Ed25519 signer, bounded decision journal with protected watermark rollover, chain/genesis/key binding, monotonic watermark, atomic version-2 vote/lock records, process locking, restart and uncertain-write recovery implemented/tested; daemon open-only journal recovery and explicit CLI provisioning implemented/tested; encrypted wallet vaults and OS-generated keys implemented/tested; consensus key custody and anti-rollback anchors remain open |
 | Transactions | canonical signing/ID commitments and state-aware signed validator implemented/tested; native signed payment transitions and fixed reference fees implemented/tested; version-1 envelope, inclusive expiry, signed lane/prices, and expiry eviction implemented/tested |
 | Mempool | bounded in-memory reference admission and deterministic selection implemented/tested |
 | State and storage | bounded Merkle state, membership and absence proofs, immutable snapshots, atomic transitions, file-backed state and whole-chain archive recovery, and authenticated snapshot exchange implemented/tested; daemon block/state restart recovery implemented/tested; native payment account transitions implemented/tested; append-only block/delta logs with disk history reads, atomic head publication and replay recovery are implemented/tested for new network directories; production state indexing and retention remain planned |
-| Runtime and execution | signed sequential native payment executor, serial contract demonstration, and dependency-preserving greedy wave planner; lease normalization and scheduler equivalence tested; production runtime and parallel execution remain planned |
+| Runtime and execution | signed serial/parallel payments and ABI-v2 contract waves, bounded integer WebAssembly interpreter, staged writes/events and atomic publication; worker-count/error equivalence tested; system lane and alternate backends remain open |
 | Sync, P2P, RPC, and node | node demonstration pipeline with staged proposal execution, atomic commit, retry preservation, and canonical transaction/receipt leaves; genesis-backed native payment admission/execution and daemon RPC implemented/tested; genesis-free admission and finality remain demonstrations; explicit producer certified proposal/commit APIs and a reference round-robin participant coordinate signed proposals, evidence, timeout events, and recovery; certified validator and non-voting observer networking over mutual TLS 1.3, transaction gossip, available-value persistence, full-history certificate authentication, and sequential catch-up implemented/tested |
 | Configuration | pure validation and debug redaction baseline |
 | Telemetry | no-op local sink |
-| Contracts | SDK interface only; no compiler target or runtime |
+| Contracts | pinned Rust builds and artifact tools; signed deployment/calls under genesis profile 2, fee/nonce transitions and certified restart/catch-up tested; allocation-free SDK host bindings implemented/tested; source-package tooling remains open |
 | DNS | service data models and placeholder binaries |
 | CLI and daemon | CLI genesis verification; local daemon with file-backed block/state recovery, genesis activation, strict arguments, startup failure propagation, and durable RPC head; signed native payments and committed account/submission RPC implemented/tested; opt-in certified fixed-committee network, devnet provisioning, and standalone TLS identity provisioning implemented/tested; default local mode retains demonstration finality |
 
@@ -86,7 +86,7 @@ Deterministic waves, Adaptive Execution Leasing, lanes, optimistic access valida
 
 PoTB transitions and evidence, audited VRF provider, unbiased weighted sampler, partial committee rotation, producer selection, prevote/precommit state machine, certificates, durable anti-equivocation, formal models, and adversarial simulations.
 
-The [authenticated finality layer](15-authenticated-finality.md) verifies registered keys, chain/height/committee-bound vote digests, and weighted precommit certificates. The collector retains one round, rejects duplicate nil votes, distinguishes authenticated equivocation, and never combines weights across rounds or phases. Certified producer commits authenticate finality before existing execution/storage checks, with failed-write retry and restart verification tests. The [durable signing journal](16-durable-signing.md) now reserves a chain/genesis/key-bound decision before returning an Ed25519 signature, blocks stale coordinates, and recovers after process exit. Typed vote signing maps wire phases to protected journal coordinates. Protected journals now support [bounded rollover](23-signing-journal-rollover.md), preserving their immutable prefix and inode lock while continuing past 100,000 decisions. The [local BFT guard](17-local-bft-voting.md) now verifies prevote proofs, preserves locks through nil votes/timeouts and restarts, and reserves locks atomically with signatures. Read-only producer validation and a payment/vote/certificate/archive integration test exercise execution before signing and publication after finality. [Signed proposals and a reference participant](18-signed-proposals-and-participants.md) now authenticate designation, persist proposal reservations, coordinate execution/voting/commit, and recover across round changes and failed storage writes. The [reference network driver](19-reference-network.md) integrates daemon voting, timers, signer provisioning, durable available values, and certified synchronization. Mutually authenticated TLS 1.3 and independent transport provisioning are implemented; see [transport security](20-authenticated-transport.md). Weighted VRF selection, committee handoff, and production qualification remain open.
+The [authenticated finality layer](15-authenticated-finality.md) verifies registered keys, chain/height/committee-bound vote digests, and weighted precommit certificates. The collector retains one round, rejects duplicate nil votes, distinguishes authenticated equivocation, and never combines weights across rounds or phases. Certified producer commits authenticate finality before existing execution/storage checks, with failed-write retry and restart verification tests. The [durable signing journal](16-durable-signing.md) now reserves a chain/genesis/key-bound decision before returning an Ed25519 signature, blocks stale coordinates, and recovers after process exit. Typed vote signing maps wire phases to protected journal coordinates. Protected journals now support [bounded rollover](23-signing-journal-rollover.md), preserving their immutable prefix and inode lock while continuing past 100,000 decisions. The [local BFT guard](17-local-bft-voting.md) now verifies prevote proofs, preserves locks through nil votes/timeouts and restarts, and reserves locks atomically with signatures. Read-only producer validation and a payment/vote/certificate/archive integration test exercise execution before signing and publication after finality. [Signed proposals and a reference participant](18-signed-proposals-and-participants.md) now authenticate designation, persist proposal reservations, coordinate execution/voting/commit, and recover across round changes and failed storage writes. The [reference network driver](19-reference-network.md) integrates daemon voting, timers, signer provisioning, durable available values, and certified synchronization. Mutually authenticated TLS 1.3 and independent transport provisioning are implemented; see [transport security](20-authenticated-transport.md). Verified weighted VRF selection is implemented; daemon committee handoff and production qualification remain open.
 
 ### M6 — P2P and node
 
@@ -113,17 +113,17 @@ The concise checklist is maintained in [`../ROADMAP.md`](../ROADMAP.md).
 
 Every protocol change must pass formatting, Clippy with warnings denied, unit/integration/doc tests, canonical serialization compatibility, cross-platform deterministic fixtures, and documentation-link checks. Relevant changes additionally require property testing, fuzzing, recovery tests, and optimized/reference differential checks.
 
-Unsafe Rust remains forbidden unless a dedicated reviewed exception crate is introduced. CI currently covers Linux and Windows quality checks; dependency policy and advisory workflows are configured separately.
+Unsafe Rust remains forbidden except in the dedicated wasm32 FFI module; [documented binding review](../crates/contract-abi/SAFETY.md). CI currently covers Linux and Windows quality checks; dependency policy and advisory workflows are configured separately.
 
 ## 8.6 Open decisions
 
 Before production implementation, resolve:
 
 1. PoTB scoring, admission, penalties, evidence, governance, and formal claims.
-2. VRF construction and unbiased weighted sampling.
+2. VRF availability and live committee activation; construction and unbiased weighted sampling are specified.
 3. Rotating weighted BFT lock, unlock, timeout, and handoff rules.
 4. Canonical encoding and hash suite.
-5. Rust contract target and reproducible compiler policy.
+5. Rust source-package reproducibility; ABI-v2 WebAssembly, its host SDK and Rust 1.93.1 builds are implemented.
 6. Production state indexing and concrete durable chain database engine; the reference Merkle commitment is specified.
 7. Fees, transaction ordering, anti-MEV policy, and lane borrowing.
 8. Adaptive-capacity observation, manipulation resistance, and activation.

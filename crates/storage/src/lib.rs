@@ -24,7 +24,11 @@ mod chain;
 mod log;
 mod log_record;
 mod persistent;
+mod receipts;
 mod snapshot;
+pub use receipts::{
+    BlockEffects, MAX_BLOCK_RECEIPTS, MAX_INDEXED_TRANSACTIONS, MAX_RECEIPTS_BYTES, StoredReceipts,
+};
 
 pub use chain::ChainStorage;
 pub use log::AppendOnlyStorage;
@@ -58,6 +62,8 @@ pub struct CommitBatch {
     pub finality_certificate: Vec<u8>,
     /// Execution diffs in committed transaction order.
     pub state_diffs: Vec<StateDiff>,
+    /// Optional ordered receipts and genesis binding; absent in historical v1 records.
+    pub effects: Option<BlockEffects>,
 }
 
 /// Validator-local durable storage boundary.
@@ -158,6 +164,10 @@ pub struct InMemoryStorage {
     certificates: BTreeMap<Hash256, Vec<u8>>,
     /// Immutable historical state views retained for authenticated snapshot export.
     snapshots: BTreeMap<u64, InMemoryState>,
+    /// Optional ordered execution metadata for new finalized blocks.
+    effects: BTreeMap<u64, BlockEffects>,
+    /// Rebuildable recent transaction lookup index.
+    transactions: receipts::RecentTransactions,
 }
 
 impl InMemoryStorage {
@@ -170,6 +180,8 @@ impl InMemoryStorage {
             blocks: BTreeMap::new(),
             certificates: BTreeMap::new(),
             snapshots: BTreeMap::new(),
+            effects: BTreeMap::new(),
+            transactions: receipts::RecentTransactions::default(),
         }
     }
 
@@ -202,6 +214,31 @@ impl InMemoryStorage {
     pub fn get_certificate(&self, hash: &Hash256) -> Option<&[u8]> {
         self.certificates.get(hash).map(Vec::as_slice)
     }
+
+    /// Finds a recent finalized transaction. Missing does not prove non-inclusion.
+    #[must_use]
+    pub fn transaction_location(&self, id: Hash256) -> Option<(u64, usize)> {
+        self.transactions.get(id)
+    }
+
+    /// Reads ordered receipt metadata when that block retained it.
+    pub fn read_receipts(&self, height: u64) -> Result<Option<StoredReceipts>, StorageError> {
+        let Some(effects) = self.effects.get(&height) else {
+            return Ok(None);
+        };
+        let cp = self.checkpoints.get(&height).ok_or(StorageError::Corrupt)?;
+        let block = self.blocks.get(&cp.block).ok_or(StorageError::Corrupt)?;
+        let certificate = self
+            .certificates
+            .get(&cp.block)
+            .ok_or(StorageError::Corrupt)?;
+        effects.validate(block)?;
+        Ok(Some(StoredReceipts {
+            header: block.header,
+            certificate: certificate.clone(),
+            effects: effects.clone(),
+        }))
+    }
 }
 
 impl Default for InMemoryStorage {
@@ -217,6 +254,9 @@ impl NodeStorage for InMemoryStorage {
 
     fn commit(&mut self, batch: &CommitBatch) -> Result<Checkpoint, StorageError> {
         archive::validate_block(&batch.block, &batch.finality_certificate)?;
+        if let Some(effects) = &batch.effects {
+            effects.validate(&batch.block)?;
+        }
         let (expected_height, expected_parent) = match self.checkpoint() {
             Some(checkpoint) => (
                 checkpoint
@@ -242,6 +282,11 @@ impl NodeStorage for InMemoryStorage {
         }
 
         let block_hash = batch.block.header.compute_hash();
+        self.transactions.insert(&batch.block);
+        if let Some(effects) = &batch.effects {
+            self.effects
+                .insert(batch.block.header.height, effects.clone());
+        }
         self.blocks.insert(block_hash, batch.block.clone());
         self.certificates
             .insert(block_hash, batch.finality_certificate.clone());
@@ -290,6 +335,8 @@ impl NodeStorage for InMemoryStorage {
         self.certificates.clear();
         self.checkpoints.clear();
         self.snapshots.clear();
+        self.effects.clear();
+        self.transactions = receipts::RecentTransactions::default();
         self.snapshots.insert(expected.height, next.clone());
         self.state = next;
         self.checkpoints.insert(expected.height, expected);
@@ -314,6 +361,10 @@ impl NodeStorage for InMemoryStorage {
 
         self.snapshots
             .retain(|&height, _| self.checkpoints.contains_key(&height));
+        self.effects
+            .retain(|height, _| self.checkpoints.contains_key(height));
+        self.transactions
+            .prune(before_height.min(latest.unwrap_or(0)));
 
         Ok(())
     }
@@ -356,6 +407,7 @@ mod tests {
 
     fn make_batch(height: u64, parent_hash: Hash256, state_root: Hash256) -> CommitBatch {
         CommitBatch {
+            effects: None,
             block: make_block(height, parent_hash, state_root),
             finality_certificate: vec![0xAA; 32],
             state_diffs: Vec::new(),

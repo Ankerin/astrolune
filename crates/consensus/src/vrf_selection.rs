@@ -44,6 +44,7 @@ impl VerifiedVrfSampler {
             || roster.len() > MAX_COMMITTEE_MEMBERS
             || candidates.len() != roster.len()
             || input.genesis == Hash256::ZERO
+            || input.height == 0
             || (input.role == VrfRole::Committee && input.round != 0)
         {
             return Err(ConsensusError::InvalidCommittee);

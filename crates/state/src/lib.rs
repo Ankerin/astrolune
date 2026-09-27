@@ -18,6 +18,8 @@ pub mod lease;
 pub mod memory;
 pub mod persistent;
 pub mod snapshot;
+mod value_proof;
+pub use value_proof::StateValueProof;
 
 pub use absence::MAX_ABSENCE_PROOF_BYTES;
 pub use account::{account_key, read_account};

@@ -49,6 +49,7 @@ pub struct AppendOnlyStorage {
     state: InMemoryState,
     checkpoint: Option<Checkpoint>,
     index: BTreeMap<u64, Location>,
+    transactions: crate::receipts::RecentTransactions,
     poisoned: bool,
     #[cfg(test)]
     fault: Option<Fault>,
@@ -125,6 +126,7 @@ impl AppendOnlyStorage {
             state: InMemoryState::new(),
             checkpoint: None,
             index: BTreeMap::new(),
+            transactions: crate::receipts::RecentTransactions::default(),
             poisoned: false,
             #[cfg(test)]
             fault: None,
@@ -140,12 +142,8 @@ impl AppendOnlyStorage {
             }
             while log.end < end {
                 let (record, location) = read_record(&mut log.file, log.end, end, log.tip)?;
-                let is_batch = matches!(&record, Record::Batch(_));
+                log.index_record(&record, location);
                 let (cp, state) = apply(record, log.checkpoint, &log.state)?;
-                // An anchor can occur only as the first record; apply enforces this.
-                if is_batch {
-                    log.index.insert(cp.height, location);
-                }
                 log.state = state;
                 log.checkpoint = Some(cp);
                 log.end = location.end;
@@ -237,6 +235,45 @@ impl AppendOnlyStorage {
                 Ok(Some((batch.block, batch.finality_certificate)))
             }
             _ => Err(StorageError::Corrupt),
+        }
+    }
+
+    /// Finds a recent transaction without scanning retained history.
+    #[must_use]
+    pub fn transaction_location(&self, id: Hash256) -> Option<(u64, usize)> {
+        self.transactions.get(id)
+    }
+
+    /// Reads receipts atomically retained with the finalized block at this height.
+    pub fn read_receipts(
+        &self,
+        height: u64,
+    ) -> Result<Option<crate::StoredReceipts>, StorageError> {
+        self.ready()?;
+        let Some(location) = self.index.get(&height) else {
+            return Ok(None);
+        };
+        let mut file = File::open(&self.path).map_err(|_| StorageError::Io)?;
+        let (record, actual) =
+            read_record(&mut file, location.offset, location.end, location.previous)?;
+        if actual.hash != location.hash || actual.end != location.end {
+            return Err(StorageError::Corrupt);
+        }
+        match record {
+            Record::Batch(batch) if batch.block.header.height == height => {
+                Ok(batch.effects.map(|effects| crate::StoredReceipts {
+                    header: batch.block.header,
+                    certificate: batch.finality_certificate,
+                    effects,
+                }))
+            }
+            _ => Err(StorageError::Corrupt),
+        }
+    }
+    fn index_record(&mut self, record: &Record, location: Location) {
+        if let Record::Batch(batch) = record {
+            self.transactions.insert(&batch.block);
+            self.index.insert(batch.block.header.height, location);
         }
     }
 
@@ -355,6 +392,7 @@ impl NodeStorage for AppendOnlyStorage {
         let (cp, state) = prepare_batch(batch, self.checkpoint, &self.state)?;
         let location = self.append(&payload)?;
         self.index.insert(cp.height, location);
+        self.transactions.insert(&batch.block);
         self.checkpoint = Some(cp);
         self.state = state;
         Ok(cp)
@@ -600,6 +638,7 @@ mod tests {
                 .initialize_genesis(Hash256([1; 32]), InMemoryState::new())
                 .unwrap();
             let batch = CommitBatch {
+                effects: None,
                 block: Block {
                     header: types::BlockHeader {
                         height: 1,

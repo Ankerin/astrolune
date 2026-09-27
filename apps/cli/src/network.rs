@@ -52,30 +52,7 @@ fn daemon_command() -> String {
 }
 
 pub(crate) fn devnet() -> Result<(), CliError> {
-    let mut args = std::env::args_os().skip(2).peekable();
-    let directory = PathBuf::from(
-        args.next()
-            .ok_or_else(|| error("usage: cli devnet <new-directory> [validators] [--observer]"))?,
-    );
-    let count: u8 = if args.peek().is_some_and(|value| value == "--observer") {
-        4
-    } else {
-        args.next().map_or(Ok(4), |value| {
-            value
-                .to_str()
-                .ok_or_else(|| error("invalid validator count"))?
-                .parse()
-                .map_err(error)
-        })?
-    };
-    let with_observer = match args.next() {
-        None => false,
-        Some(value) if value == "--observer" => true,
-        Some(_) => return Err(error("expected --observer after validator count")),
-    };
-    if args.next().is_some() || !(1..=32).contains(&count) {
-        return Err(error("validator count must be 1..32"));
-    }
+    let (directory, count, with_observer, with_contracts) = devnet_options()?;
     std::fs::create_dir(&directory).map_err(error)?;
     let authority = TransportAuthority::generate().map_err(error)?;
     let keys: Vec<_> = (1..=count)
@@ -101,7 +78,7 @@ pub(crate) fn devnet() -> Result<(), CliError> {
         },
         committee_size: usize::from(count),
         rotation_count: 1,
-        runtime_version: 1,
+        runtime_version: if with_contracts { 2 } else { 1 },
         validators,
         allocations: vec![Allocation {
             address: wallet,
@@ -264,4 +241,41 @@ pub(crate) fn init_validator() -> Result<(), CliError> {
         directory.display()
     );
     Ok(())
+}
+
+fn devnet_options() -> Result<(PathBuf, u8, bool, bool), CliError> {
+    let mut args = std::env::args_os().skip(2).peekable();
+    let directory = PathBuf::from(
+        args.next()
+            .ok_or_else(|| error("usage: cli devnet <new-directory> [validators] [--observer]"))?,
+    );
+    let count: u8 = if args
+        .peek()
+        .is_some_and(|value| value == "--observer" || value == "--contracts")
+    {
+        4
+    } else {
+        args.next().map_or(Ok(4), |value| {
+            value
+                .to_str()
+                .ok_or_else(|| error("invalid validator count"))?
+                .parse()
+                .map_err(error)
+        })?
+    };
+    let mut with_observer = false;
+    let mut with_contracts = false;
+    for value in args {
+        if value == "--observer" && !with_observer {
+            with_observer = true;
+        } else if value == "--contracts" && !with_contracts {
+            with_contracts = true;
+        } else {
+            return Err(error("expected unique --observer or --contracts flags"));
+        }
+    }
+    if !(1..=32).contains(&count) {
+        return Err(error("validator count must be 1..32"));
+    }
+    Ok((directory, count, with_observer, with_contracts))
 }

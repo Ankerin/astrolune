@@ -19,6 +19,7 @@ fn batch(storage: &InMemoryStorage, value: u8, size: usize) -> CommitBatch {
         .unwrap()
         .root();
     CommitBatch {
+        effects: None,
         block: Block {
             header: BlockHeader {
                 height: storage.checkpoint().map_or(0, |cp| cp.height + 1),

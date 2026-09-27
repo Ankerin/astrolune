@@ -138,6 +138,76 @@ impl TcpRpcClient {
     }
 
     fn call(&self, method: &str, params: JsonValue) -> Result<JsonValue, ClientError> {
+        self.call_bounded(method, params, MAX_RESPONSE_BYTES)
+    }
+
+    /// Fetches an untrusted proof bundle. Call its `verify` method with independent genesis/keys.
+    pub fn state_proof(
+        &self,
+        key: &types::StateKey,
+    ) -> Result<crate::CertifiedStateProof, ClientError> {
+        if key.len() > state::MAX_STATE_KEY_BYTES {
+            return Err(ClientError::LimitExceeded);
+        }
+        let value = self.call_bounded(
+            "state_proof",
+            JsonValue::Object(vec![(
+                "key".into(),
+                JsonValue::String(crate::proof::hex(key.as_bytes())),
+            )]),
+            8 * 1024 * 1024,
+        )?;
+        let hex = value
+            .as_str()
+            .ok_or(ClientError::Protocol("invalid proof response"))?;
+        if hex.len() > crate::CertifiedStateProof::MAX_BYTES * 2
+            || !hex.len().is_multiple_of(2)
+            || !hex.bytes().all(|b| b.is_ascii_hexdigit())
+        {
+            return Err(ClientError::LimitExceeded);
+        }
+        let bytes = hex
+            .as_bytes()
+            .chunks_exact(2)
+            .map(|pair| {
+                let text = std::str::from_utf8(pair)
+                    .map_err(|_| ClientError::Protocol("invalid proof hex"))?;
+                u8::from_str_radix(text, 16).map_err(|_| ClientError::Protocol("invalid proof hex"))
+            })
+            .collect::<Result<Vec<_>, _>>()?;
+        crate::CertifiedStateProof::from_bytes(&bytes)
+            .map_err(|_| ClientError::Protocol("invalid canonical proof"))
+    }
+
+    /// Fetches a retained receipt proof. None does not prove that a transaction never finalized.
+    /// Authenticate the returned bundle with independently supplied genesis and keys.
+    pub fn receipt(
+        &self,
+        id: Hash256,
+        height: Option<u64>,
+    ) -> Result<Option<crate::CertifiedReceiptProof>, ClientError> {
+        let mut fields = vec![("id".into(), JsonValue::String(id.to_string()))];
+        if let Some(height) = height {
+            fields.push(("height".into(), JsonValue::String(height.to_string())));
+        }
+        let value = self.call_bounded("receipt", JsonValue::Object(fields), 8 * 1024 * 1024)?;
+        if value == JsonValue::Null {
+            return Ok(None);
+        }
+        let hex = value
+            .as_str()
+            .ok_or(ClientError::Protocol("invalid receipt response"))?;
+        let bytes = proof_hex(hex, crate::CertifiedReceiptProof::MAX_BYTES)?;
+        crate::CertifiedReceiptProof::from_bytes(&bytes)
+            .map(Some)
+            .map_err(|_| ClientError::Protocol("invalid receipt proof"))
+    }
+    fn call_bounded(
+        &self,
+        method: &str,
+        params: JsonValue,
+        max_response: usize,
+    ) -> Result<JsonValue, ClientError> {
         let request = to_json(&JsonValue::Object(vec![
             ("jsonrpc".into(), JsonValue::String("2.0".into())),
             ("id".into(), JsonValue::Number(1)),
@@ -162,7 +232,7 @@ impl TcpRpcClient {
         let mut prefix = [0; 4];
         read_exact(&mut stream, &mut prefix, deadline)?;
         let length = u32::from_le_bytes(prefix) as usize;
-        if length == 0 || length > MAX_RESPONSE_BYTES {
+        if length == 0 || length > max_response {
             return Err(ClientError::Protocol("invalid response frame size"));
         }
         let mut payload = vec![0; length];
@@ -257,4 +327,21 @@ impl From<io::ErrorKind> for ClientError {
     fn from(kind: io::ErrorKind) -> Self {
         Self::Io(kind.into())
     }
+}
+
+fn proof_hex(hex: &str, max: usize) -> Result<Vec<u8>, ClientError> {
+    if hex.len() > max * 2
+        || !hex.len().is_multiple_of(2)
+        || !hex.bytes().all(|b| b.is_ascii_hexdigit())
+    {
+        return Err(ClientError::LimitExceeded);
+    }
+    hex.as_bytes()
+        .chunks_exact(2)
+        .map(|pair| {
+            let text = std::str::from_utf8(pair)
+                .map_err(|_| ClientError::Protocol("invalid proof hex"))?;
+            u8::from_str_radix(text, 16).map_err(|_| ClientError::Protocol("invalid proof hex"))
+        })
+        .collect()
 }

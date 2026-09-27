@@ -160,6 +160,20 @@ impl FileBackedStorage {
         Ok(Some((block.clone(), certificate.to_vec())))
     }
 
+    /// Finds a transaction in the bounded recent index rebuilt on recovery.
+    #[must_use]
+    pub fn transaction_location(&self, id: Hash256) -> Option<(u64, usize)> {
+        self.inner.transaction_location(id)
+    }
+
+    /// Reads retained receipt metadata after checking publication health.
+    pub fn read_receipts(
+        &self,
+        height: u64,
+    ) -> Result<Option<crate::StoredReceipts>, StorageError> {
+        self.ready()?;
+        self.inner.read_receipts(height)
+    }
     fn ready(&self) -> Result<(), StorageError> {
         if self.recovery_required {
             Err(StorageError::DurabilityUnknown)

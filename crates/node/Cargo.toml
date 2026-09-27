@@ -27,3 +27,6 @@ types = { version = "0.1.0", path = "../types" }
 
 [lints]
 workspace = true
+
+[dev-dependencies]
+wat = "=1.228.0"

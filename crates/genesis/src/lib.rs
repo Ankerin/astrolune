@@ -13,7 +13,7 @@ use crypto::CryptoProvider;
 use types::{Address, Hash256, Resources, ValidatorId};
 
 mod materialize;
-pub use materialize::{genesis_key, validator_key};
+pub use materialize::{genesis_key, runtime_key, validator_key};
 
 /// Supported canonical genesis format.
 pub const GENESIS_VERSION: u16 = 1;
@@ -77,6 +77,9 @@ impl Genesis {
         }
         if self.chain_id == 0 || self.runtime_version == 0 {
             return Err(GenesisError::InvalidIdentity);
+        }
+        if self.runtime_version > 2 {
+            return Err(GenesisError::UnsupportedVersion);
         }
         if self.validators.len() > MAX_GENESIS_VALIDATORS
             || self.allocations.len() > MAX_GENESIS_ALLOCATIONS

@@ -1,0 +1,22 @@
+# Copyright (c) 2026 Astrolune contributors
+# SPDX-License-Identifier: MIT
+
+[package]
+name = "contract-abi"
+description = "Auditable allocation-free wasm32 host bindings for AstroLune ABI v2"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+
+# This dedicated FFI crate has one documented, target-limited exception.
+# Other workspace crates retain unsafe_code = forbid.
+[lints.rust]
+unsafe_code = "deny"
+missing_docs = "warn"
+
+[lints.clippy]
+all = "warn"
+pedantic = "warn"

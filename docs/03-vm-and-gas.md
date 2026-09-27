@@ -4,7 +4,7 @@
 
 ## 3.1 Rust contract model
 
-AstroLune contracts are written in a deterministic Rust subset and compiled to a versioned canonical runtime target. The exact target is intentionally not fixed by this baseline; a WebAssembly-derived target or a purpose-built verified Rust target must be benchmarked and specified before implementation.
+AstroLune contracts are written in a deterministic Rust subset and compiled to a versioned canonical runtime target. The implemented target is integer-only WebAssembly ABI v2 with Wasmi 2.0.0 metering and pinned Rust 1.93.1 builds; see [sandbox and tooling](29-parallel-payments-and-wasm.md) and [signed activation](30-signed-contracts.md).
 
 The removed ALVM, Trocto, Regol, and Kreep designs are not compatibility requirements. Arbitrary native executables are never consensus artifacts.
 

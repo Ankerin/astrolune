@@ -12,5 +12,16 @@ authors.workspace = true
 repository.workspace = true
 publish = false
 
+[dependencies]
+codec = { version = "0.1.0", path = "../../crates/codec" }
+proc-macro2 = "=1.0.107"
+toml = { version = "=0.9.12", default-features = false, features = ["std", "parse", "serde"] }
+runtime = { version = "0.1.0", path = "../../crates/runtime" }
+types = { version = "0.1.0", path = "../../crates/types" }
+
+[dev-dependencies]
+contract-sdk = { version = "0.1.0", path = "../../crates/contract-sdk", default-features = false }
+wat = "=1.228.0"
+
 [lints]
 workspace = true

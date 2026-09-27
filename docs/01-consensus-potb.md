@@ -39,7 +39,7 @@ A proof is valid only when it verifies under the registered validator key and ex
 5. select without replacement;
 6. commit the selected committee and weights in consensus data.
 
-The final mathematical sampler and VRF suite are not chosen by this baseline. They require test vectors and bias analysis before implementation is called complete.
+The implemented suite is RFC 9381 ECVRF-EDWARDS25519-SHA512-TAI with complete-roster, weighted sampling without replacement. Canonical proofs, context domains, unbiased rejection sampling and rotation are specified in [document 28](28-vrf-and-weighted-selection.md). Daemon activation and independent review remain separate work.
 
 ## 1.4 Partial rotation
 
@@ -108,7 +108,7 @@ Implementations may overlap execution earlier when safe. The externally visible 
 
 ## Implemented authentication boundary
 
-[Version-1 vote and certificate formats](15-authenticated-finality.md) implement committee commitments, registered Ed25519 verification, isolated round/phase accounting, and independent weighted precommit quorum verification. The [local BFT guard](17-local-bft-voting.md) implements prevote/precommit locks and timeout events, persisting lock metadata and signing decisions atomically through a protected [durable journal](16-durable-signing.md). [Signed proposal authentication](18-signed-proposals-and-participants.md), monotonic timers, and a reference round-robin participant operate in the [certified fixed-committee network](19-reference-network.md). The separate default local demonstration mode still simulates finality. [Double-vote evidence and experimental PoTB scoring](25-potb-evidence.md) are implemented and tested; scoring does not change live committee weights. Weighted VRF selection, rotating committee activation, and a proof of distributed liveness remain open. Membership must come from trusted finalized state. The demonstration sampler is not a verified weighted VRF implementation.
+[Version-1 vote and certificate formats](15-authenticated-finality.md) implement committee commitments, registered Ed25519 verification, isolated round/phase accounting, and independent weighted precommit quorum verification. The [local BFT guard](17-local-bft-voting.md) implements prevote/precommit locks and timeout events, persisting lock metadata and signing decisions atomically through a protected [durable journal](16-durable-signing.md). [Signed proposal authentication](18-signed-proposals-and-participants.md), monotonic timers, and a reference round-robin participant operate in the [certified fixed-committee network](19-reference-network.md). The separate default local demonstration mode still simulates finality. [Double-vote evidence and experimental PoTB scoring](25-potb-evidence.md) are implemented and tested; scoring does not change live committee weights. Verified weighted VRF selection is implemented; rotating committee activation and a proof of distributed liveness remain open. Membership must come from trusted finalized state. The demonstration sampler is not a verified weighted VRF implementation.
 
 ## 1.9 Safety assumptions and open work
 

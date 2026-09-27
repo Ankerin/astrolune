@@ -1,0 +1,105 @@
+<!-- Copyright (c) 2026 Astrolune contributors. SPDX-License-Identifier: MIT -->
+
+# 29. Parallel payments and the WebAssembly contract sandbox
+
+## Parallel payment execution
+
+`execute_payments_parallel` executes the existing signed payment rules with
+1–32 local workers. It checks actual sender/recipient keys against declarations
+before trusting the existing dependency-preserving wave planner. Independent
+transactions run concurrently against immutable snapshots and a private overlay;
+later dependent waves see preceding writes. Results and receipts return in the
+original transaction order. Block resource totals are checked in that order,
+and the database receives one atomic commit.
+
+Speculative failures and worker creation failures replay through the serial
+reference executor. Invalid inputs therefore preserve the reference error and
+leave no published prefix. The producer uses up to eight available local workers
+when verifying/replaying genesis-backed payment blocks. Mempool selection and
+proposal admission remain sequential so rejected candidates cannot consume
+nonce, balance or capacity. Worker count never changes block bytes.
+
+Differential tests compare outputs, roots, retained snapshots and errors for
+independent transfers, dependent account creation, self-transfers, multiple
+nonces, forged signatures, missing access declarations, capacity exhaustion and
+stale parents. Local execution performance has not been benchmarked.
+
+## WebAssembly ABI v2
+
+`WasmRuntime` validates binary WebAssembly and executes it using pinned Wasmi
+2.0.0 with eager validation, portable dispatch, integer operations and fuel.
+The previous XOR interpreter remains a demonstration helper. The explicit new
+runtime version is `{ abi: 2, metering: 1 }`. [Genesis profile 2](30-signed-contracts.md) explicitly activates signed contracts in the daemon.
+
+A module exports `memory` and `call() -> i32`. Zero means success; nonzero returns
+or traps discard all staged writes, return data and events. Start functions,
+floating-point instructions/types, WASI, unknown imports, imported memories,
+threads, SIMD, memory64 and multiple memories are rejected. No clock, filesystem,
+network or ambient randomness is available to contracts.
+
+Imports use module name `astrolune_v2`. Pointers and lengths are nonnegative i32
+byte offsets checked against the exported memory; negative lengths trap.
+
+| Import | Arguments | Result |
+| --- | --- | --- |
+| `input_len` | none | input length |
+| `input_copy` | input offset, memory output pointer, length | 0 |
+| `output` | pointer, length | 0; replaces return data |
+| `state_get` | key pointer, key length, output pointer, output capacity | length, or -1 for absence |
+| `state_put` | key pointer, key length, value pointer, value length | 0 |
+| `state_delete` | key pointer, key length | 0 |
+| `caller` | output pointer | 0; writes 32 address bytes |
+| `block_height` | none | i64 containing all u64 height bits |
+| `emit` | topic pointer, data pointer, data length | 0; appends a 32-byte topic and body |
+
+All results except height are i32. State operations require exact keys from the
+call's access set. Reads see staged writes/deletes. Caller identity, height,
+scoped state and access authorization are supplied by the outer executor.
+`WasmOutput` returns canonical writes and actual accessed keys for later commit.
+The sandbox cannot directly transfer balances or publish state.
+
+## Bounds and metering
+
+Modules are at most 1 MiB. Input/return data are at most 256 KiB. Memory must have
+an explicit maximum of at most 256 standard pages (16 MiB), further bounded by
+the call's memory budget. Tables are limited to 4096 elements and one table;
+recursion is capped at 128 and stack height at 16384. `memory.grow` respects the
+module maximum, including WebAssembly's normal -1 failure result.
+
+Calls permit at most 10 million fuel units, 1 MiB of state I/O, 256 KiB of output
+bandwidth, 1024 state/access entries, 256-byte nonempty keys, 64 KiB values/event
+bodies and 256 events. The supplied state view is bounded to 1 MiB. Host work
+charges 20 fuel units plus copied/processed byte counts for each helper operation;
+state I/O and output/event bandwidth are charged separately. Wasmi instruction
+fuel is part of the pinned metering version, not measured elapsed time.
+
+Changing engine version, fuel schedule or allowed features requires an explicit
+runtime-version change. Alternate native backends are not yet qualified.
+
+## Contract tooling
+
+```text
+cargo contract build contract.rs contract.wasm
+cargo contract validate contract.wasm
+cargo contract test contract.wasm input.bin
+cargo contract verify contract.wasm <expected-code-hash>
+```
+
+`build` accepts a standalone `no_std` Rust source, requires rustc 1.93.1 and its
+`wasm32-unknown-unknown` libraries, and compiles twice with fixed optimization,
+panic, metadata, memory and symbol settings. It validates equal binary outputs
+before exclusively creating the destination. `ASTROLUNE_CONTRACT_SYSROOT` can
+select an isolated installation of the pinned target libraries. Dependency-based
+Cargo contract packages are not supported yet. Compiler diagnostics remain visible.
+
+`validate` checks actual module restrictions; `test` executes with empty state,
+zero caller and height one; `verify` compares the exact version-bound code hash.
+Code-hash verification does not prove published source or deployment authenticity.
+Unsupported commands, including deployment, fail with nonzero status.
+
+Tests include real CLI validation/execution and a separately invoked pinned-Rust
+build test. The latter needs the target libraries and is ignored in the default
+workspace run; run `cargo test -p cargo-contract --test commands -- --ignored`.
+The pinned build test has been run locally with the official target component.
+
+Signed deploy/call envelopes, fees/nonces, mixed waves and explicit daemon activation are implemented in [document 30](30-signed-contracts.md). The allocation-free Rust SDK host adapter is implemented and tested; see [document 31](31-rust-sdk-and-wallet-vaults.md). Source manifests, AOT/JIT equivalence and contract fuzz campaigns remain open.

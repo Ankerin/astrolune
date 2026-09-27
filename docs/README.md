@@ -37,6 +37,10 @@ For a concise source-tree map, read [`../ARCHITECTURE.md`](../ARCHITECTURE.md).
 | [24-wallet-and-rpc-client.md](24-wallet-and-rpc-client.md) | offline payment signing, real account/status queries, bounded RPC, submission and retry semantics |
 | [25-potb-evidence.md](25-potb-evidence.md) | authenticated double-vote evidence, durable outbox, experimental scoring and activation limits |
 | [27-explorer-rpc.md](27-explorer-rpc.md) | finalized block history, TCP framing, browser gateway and explorer display limits |
+| [28-vrf-and-weighted-selection.md](28-vrf-and-weighted-selection.md) | RFC 9381 proofs, typed domains, canonical envelopes, weighted draws, rotation and activation boundaries |
+| [29-parallel-payments-and-wasm.md](29-parallel-payments-and-wasm.md) | parallel payment execution, deterministic WebAssembly sandbox, host ABI, metering and contract tools |
+| [30-signed-contracts.md](30-signed-contracts.md) | explicit genesis activation, signed deploy/call, namespaces, fees, mixed waves and certified recovery |
+| [31-rust-sdk-and-wallet-vaults.md](31-rust-sdk-and-wallet-vaults.md) | allocation-free WASM SDK, FFI boundary, encrypted wallet custody and password handling |
 
 Legacy-shaped filenames such as `03-vm-and-gas.md`, `05-contract-languages.md`, and `06-deferred-services.md` are retained temporarily to preserve links. Their contents describe the current Rust architecture.
 
@@ -68,3 +72,8 @@ The key words **MUST**, **MUST NOT**, **SHOULD**, and **MAY** express intended p
 ## License
 
 MIT, copyright AstroLune contributors, 2026.
+
+- [Certified state proofs](32-certified-state-proofs.md)
+- [Authenticated name registry and resolver](33-authenticated-name-registry.md)
+
+- [Contract source packages](34-contract-source-packages.md)

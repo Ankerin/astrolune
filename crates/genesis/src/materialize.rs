@@ -15,6 +15,12 @@ pub fn genesis_key() -> StateKey {
     StateKey(b"astrolune/genesis/v1".to_vec())
 }
 
+/// Committed execution profile; absence preserves the original payment-only profile.
+#[must_use]
+pub fn runtime_key() -> StateKey {
+    StateKey(b"astrolune/runtime/v2".to_vec())
+}
+
 /// State key containing the initial validator weight as a little-endian `u128`.
 #[must_use]
 pub fn validator_key(id: ValidatorId) -> StateKey {
@@ -33,6 +39,9 @@ impl Genesis {
         let hash = self.commitment()?;
         let mut diff = StateDiff::new();
         diff.put(genesis_key(), hash.as_bytes().to_vec());
+        if self.runtime_version == 2 {
+            diff.put(runtime_key(), 2u32.to_le_bytes().to_vec());
+        }
         for validator in &self.validators {
             diff.put(
                 validator_key(validator.id),

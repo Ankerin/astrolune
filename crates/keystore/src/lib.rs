@@ -11,6 +11,7 @@ mod journal;
 pub mod key;
 pub mod mock;
 pub mod signer;
+pub mod vault;
 
 pub use durable::DurableSigner;
 pub use error::KeystoreError;

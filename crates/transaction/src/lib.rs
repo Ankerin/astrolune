@@ -15,6 +15,7 @@
 
 #![forbid(unsafe_code)]
 
+pub mod contract;
 pub mod envelope;
 pub mod error;
 pub mod lane;
@@ -23,6 +24,9 @@ pub mod signed_validator;
 pub mod signing;
 pub mod validator;
 
+pub use contract::{
+    ContractAction, ContractPayload, contract_address, contract_code_key, contract_state_key,
+};
 pub use envelope::Envelope;
 pub use error::TransactionError;
 pub use lane::TransactionLane;

@@ -13,6 +13,7 @@ repository.workspace = true
 publish = false
 
 [dependencies]
+runtime = { version = "0.1.0", path = "../../crates/runtime" }
 codec = { version = "0.1.0", path = "../../crates/codec" }
 config = { version = "0.1.0", path = "../../crates/config" }
 consensus = { version = "0.1.0", path = "../../crates/consensus" }
@@ -29,3 +30,6 @@ zeroize = "1.8"
 
 [lints]
 workspace = true
+
+[dev-dependencies]
+wat = "=1.228.0"

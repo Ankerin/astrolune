@@ -20,8 +20,8 @@ use crate::{RpcError, RpcRequest, RpcResponse, RpcService};
 /// Maximum request payload size in bytes (1 MiB).
 const MAX_REQUEST_SIZE: usize = 1024 * 1024;
 
-/// Maximum response payload size in bytes (4 MiB).
-const MAX_RESPONSE_SIZE: usize = 4 * 1024 * 1024;
+/// Maximum response payload size in bytes (8 MiB).
+const MAX_RESPONSE_SIZE: usize = 8 * 1024 * 1024;
 
 /// A synchronous TCP-based JSON-RPC server.
 ///
@@ -147,6 +147,22 @@ impl TcpRpcServer {
         rpc_req: &crate::json::JsonRpcRequest,
     ) -> crate::json::JsonRpcResponse {
         let request = match rpc_req.method.as_str() {
+            "receipt" => match receipt_request(&rpc_req.params) {
+                Ok(request) => request,
+                Err(error) => return rpc_error(rpc_req.id, -32602, error),
+            },
+            "state_proof" => {
+                let Some(key) = rpc_req.params.get("key").and_then(JsonValue::as_str) else {
+                    return rpc_error(rpc_req.id, -32602, "missing state key");
+                };
+                if key.strip_prefix("0x").unwrap_or(key).len() > 512 {
+                    return rpc_error(rpc_req.id, -32602, "state key exceeds limit");
+                }
+                match parse_hex_bytes(key) {
+                    Ok(key) => RpcRequest::StateProof(types::StateKey(key)),
+                    Err(error) => return rpc_error(rpc_req.id, -32602, error),
+                }
+            }
             "block" => {
                 let height = rpc_req.params.get("height").and_then(|value| match value {
                     JsonValue::String(text)
@@ -215,6 +231,10 @@ impl TcpRpcServer {
     /// Converts an `RpcResponse` to a JSON-RPC response.
     fn response_to_json(id: i64, response: RpcResponse) -> crate::json::JsonRpcResponse {
         match response {
+            RpcResponse::Receipt(None) => rpc_success(id, JsonValue::Null),
+            RpcResponse::Receipt(Some(bytes)) | RpcResponse::StateProof(bytes) => {
+                rpc_success(id, JsonValue::String(crate::proof::hex(&bytes)))
+            }
             RpcResponse::Block(None) => rpc_success(id, JsonValue::Null),
             RpcResponse::Block(Some(block)) => match crate::block::to_json(&block) {
                 Some(value) => rpc_success(id, value),
@@ -411,4 +431,27 @@ mod tests {
         assert!(response.error.is_some());
         assert_eq!(response.error.unwrap().code, -32601);
     }
+}
+
+fn receipt_request(params: &JsonValue) -> Result<RpcRequest, &'static str> {
+    let text = params
+        .get("id")
+        .and_then(JsonValue::as_str)
+        .ok_or("missing transaction id")?;
+    let id = crate::client::decode_hex(text)
+        .map(types::Hash256)
+        .map_err(|_| "invalid transaction id")?;
+    let height = match params.get("height") {
+        None | Some(JsonValue::Null) => None,
+        Some(JsonValue::String(text))
+            if !text.is_empty() && text.bytes().all(|b| b.is_ascii_digit()) =>
+        {
+            Some(text.parse().map_err(|_| "invalid height")?)
+        }
+        Some(JsonValue::Number(number)) => {
+            Some(u64::try_from(*number).map_err(|_| "invalid height")?)
+        }
+        _ => return Err("invalid receipt height"),
+    };
+    Ok(RpcRequest::Receipt { id, height })
 }

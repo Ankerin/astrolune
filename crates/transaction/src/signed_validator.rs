@@ -95,11 +95,14 @@ impl TransactionValidator for SignedValidator {
             return Err(TransactionError::InvalidSignature);
         }
 
-        if transaction.lane != TransactionLane::Payments {
-            return Err(TransactionError::UnsupportedPayload);
-        }
-        let payment = crate::Payment::decode(&transaction.payload)?;
-        if payment.public_key != account.public_key {
+        let public_key = match transaction.lane {
+            TransactionLane::Payments => crate::Payment::decode(&transaction.payload)?.public_key,
+            TransactionLane::Contracts => {
+                crate::ContractPayload::decode(&transaction.payload)?.public_key
+            }
+            TransactionLane::System => return Err(TransactionError::UnsupportedPayload),
+        };
+        if public_key != account.public_key {
             return Err(TransactionError::UnsupportedPayload);
         }
 

@@ -8,6 +8,18 @@ All notable changes to AstroLune will be documented in this file. The format fol
 
 ### Fixed
 
+- Verify RFC 9381 VRF proofs for registered keys, reject noncanonical/malleable proofs,
+  bind inputs to chain/parent/height/role, and implement unbiased weighted selection.
+- Correct partial-rotation replacement counts and distinguish the legacy demonstration sampler.
+- Add parallel signed payments and ABI-v2 mixed contract waves with serial replay and atomic commit.
+- Add bounded integer WebAssembly execution, pinned Rust artifact tools, explicit genesis
+  contract activation, signed deployment/call CLI and certified recovery/catch-up coverage.
+- Remove the README warning and update implementation status.
+- Add allocation-free Rust host bindings with a dedicated wasm32 FFI boundary,
+  bundled SDK builds and interpreter tests covering all host imports.
+- Add OS-generated wallet keys, fixed-cost Argon2id/XChaCha20-Poly1305 vaults,
+  bounded stdin passwords and direct encrypted-wallet signing.
+
 - Replace stale simulated-network consensus documentation with the certified
   fixed-committee implementation boundary and explicit PoTB activation limits.
 

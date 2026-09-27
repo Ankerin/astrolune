@@ -84,6 +84,158 @@ fn execute(state: &mut InMemoryState, txs: &[Transaction]) -> Result<(), Executi
 }
 
 #[test]
+fn parallel_waves_match_sequential_outputs_roots_and_old_snapshots() {
+    let initial = funded(&[(1, 0, 1000), (2, 0, 1000), (3, 0, 1000), (4, 0, 1000)]);
+    let batches = [
+        vec![],
+        vec![transfer(1, address(2), 0, 20)],
+        vec![
+            transfer(1, address(5), 0, 20),
+            transfer(2, address(6), 0, 30),
+            transfer(3, address(7), 0, 40),
+            transfer(4, address(8), 0, 50),
+        ],
+        vec![
+            transfer(1, address(2), 0, 20),
+            transfer(3, address(4), 0, 30),
+            transfer(2, address(5), 0, 40),
+            transfer(1, address(1), 1, 50),
+            transfer(5, address(6), 0, 10),
+            transfer(4, address(1), 0, 20),
+        ],
+    ];
+    for txs in batches {
+        let mut serial = initial.clone();
+        let expected =
+            execute_payments(&mut serial, &txs, initial.root(), context(), capacity()).unwrap();
+        for workers in [1, 2, 3, 8, 32] {
+            let mut parallel = initial.clone();
+            let old = parallel.snapshot().unwrap();
+            let actual = execution::execute_payments_parallel(
+                &mut parallel,
+                &txs,
+                initial.root(),
+                context(),
+                capacity(),
+                workers,
+            )
+            .unwrap();
+            assert_eq!(actual, expected);
+            assert_eq!(parallel.root(), serial.root());
+            assert_eq!(old.root(), initial.root());
+            assert_eq!(
+                read_account(old.as_ref(), address(1))
+                    .unwrap()
+                    .unwrap()
+                    .balance,
+                1000
+            );
+        }
+    }
+}
+
+#[test]
+fn parallel_replays_invalid_inputs_to_preserve_first_error_and_atomicity() {
+    let initial = funded(&[(1, 0, 100), (2, 0, 100), (3, 0, 100)]);
+    let valid = vec![
+        transfer(1, address(4), 0, 10),
+        transfer(2, address(5), 0, 10),
+        transfer(3, address(6), 0, 10),
+    ];
+    let mut variants = Vec::new();
+    for index in 0..valid.len() {
+        let mut txs = valid.clone();
+        txs[index].signature[0] ^= 1;
+        variants.push(txs);
+        let mut txs = valid.clone();
+        txs[index].access_list.clear();
+        txs[index] = signed(txs[index].clone(), u8::try_from(index + 1).unwrap());
+        variants.push(txs);
+        let mut txs = valid.clone();
+        txs[index].nonce = 8;
+        variants.push(txs);
+    }
+    // Conflicting failures must still report the earliest canonical transaction.
+    let mut txs = valid;
+    txs[0].signature = [0; 64];
+    txs[2].payload.clear();
+    variants.push(txs);
+    for txs in variants {
+        let mut serial = initial.clone();
+        let expected = execute_payments(&mut serial, &txs, initial.root(), context(), capacity());
+        assert!(expected.is_err());
+        for workers in [2, 4] {
+            let mut parallel = initial.clone();
+            let actual = execution::execute_payments_parallel(
+                &mut parallel,
+                &txs,
+                initial.root(),
+                context(),
+                capacity(),
+                workers,
+            );
+            assert_eq!(actual, expected);
+            assert_eq!(parallel.root(), initial.root());
+        }
+    }
+}
+
+#[test]
+fn parallel_global_capacity_stale_parent_and_worker_bounds_fail_atomically() {
+    let initial = funded(&[(1, 0, 100), (2, 0, 100)]);
+    let txs = [
+        transfer(1, address(3), 0, 10),
+        transfer(2, address(4), 0, 10),
+    ];
+    for workers in [2, 8] {
+        let mut state = initial.clone();
+        let bounded = Resources {
+            compute: 1,
+            ..capacity()
+        };
+        assert_eq!(
+            execution::execute_payments_parallel(
+                &mut state,
+                &txs,
+                initial.root(),
+                context(),
+                bounded,
+                workers,
+            ),
+            Err(ExecutionError::ResourceLimit)
+        );
+        assert_eq!(state.root(), initial.root());
+        assert_eq!(
+            execution::execute_payments_parallel(
+                &mut state,
+                &txs,
+                Hash256::ZERO,
+                context(),
+                capacity(),
+                workers,
+            ),
+            Err(ExecutionError::State(StateError::StaleSnapshot))
+        );
+        assert_eq!(state.root(), initial.root());
+    }
+    for workers in [0, 33, usize::MAX] {
+        let mut state = initial.clone();
+        assert!(
+            execution::execute_payments_parallel(
+                &mut state,
+                &txs,
+                initial.root(),
+                context(),
+                capacity(),
+                workers,
+            )
+            .is_err()
+        );
+        assert_eq!(state.root(), initial.root());
+    }
+}
+
+#[test]
 fn sequential_transfers_create_accounts_burn_fees_and_preserve_old_snapshots() {
     let mut state = funded(&[(1, 0, 100)]);
     let old = state.snapshot().unwrap();

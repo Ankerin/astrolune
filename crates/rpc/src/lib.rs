@@ -10,6 +10,10 @@
 #![allow(clippy::missing_errors_doc)]
 
 mod block;
+mod proof;
+mod receipt;
+pub use proof::CertifiedStateProof;
+pub use receipt::CertifiedReceiptProof;
 pub mod client;
 pub mod json;
 pub mod server;
@@ -25,12 +29,21 @@ use types::{Address, Hash256};
 /// Public request accepted by the baseline service boundary.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum RpcRequest {
+    /// Queries a finalized receipt; optional exact height bypasses recent-index eviction.
+    Receipt {
+        /// Transaction commitment to look up.
+        id: Hash256,
+        /// Explicit retained block height, if known.
+        height: Option<u64>,
+    },
     /// Returns chain status.
     ChainStatus,
     /// Reads one retained finalized block by exact height.
     Block(u64),
     /// Returns one finalized account view.
     Account(Address),
+    /// Returns a value/absence proof and its finalized head certificate.
+    StateProof(types::StateKey),
     /// Submits canonical signed transaction bytes.
     SubmitTransaction(Vec<u8>),
 }
@@ -51,6 +64,10 @@ pub enum RpcResponse {
     },
     /// Opaque canonical account bytes for the requested finalized state.
     Account(Option<Vec<u8>>),
+    /// Serialized certified receipt set; None is unavailability, not authenticated absence.
+    Receipt(Option<Vec<u8>>),
+    /// Serialized `CertifiedStateProof`, assembled from one immutable snapshot.
+    StateProof(Vec<u8>),
     /// Accepted transaction identifier.
     TransactionAccepted(Hash256),
 }
@@ -150,6 +167,8 @@ impl InMemoryRpcService {
 impl RpcService for InMemoryRpcService {
     fn handle(&self, request: RpcRequest) -> Result<RpcResponse, RpcError> {
         match request {
+            RpcRequest::Receipt { .. } => Ok(RpcResponse::Receipt(None)),
+            RpcRequest::StateProof(_) => Err(RpcError::Unavailable),
             RpcRequest::Block(_) => Ok(RpcResponse::Block(None)),
             RpcRequest::ChainStatus => Ok(RpcResponse::ChainStatus {
                 chain_id: self.chain_id,

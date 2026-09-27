@@ -183,9 +183,11 @@ fn observer_rpc_payment_gossip_and_restart_use_tls_without_any_consensus_seed() 
     }
     drop(reservations[3].take());
     await_payment(&[&observer, &validators[0], &validators[1], &validators[2]]);
+    verify_account_proof(&fixture, &observer);
     drop(observer);
     let restarted = fixture.start(5, &peers);
     await_payment(&[&restarted]);
+    verify_account_proof(&fixture, &restarted);
     let replay = call(
         &restarted.1,
         "submit_transaction",
@@ -593,4 +595,32 @@ fn corrupted_history_read_over_rpc_stops_observer_process() {
         );
         std::thread::sleep(Duration::from_millis(20));
     }
+}
+
+fn verify_account_proof(fixture: &Fixture, process: &Process) {
+    let client =
+        rpc::TcpRpcClient::new(process.1.parse().unwrap(), Duration::from_secs(5)).unwrap();
+    let key = state::account_key(Address([77; 32]));
+    let proof = client.state_proof(&key).unwrap();
+    assert_eq!(
+        proof
+            .verify(&fixture.genesis, &fixture.keys, &key, 1)
+            .unwrap(),
+        Some(
+            AccountState {
+                nonce: 0,
+                balance: 123
+            }
+            .to_bytes()
+            .as_slice()
+        )
+    );
+    let absent = types::StateKey(b"absent-from-chain".to_vec());
+    let proof = client.state_proof(&absent).unwrap();
+    assert_eq!(
+        proof
+            .verify(&fixture.genesis, &fixture.keys, &absent, 1)
+            .unwrap(),
+        None
+    );
 }

@@ -13,7 +13,7 @@ const MAX_CHANGES: usize = 1_048_576;
 
 pub(super) enum Record {
     Anchor(Checkpoint, InMemoryState),
-    Batch(CommitBatch),
+    Batch(Box<CommitBatch>),
 }
 
 struct Writer(Vec<u8>);
@@ -45,7 +45,10 @@ pub(super) fn anchor(cp: Checkpoint, state: &InMemoryState) -> Result<Vec<u8>, S
 
 pub(super) fn batch(batch: &CommitBatch) -> Result<Vec<u8>, StorageError> {
     archive::validate_block(&batch.block, &batch.finality_certificate)?;
-    let mut out = Writer(vec![1]);
+    if let Some(effects) = &batch.effects {
+        effects.validate(&batch.block)?;
+    }
+    let mut out = Writer(vec![if batch.effects.is_some() { 2 } else { 1 }]);
     out.append(&batch.block.header.canonical_bytes())?;
     out.number(batch.block.transactions.len())?;
     for tx in &batch.block.transactions {
@@ -83,6 +86,9 @@ pub(super) fn batch(batch: &CommitBatch) -> Result<Vec<u8>, StorageError> {
             }
         }
     }
+    if let Some(effects) = &batch.effects {
+        out.blob(&effects.to_bytes()?)?;
+    }
     Ok(out.0)
 }
 
@@ -112,7 +118,7 @@ fn decode_inner(bytes: &[u8]) -> Result<Record, DecodeError> {
             .map_err(|_| DecodeError::NonCanonical)?;
             Record::Anchor(cp, state)
         }
-        1 => {
+        tag @ (1 | 2) => {
             let block = archive::read_block(&mut d)?;
             let finality_certificate = archive::read_blob(&mut d, 1024 * 1024)?.to_vec();
             archive::validate_block(&block, &finality_certificate)
@@ -145,11 +151,25 @@ fn decode_inner(bytes: &[u8]) -> Result<Record, DecodeError> {
                 }
                 state_diffs.push(diff);
             }
-            Record::Batch(CommitBatch {
+            let effects = if tag == 2 {
+                let effects = crate::BlockEffects::from_bytes(archive::read_blob(
+                    &mut d,
+                    crate::MAX_RECEIPTS_BYTES,
+                )?)
+                .map_err(|_| DecodeError::NonCanonical)?;
+                effects
+                    .validate(&block)
+                    .map_err(|_| DecodeError::NonCanonical)?;
+                Some(effects)
+            } else {
+                None
+            };
+            Record::Batch(Box::new(CommitBatch {
                 block,
                 finality_certificate,
                 state_diffs,
-            })
+                effects,
+            }))
         }
         _ => return Err(DecodeError::NonCanonical),
     };
@@ -181,6 +201,7 @@ mod tests {
         diff.delete(StateKey(vec![1]));
         diff.put(StateKey(vec![1]), vec![5]);
         let batch_value = CommitBatch {
+            effects: None,
             block: types::Block {
                 header: types::BlockHeader {
                     height: 1,

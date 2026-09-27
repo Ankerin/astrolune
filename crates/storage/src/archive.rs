@@ -61,7 +61,12 @@ pub(super) fn encode(storage: &InMemoryStorage) -> Result<Vec<u8>, StorageError>
     }
     let mut bytes = Vec::new();
     bytes.extend_from_slice(MAGIC);
-    bytes.extend_from_slice(&VERSION.to_le_bytes());
+    let version = if storage.effects.is_empty() {
+        VERSION
+    } else {
+        3
+    };
+    bytes.extend_from_slice(&version.to_le_bytes());
     bytes.extend_from_slice(&(storage.checkpoints.len() as u64).to_le_bytes());
     for checkpoint in storage.checkpoints.values() {
         append(&mut bytes, &checkpoint.height.to_le_bytes())?;
@@ -78,13 +83,18 @@ pub(super) fn encode(storage: &InMemoryStorage) -> Result<Vec<u8>, StorageError>
                 .get(&checkpoint.block)
                 .ok_or(StorageError::Corrupt)?;
             validate_block(block, certificate)?;
-            append(&mut bytes, &[1])?;
+            let effects = storage.effects.get(&checkpoint.height);
+            append(&mut bytes, &[if effects.is_some() { 2 } else { 1 }])?;
             append(&mut bytes, &block.header.canonical_bytes())?;
             append(&mut bytes, &(block.transactions.len() as u64).to_le_bytes())?;
             for tx in &block.transactions {
                 blob(&mut bytes, &tx.to_bytes())?;
             }
             blob(&mut bytes, certificate)?;
+            if let Some(effects) = effects {
+                effects.validate(block)?;
+                blob(&mut bytes, &effects.to_bytes()?)?;
+            }
         } else {
             append(&mut bytes, &[0])?;
         }
@@ -121,8 +131,12 @@ pub(super) fn decode(bytes: &[u8]) -> Result<InMemoryStorage, StorageError> {
 
 fn decode_payload(payload: &[u8]) -> Result<InMemoryStorage, DecodeError> {
     let mut decoder = Decoder::new(payload);
-    if decoder.read_exact(8)? != MAGIC || decoder.read_u16()? != VERSION {
+    if decoder.read_exact(8)? != MAGIC {
         return Err(DecodeError::NonCanonical);
+    }
+    let version = decoder.read_u16()?;
+    if version != VERSION && version != 3 {
+        return Err(DecodeError::Unsupported);
     }
     let count = length(&mut decoder, MAX_ARCHIVE_CHECKPOINTS)?;
     // Every checkpoint needs 72 fixed bytes, snapshot framing, and a presence byte.
@@ -150,7 +164,7 @@ fn decode_payload(payload: &[u8]) -> Result<InMemoryStorage, DecodeError> {
         .map_err(|_| DecodeError::NonCanonical)?;
         match decoder.read_u8()? {
             0 if index == 0 => (), // Imported anchor: body and certificate are unknown.
-            1 => {
+            tag @ (1 | 2) if tag == 1 || version == 3 => {
                 let block = read_block(&mut decoder)?;
                 let certificate = read_blob(&mut decoder, MAX_CERTIFICATE_BYTES)?;
                 if block.header.height != checkpoint.height
@@ -164,6 +178,18 @@ fn decode_payload(payload: &[u8]) -> Result<InMemoryStorage, DecodeError> {
                     return Err(DecodeError::NonCanonical);
                 }
                 validate_block(&block, certificate).map_err(|_| DecodeError::NonCanonical)?;
+                if tag == 2 {
+                    let effects = crate::BlockEffects::from_bytes(read_blob(
+                        &mut decoder,
+                        crate::MAX_RECEIPTS_BYTES,
+                    )?)
+                    .map_err(|_| DecodeError::NonCanonical)?;
+                    effects
+                        .validate(&block)
+                        .map_err(|_| DecodeError::NonCanonical)?;
+                    storage.effects.insert(checkpoint.height, effects);
+                }
+                storage.transactions.insert(&block);
                 storage.blocks.insert(checkpoint.block, block);
                 storage
                     .certificates
@@ -226,6 +252,7 @@ mod tests {
             let parent = storage.checkpoint().map_or(Hash256::ZERO, |cp| cp.block);
             storage
                 .commit(&CommitBatch {
+                    effects: None,
                     block: Block {
                         header: BlockHeader {
                             height,

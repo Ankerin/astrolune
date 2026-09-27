@@ -12,8 +12,15 @@ authors.workspace = true
 repository.workspace = true
 
 [dependencies]
+storage = { version = "0.1.0", path = "../storage" }
+state = { version = "0.1.0", path = "../state" }
+genesis = { version = "0.1.0", path = "../genesis" }
+consensus = { version = "0.1.0", path = "../consensus" }
 codec = { version = "0.1.0", path = "../codec" }
 types = { version = "0.1.0", path = "../types" }
+
+[dev-dependencies]
+crypto = { version = "0.1.0", path = "../crypto" }
 
 [lints]
 workspace = true

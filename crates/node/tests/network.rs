@@ -128,6 +128,9 @@ struct Fixture {
 }
 impl Fixture {
     fn new(count: u8) -> Self {
+        Self::with_runtime(count, 1)
+    }
+    fn with_runtime(count: u8, runtime_version: u32) -> Self {
         let path = std::env::temp_dir().join(format!(
             "astrolune-network-{}-{}",
             std::process::id(),
@@ -150,7 +153,7 @@ impl Fixture {
             chain_id: 42,
             committee_size: usize::from(count),
             rotation_count: 1,
-            runtime_version: 1,
+            runtime_version,
             capacity: Resources {
                 compute: 1_000_000,
                 memory: 1_000_000,
@@ -319,6 +322,106 @@ fn payment_gossip_three_of_four_commit_and_late_node_catches_up_after_restart() 
     assert!(
         late.submit_transaction(tx).is_err(),
         "finalized nonce must reject replay"
+    );
+}
+
+#[test]
+fn contracts_finalize_recover_and_catch_up_with_authenticated_history() {
+    use transaction::{
+        ContractAction, ContractPayload, contract_address, contract_code_key, contract_state_key,
+    };
+    let fixture = Fixture::with_runtime(4, 2);
+    let mut nodes: Vec<_> = (1..=3).map(|index| fixture.open(index)).collect();
+    let mut deploy = transfer();
+    let code = wat::parse_str(r#"(module
+        (import "astrolune_v2" "state_put" (func $put (param i32 i32 i32 i32) (result i32)))
+        (memory (export "memory") 1 1) (data (i32.const 0) "kv")
+        (func (export "call") (result i32)
+          (drop (call $put (i32.const 0) (i32.const 1) (i32.const 1) (i32.const 1))) (i32.const 0)))"#).unwrap();
+    let contract = contract_address(42, deploy.sender, 0);
+    deploy.lane = types::TransactionLane::Contracts;
+    deploy.payload = ContractPayload {
+        public_key: ed25519_public_key(&[99; 32]),
+        action: ContractAction::Deploy(code.clone()),
+    }
+    .to_bytes();
+    deploy.access_list = vec![
+        state::account_key(deploy.sender),
+        contract_code_key(contract),
+    ];
+    deploy.access_list.sort();
+    deploy.resource_limit = Resources {
+        compute: 10_000,
+        memory: 65_568,
+        io: 10_000,
+        bandwidth: 4096,
+    };
+    deploy.signature = ed25519_sign(&[99; 32], signing_hash(&deploy).as_bytes());
+    nodes[0].submit_transaction(deploy.clone()).unwrap();
+    let started = Instant::now();
+    let key = contract_state_key(contract, b"k");
+    let mut call = deploy.clone();
+    call.nonce = 1;
+    call.payload = ContractPayload {
+        public_key: ed25519_public_key(&[99; 32]),
+        action: ContractAction::Call {
+            address: contract,
+            input: vec![],
+            keys: vec![b"k".to_vec()],
+        },
+    }
+    .to_bytes();
+    call.access_list.push(key.clone());
+    call.access_list.sort();
+    call.signature = ed25519_sign(&[99; 32], signing_hash(&call).as_bytes());
+    let mut submitted = false;
+    for step in 0..500 {
+        exchange(&mut nodes, started + Duration::from_millis(step * 20));
+        if !submitted
+            && nodes.iter().all(|node| {
+                node.storage()
+                    .state()
+                    .get(&contract_code_key(contract))
+                    .is_some()
+            })
+        {
+            nodes[0].submit_transaction(call.clone()).unwrap();
+            submitted = true;
+        }
+        if nodes
+            .iter()
+            .all(|node| node.storage().state().get(&key) == Some(b"v".as_slice()))
+        {
+            break;
+        }
+    }
+    assert!(submitted);
+    assert!(
+        nodes
+            .iter()
+            .all(|node| node.storage().state().get(&key) == Some(b"v".as_slice()))
+    );
+    drop(nodes);
+    let source = fixture.open(1);
+    let mut late = fixture.open(4);
+    while late.request().height < source.request().height {
+        late.receive(&source.respond(late.request()).unwrap())
+            .unwrap();
+    }
+    assert_eq!(
+        source.storage().state().root(),
+        late.storage().state().root()
+    );
+    assert_eq!(
+        late.storage().state().get(&contract_code_key(contract)),
+        Some(code.as_slice())
+    );
+    assert_eq!(late.storage().state().get(&key), Some(b"v".as_slice()));
+    assert!(late.submit_transaction(call).is_err());
+    drop(late);
+    assert_eq!(
+        fixture.open(4).storage().state().root(),
+        source.storage().state().root()
     );
 }
 

@@ -17,8 +17,11 @@ use std::path::PathBuf;
 
 use config::{NetworkConfig, NodeConfig, SecretRef};
 
+mod contracts;
 mod evidence;
 mod network;
+mod proofs;
+mod vault;
 mod vrf;
 mod wallet;
 
@@ -62,11 +65,22 @@ Usage: cli <command> [options]
 Commands:
   status [rpc-address]  Read the node's finalized chain status
   account <address> [rpc-address]  Read finalized balance and next nonce
+  state-proof <genesis> <validators> <key-hex> <minimum-height> <output> [rpc-address]
+           Fetch, authenticate and save finalized state membership or absence
+  verify-state-proof <genesis> <validators> <key-hex> <minimum-height> <file>
+           Authenticate a saved state proof offline
   wallet-address <seed-file>  Derive public wallet identity (alias: keys)
+  wallet-create <new-vault>  Create a random encrypted wallet; password from stdin
+  wallet-encrypt <raw-seed> <new-vault>  Encrypt an existing wallet; password from stdin
   sign-payment <chain-id> <seed-file> <recipient> <amount> <nonce> <expires-at> <output>
            Sign a payment offline and save it without overwriting any file
   inspect-payment <file>  Verify and display a signed payment offline
-  submit <file> [rpc-address]  Send a saved payment once; acceptance is not finality
+  sign-deploy <genesis> <seed-file> <wasm> <nonce> <expires-at> <output>
+           Sign ABI-v2 deployment offline (genesis runtime_version must be 2)
+  sign-call <genesis> <seed-file> <contract> <input-file> <keys-file> <nonce> <expires-at> <max-compute> <output>
+           Sign a contract call; keys-file contains one hex local key per line
+  inspect-transaction <file>  Verify and display a payment or contract envelope
+  submit <file> [rpc-address]  Send a saved transaction once; acceptance is not finality
   evidence-create <genesis> <validators> <vote-a> <vote-b> <output>  Verify and save a double-vote proof
   evidence-verify <genesis> <validators> <proof>  Independently verify a double-vote proof
   vrf-prove <genesis> <seed-file> <epoch> <height> <parent-randomness> <committee|producer> <round> <output>
@@ -75,7 +89,7 @@ Commands:
            Independently verify the proof and claimed randomness
   verify   Validate a node configuration
   genesis <file>  Verify binary genesis and derive its initial state root
-  devnet <directory> [validators] [--observer]  Create a local test network (default: 4)
+  devnet <directory> [validators] [--observer] [--contracts]  Create a local test network (default: 4)
   init-validator <genesis> <seed> <directory>  Provision a protected signing journal
   init-network-tls <directory> [peers]  Create independent TLS identities (default: 4)
   help     Show this message
@@ -108,13 +122,29 @@ fn run() -> Result<(), CliError> {
             Ok(())
         }
         Some(
-            command @ ("status" | "account" | "keys" | "wallet-address" | "sign-payment"
-            | "inspect-payment" | "submit"),
+            command @ ("status"
+            | "account"
+            | "keys"
+            | "wallet-address"
+            | "sign-payment"
+            | "inspect-payment"
+            | "inspect-transaction"
+            | "submit"),
         ) => wallet::run(command, &std::env::args_os().skip(2).collect::<Vec<_>>()),
+        Some(command @ ("state-proof" | "verify-state-proof")) => {
+            proofs::run(command, &std::env::args_os().skip(2).collect::<Vec<_>>())
+        }
         Some("verify") => cmd_verify(),
+        Some(command @ ("wallet-create" | "wallet-encrypt")) => {
+            vault::run(command, &std::env::args_os().skip(2).collect::<Vec<_>>())
+        }
+        Some(command @ ("sign-deploy" | "sign-call")) => {
+            contracts::run(command, &std::env::args_os().skip(2).collect::<Vec<_>>())
+        }
         Some(command @ ("evidence-create" | "evidence-verify")) => evidence::run(command),
-        Some(command @ ("vrf-prove" | "vrf-verify")) =>
-            vrf::run(command, &std::env::args_os().skip(2).collect::<Vec<_>>()),
+        Some(command @ ("vrf-prove" | "vrf-verify")) => {
+            vrf::run(command, &std::env::args_os().skip(2).collect::<Vec<_>>())
+        }
         Some("genesis") => cmd_genesis(),
         Some("devnet") => network::devnet(),
         Some("init-validator") => network::init_validator(),

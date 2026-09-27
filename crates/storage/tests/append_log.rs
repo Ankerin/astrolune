@@ -66,6 +66,7 @@ fn batch(state: &InMemoryState, previous: Option<Checkpoint>) -> CommitBatch {
         signature: [7; 64],
     };
     CommitBatch {
+        effects: None,
         block: Block {
             header: BlockHeader {
                 height,

@@ -83,6 +83,18 @@ impl ChainStorage {
     pub fn read_finalized(&self, height: u64) -> Result<Option<(Block, Vec<u8>)>, StorageError> {
         dispatch!(&self.0, s => s.read_finalized(height))
     }
+    /// Finds a recent finalized transaction; explicit-height receipt reads bypass eviction.
+    #[must_use]
+    pub fn transaction_location(&self, id: Hash256) -> Option<(u64, usize)> {
+        dispatch!(&self.0, s => s.transaction_location(id))
+    }
+    /// Reads ordered execution receipts retained at an exact height.
+    pub fn read_receipts(
+        &self,
+        height: u64,
+    ) -> Result<Option<crate::StoredReceipts>, StorageError> {
+        dispatch!(&self.0, s => s.read_receipts(height))
+    }
     /// Installs a trusted genesis anchor only in an empty store.
     pub fn initialize_genesis(
         &mut self,

@@ -12,6 +12,7 @@ authors.workspace = true
 repository.workspace = true
 
 [dependencies]
+genesis = { version = "0.1.0", path = "../genesis" }
 codec = { version = "0.1.0", path = "../codec" }
 crypto = { version = "0.1.0", path = "../crypto" }
 transaction = { version = "0.1.0", path = "../transaction" }

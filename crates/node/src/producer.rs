@@ -16,8 +16,8 @@
 use std::collections::BTreeMap;
 
 use execution::{
-    ExecutionError, ExecutorConfig, PaymentSession, SimpleExecutor, TransactionOutput,
-    execute_payments,
+    ExecutionError, ExecutorConfig, SignedSession, SimpleExecutor, TransactionOutput,
+    execute_payments_parallel, execute_signed_parallel,
 };
 use mempool::{Mempool, MempoolError, PoolEntry, PoolLimits};
 use state::{InMemoryState, StateDatabase, StateDiff};
@@ -289,12 +289,16 @@ impl BlockProducer {
 
         let validated = if self.account_execution {
             let snapshot = self.state.snapshot().map_err(ExecutionError::from)?;
-            let mut session =
-                PaymentSession::new(snapshot.as_ref(), context, self.config.block_capacity);
+            let mut session = SignedSession::new(
+                snapshot.as_ref(),
+                context,
+                self.config.block_capacity,
+                self.contracts_enabled(),
+            );
             let output = session.execute(&tx)?;
             transaction::ValidatedTransaction {
                 id: output.receipt.transaction,
-                lane: transaction::TransactionLane::Payments,
+                lane: tx.lane,
                 transaction: tx,
             }
         } else {
@@ -353,10 +357,11 @@ impl BlockProducer {
         let mut staged = self.state.clone();
         let (outputs, state_root) = if self.account_execution {
             let snapshot = self.state.snapshot().map_err(ExecutionError::from)?;
-            let mut session = PaymentSession::new(
+            let mut session = SignedSession::new(
                 snapshot.as_ref(),
                 self.validation_context(),
                 self.config.block_capacity,
+                self.contracts_enabled(),
             );
             let mut accepted = Vec::new();
             let mut outputs = Vec::new();
@@ -472,7 +477,22 @@ impl BlockProducer {
             .ok_or_else(|| ProducerError::Assembly("block height exhausted".into()))?;
         let (staged, diffs) = self.prepare_verified(proposal)?;
 
+        let effects = if self.account_execution {
+            let snapshot = staged.snapshot().map_err(ExecutionError::from)?;
+            Some(storage::BlockEffects {
+                receipts: proposal
+                    .outputs
+                    .iter()
+                    .map(|output| output.receipt.clone())
+                    .collect(),
+                genesis: state::StateValueProof::create(snapshot.as_ref(), &genesis::genesis_key())
+                    .map_err(ExecutionError::from)?,
+            })
+        } else {
+            None
+        };
         let batch = CommitBatch {
+            effects,
             block: proposal.block.clone(),
             finality_certificate: certificate,
             state_diffs: diffs,
@@ -590,10 +610,7 @@ impl BlockProducer {
                 .outputs
                 .iter()
                 .zip(&proposal.block.transactions)
-                .any(|(output, tx)| {
-                    output.receipt.transaction != hash_transaction(tx)
-                        || output.receipt.output_root != output.diff.commitment()
-                })
+                .any(|(output, tx)| output.receipt.transaction != hash_transaction(tx))
         {
             return Err(ProducerError::Assembly(
                 "proposal commitments do not match".into(),
@@ -627,13 +644,23 @@ impl BlockProducer {
         staged: &mut InMemoryState,
         transactions: &[Transaction],
     ) -> Result<(Vec<TransactionOutput>, Hash256), ExecutionError> {
-        if self.account_execution {
-            execute_payments(
+        if self.account_execution && self.contracts_enabled() {
+            execute_signed_parallel(
                 staged,
                 transactions,
                 self.state.root(),
                 self.validation_context(),
                 self.config.block_capacity,
+                std::thread::available_parallelism().map_or(1, |count| count.get().min(8)),
+            )
+        } else if self.account_execution {
+            execute_payments_parallel(
+                staged,
+                transactions,
+                self.state.root(),
+                self.validation_context(),
+                self.config.block_capacity,
+                std::thread::available_parallelism().map_or(1, |count| count.get().min(8)),
             )
         } else {
             SimpleExecutor::new(
@@ -647,6 +674,14 @@ impl BlockProducer {
             )
             .execute_block(transactions, self.state.root())
         }
+    }
+
+    /// Whether committed genesis activated ABI-v2 contract execution.
+    #[must_use]
+    pub fn contracts_enabled(&self) -> bool {
+        self.state
+            .get(&genesis::runtime_key())
+            .is_some_and(|bytes| bytes == 2u32.to_le_bytes())
     }
 
     /// Chain identity used for admission and execution.

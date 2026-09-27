@@ -11,16 +11,23 @@
 #![forbid(unsafe_code)]
 #![allow(clippy::missing_errors_doc)]
 
+mod contract;
 mod error;
 mod executor;
+mod parallel_payment;
 mod payment;
 mod scheduler;
+mod signed;
 mod wave;
 
 pub use error::ExecutionError;
 pub use executor::{ExecutorConfig, SimpleExecutor, TransactionOutput};
+pub use parallel_payment::{
+    MAX_PAYMENT_WORKERS, execute_payments_parallel, execute_signed_parallel,
+};
 pub use payment::{PAYMENT_PRICES, PaymentSession, execute_payments, payment_resources};
 pub use scheduler::{ExecutionScheduler, GreedyScheduler, SerialScheduler};
+pub use signed::{SignedSession, execute_signed};
 pub use wave::{ExecutionLane, ExecutionPlan, ExecutionWave};
 
 #[cfg(test)]

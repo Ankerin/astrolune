@@ -12,7 +12,19 @@ authors.workspace = true
 repository.workspace = true
 
 [dependencies]
+contract-sdk = { version = "0.1.0", path = "../../crates/contract-sdk", default-features = false }
+codec = { version = "0.1.0", path = "../../crates/codec" }
+genesis = { version = "0.1.0", path = "../../crates/genesis" }
+rpc = { version = "0.1.0", path = "../../crates/rpc" }
+runtime = { version = "0.1.0", path = "../../crates/runtime" }
+transaction = { version = "0.1.0", path = "../../crates/transaction" }
 types = { version = "0.1.0", path = "../../crates/types" }
+
+[dev-dependencies]
+crypto = { version = "0.1.0", path = "../../crates/crypto" }
+consensus = { version = "0.1.0", path = "../../crates/consensus" }
+state = { version = "0.1.0", path = "../../crates/state" }
+wat = "=1.228.0"
 
 [lints]
 workspace = true

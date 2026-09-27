@@ -15,14 +15,22 @@
 #![no_std]
 #![allow(clippy::missing_errors_doc)]
 
+#[cfg(feature = "alloc")]
 extern crate alloc;
 
+#[cfg(feature = "alloc")]
 pub mod buffer;
 pub mod error;
 pub mod host;
 pub mod metered;
+pub mod registry;
 
+#[cfg(feature = "alloc")]
 pub use buffer::MemoryBuffer;
+pub use contract_abi::AbiError;
+/// Allocation-free ABI-v2 host calls on the canonical wasm32 target.
+#[cfg(target_arch = "wasm32")]
+pub use contract_abi::Guest;
 pub use error::ContractError;
 pub use host::Host;
 pub use metered::{MeteredHost, ResourceUsage};
@@ -240,6 +248,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(feature = "alloc")]
     fn memory_buffer_fill_and_read() {
         let mut buf = MemoryBuffer::new(8);
         assert_eq!(buf.capacity(), 8);
@@ -250,6 +259,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(feature = "alloc")]
     fn memory_buffer_into_vec() {
         let mut buf = MemoryBuffer::new(4);
         buf.fill_from(&[10, 20, 30]);

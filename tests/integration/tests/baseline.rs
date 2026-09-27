@@ -200,7 +200,9 @@ fn committee_rotation_feeds_finality() {
     assert_eq!(next.members.len(), 3);
     assert_eq!(next.members[0].id, identity(1));
 
-    let seeds = [1u8, 4, 5];
+    assert_eq!(next.members[1].id, identity(2));
+    assert_eq!(next.members[2].id, identity(4));
+    let seeds = [1u8, 2, 4];
     let keys = seeds.map(|seed| crypto::blake2s::ed25519_public_key(&[seed; 32]));
     let context = consensus::AuthenticatedCommittee::new(7, &next, &keys).unwrap();
     let root = context.root();

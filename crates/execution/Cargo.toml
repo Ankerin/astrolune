@@ -12,12 +12,14 @@ authors.workspace = true
 repository.workspace = true
 
 [dependencies]
+runtime = { version = "0.1.0", path = "../runtime" }
 codec = { version = "0.1.0", path = "../codec" }
 state = { version = "0.1.0", path = "../state" }
 transaction = { version = "0.1.0", path = "../transaction" }
 types = { version = "0.1.0", path = "../types" }
 
 [dev-dependencies]
+wat = "=1.228.0"
 crypto = { version = "0.1.0", path = "../crypto" }
 
 [lints]

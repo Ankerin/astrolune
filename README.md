@@ -36,12 +36,12 @@ AstroLune is a research and engineering workspace for a modular blockchain node.
 
 | Area | Direction | Current shape |
 | --- | --- | --- |
-| Consensus | PoTB weight, weighted VRF committees, partial rotation | Design and interface baseline |
+| Consensus | PoTB weight, weighted VRF committees, partial rotation | Verified VRF and weighted selection; live rotation pending |
 | Finality | Proposal, prevote, and precommit with > ⅔ voting power | Certified fixed-committee daemon network |
-| Execution | Deterministic state transitions with parallel scheduling | Signed native payments; contract interfaces |
+| Execution | Deterministic state transitions with parallel scheduling | Parallel signed payments and ABI-v2 contract waves |
 | Persistence | Snapshots, archives, genesis, accounts, and recovery | Reference implementation baseline |
-| Contracts | Restricted deterministic Rust runtime boundary | SDK and runtime interfaces |
-| Ecosystem | AstroLune DNS registry and resolution | Independent service direction |
+| Contracts | Restricted deterministic Rust runtime boundary | Metered integer WebAssembly; signed deployment and calls |
+| Ecosystem | AstroLune DNS registry and resolution | On-chain ownership/leases and certified-proof resolver |
 
 ## Design pillars
 
@@ -87,7 +87,7 @@ Prediction, telemetry, cache state, worker count, SIMD availability, and JIT ava
 | `crates/config` | Validated non-secret configuration |
 | `crates/consensus` | PoTB committees and BFT finality |
 | `crates/contract-sdk` | Rust contract host boundary |
-| `crates/crypto` | Hashes, signatures, and VRF interfaces |
+| `crates/crypto` | BLAKE2s, Ed25519, and RFC 9381 VRF |
 | `crates/execution` | Deterministic parallel scheduling |
 | `crates/genesis` | Validated chain configuration |
 | `crates/keystore` | Purpose-separated signing interfaces |
@@ -95,7 +95,7 @@ Prediction, telemetry, cache state, worker count, SIMD availability, and JIT ava
 | `crates/node` | Subsystem pipeline coordination |
 | `crates/p2p` | Binary frames and compact blocks |
 | `crates/rpc` | External wallet/application API |
-| `crates/runtime` | Contract module and backend interfaces |
+| `crates/runtime` | Bounded WebAssembly validator and interpreter |
 | `crates/state` | Snapshots, leases, and state diffs |
 | `crates/storage` | Validator-local durable persistence |
 | `crates/sync` | Finalized block and snapshot sync |
@@ -105,7 +105,7 @@ Prediction, telemetry, cache state, worker count, SIMD availability, and JIT ava
 | `crates/types` | Canonical shared protocol types |
 | `services/dns` | Authenticated in-network naming |
 | `tests/integration` | Workspace-level conformance tests |
-| `tools/cargo-contract` | Planned contract developer workflow |
+| `tools/cargo-contract` | Pinned Rust builds, artifact verification and sandbox tests |
 
 ## Prerequisites
 
@@ -206,7 +206,7 @@ Without genesis, the daemon uses chain ID 7 and keeps account/submission RPC una
 
 Archive version 2 is required; old version-1 archives are rejected without migration or rewriting. The consensus library authenticates votes and certificates; see [authenticated finality](docs/15-authenticated-finality.md). `BlockProducer` provides an explicit certified commit path. The [local BFT guard](docs/17-local-bft-voting.md) verifies prevote proofs and preserves vote locks across timeouts and restarts using a [protected durable journal](docs/16-durable-signing.md).
 
-The [reference round-robin participant](docs/18-signed-proposals-and-participants.md) authenticates signed proposals and coordinates execution, voting, round changes, and atomic publication. The [network driver](docs/19-reference-network.md) connects it to the daemon, mutually authenticated TLS exchange, timers, durable proposal recovery, and certified catch-up. [Transport identity validation and provisioning](docs/20-authenticated-transport.md) are implemented. Weighted VRF selection, rotating committees, and production qualification remain unfinished.
+The [reference round-robin participant](docs/18-signed-proposals-and-participants.md) authenticates signed proposals and coordinates execution, voting, round changes, and atomic publication. The [network driver](docs/19-reference-network.md) connects it to the daemon, mutually authenticated TLS exchange, timers, durable proposal recovery, and certified catch-up. [Transport identity validation and provisioning](docs/20-authenticated-transport.md) are implemented. Verified weighted VRF selection is implemented in the consensus library. Live committee rotation and production qualification remain unfinished. [Contract profile 2](docs/30-signed-contracts.md) adds explicit genesis activation of signed deployments, calls and parallel mixed execution.
 
 </details>
 
