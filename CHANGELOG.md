@@ -8,6 +8,11 @@ All notable changes to AstroLune will be documented in this file. The format fol
 
 ### Fixed
 
+- Add complete VRF contribution collection, bounded authenticated committee handoff,
+  rotating-producer system execution with reserved resources, full history replay,
+  and state/receipt verification against an independent handoff stream.
+  Existing daemon profiles retain fixed membership; live activation remains separate.
+
 - Verify RFC 9381 VRF proofs for registered keys, reject noncanonical/malleable proofs,
   bind inputs to chain/parent/height/role, and implement unbiased weighted selection.
 - Correct partial-rotation replacement counts and distinguish the legacy demonstration sampler.
@@ -55,6 +60,19 @@ All notable changes to AstroLune will be documented in this file. The format fol
 - Make the codec fuzz package independently resolvable and add exact-byte re-encoding checks for transactions, state keys, and execution receipts.
 
 ### Added
+
+- Scoped private-network peer discovery over mutual TLS, bounded reusable sessions,
+  reconnect backoff, fixed-cardinality Prometheus metrics and authenticated history
+  verification/export for observer recovery without copying signing authority.
+- Certified state membership/absence RPC, independent genesis/quorum verification
+  and offline proof CLI.
+- On-chain name registry with bounded leases, owner-authorized transitions,
+  confusable-name reservations and an authenticated operational resolver.
+- Bounded offline Rust source packages, bundled SDK/profile commitments, exact
+  artifact reconstruction and real multi-file WASM reproducibility tests.
+- Atomically persisted execution receipts, bounded recent transaction indexes,
+  certified receipt queries, offline verification and finality waiting without
+  transaction resubmission; receipt-aware archive version 3 and log payload tag 2.
 
 - Canonical authenticated double-vote proofs, bounded BFT evidence retention,
   durable validator evidence files with restart verification and CLI proof tools.

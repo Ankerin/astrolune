@@ -170,3 +170,59 @@ impl RecentTransactions {
         self.by_id.retain(|_, (height, _)| *height >= before);
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn recent_index_evicts_old_positions_without_erasing_a_newer_duplicate() {
+        let tx = types::Transaction {
+            version: 1,
+            chain_id: 7,
+            sender: types::Address([1; 32]),
+            nonce: 0,
+            expires_at: u64::MAX,
+            lane: types::TransactionLane::Payments,
+            resource_prices: types::Resources::ZERO,
+            resource_limit: types::Resources::ZERO,
+            access_list: vec![],
+            payload: vec![],
+            signature: [0; 64],
+        };
+        let first = transaction::compute_tx_id(&tx);
+        let mut block = Block {
+            header: BlockHeader {
+                height: 0,
+                parent: Hash256::ZERO,
+                state_root: Hash256::ZERO,
+                receipts_root: Hash256::ZERO,
+                transactions_root: Hash256::ZERO,
+                committee_root: Hash256::ZERO,
+                capacity: types::Resources::ZERO,
+            },
+            transactions: vec![tx],
+        };
+        let mut index = RecentTransactions::default();
+        index.insert(&block);
+        block.header.height = 1;
+        index.insert(&block);
+        for height in 2..=MAX_INDEXED_TRANSACTIONS as u64 {
+            block.header.height = height;
+            block.transactions[0].nonce = height;
+            index.insert(&block);
+        }
+        assert_eq!(index.get(first), Some((1, 0)));
+        assert_eq!(index.order.len(), MAX_INDEXED_TRANSACTIONS);
+        assert_eq!(index.by_id.len(), MAX_INDEXED_TRANSACTIONS);
+        block.header.height += 1;
+        block.transactions[0].nonce += 1;
+        let newest = transaction::compute_tx_id(&block.transactions[0]);
+        index.insert(&block);
+        assert_eq!(index.get(first), None);
+        index.prune(block.header.height);
+        assert_eq!(index.get(newest), Some((block.header.height, 0)));
+        assert_eq!(index.order.len(), 1);
+        assert_eq!(index.by_id.len(), 1);
+    }
+}

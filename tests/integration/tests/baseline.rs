@@ -262,6 +262,7 @@ fn state_execution_storage_roundtrip() {
             transactions: Vec::new(),
         },
         finality_certificate: vec![0xAA; 32],
+        effects: None,
         state_diffs: vec![{
             let mut d = StateDiff::new();
             d.put(key, vec![100, 200, 50]);
@@ -458,6 +459,7 @@ fn storage_commit_and_recover() {
             transactions: Vec::new(),
         },
         finality_certificate: vec![0xAA; 32],
+        effects: None,
         state_diffs: Vec::new(),
     };
     let cp = storage.commit(&batch).expect("commit");
@@ -584,6 +586,7 @@ fn end_to_end_block_production() {
             transactions: selected_txs,
         },
         finality_certificate: vec![0xBB; 64],
+        effects: None,
         state_diffs: outputs.into_iter().map(|o| o.diff).collect(),
     };
     let cp = storage.commit(&commit_batch).expect("storage commit");

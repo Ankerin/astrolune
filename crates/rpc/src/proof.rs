@@ -112,6 +112,37 @@ impl CertifiedStateProof {
         self.value.verify(self.root, key).map_err(|_| invalid())
     }
 
+    /// Authenticates a rotated committee using a separately verified handoff stream.
+    /// The verifier must be positioned at this exact header's height; the proof
+    /// cannot provide its own trust state or skip a missing transition. Genesis
+    /// proofs continue to use [`Self::verify`]. The caller verifies a proof before
+    /// applying the handoff contained in that same block.
+    pub fn verify_with_handoffs<'a>(
+        &'a self,
+        trusted: &consensus::rotation::HandoffVerifier,
+        key: &StateKey,
+        minimum_height: u64,
+    ) -> Result<Option<&'a [u8]>, RpcError> {
+        let invalid = || RpcError::InvalidRequest;
+        let header = self.header.as_ref().ok_or_else(invalid)?;
+        if self.certificate.len() > 92 + 96 * consensus::rotation::MAX_ROTATION_VALIDATORS
+            || header.height < minimum_height
+            || header.state_root != self.root
+            || self
+                .genesis
+                .verify(self.root, &genesis::genesis_key())
+                .map_err(|_| invalid())?
+                != Some(trusted.current().genesis().as_bytes().as_slice())
+        {
+            return Err(invalid());
+        }
+        let certificate = FinalityCertificate::decode(&self.certificate).map_err(|_| invalid())?;
+        trusted
+            .verify_header(header, &certificate)
+            .map_err(|_| invalid())?;
+        self.value.verify(self.root, key).map_err(|_| invalid())
+    }
+
     /// Encodes explicit versioned framing and bounded subproofs.
     pub fn to_bytes(&self) -> Result<Vec<u8>, RpcError> {
         if self.certificate.len() > 256 * 1024 {

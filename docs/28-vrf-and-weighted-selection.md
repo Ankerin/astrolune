@@ -63,7 +63,9 @@ weights from the trusted roster, and samples the other seats without duplicating
 retained members. Outgoing members may be selected again. Zero replacements
 preserve seat identities; excessive counts, invalid retained membership and
 nonconsecutive heights fail. `producer` requires a separate producer-role batch
-whose membership and weights exactly equal the active committee.
+whose membership and weights exactly equal the active committee. The new
+`producer_for_subset` API instead retains full-roster entropy while drawing only
+among an authenticated selected subset.
 
 The old unverified sorter is now explicitly called `DemonstrationSampler`.
 Its replacement-count bug is corrected; it remains a fixture helper.
@@ -83,10 +85,12 @@ This CLI uses the genesis roster; it does not infer later membership changes.
 ## Activation boundary
 
 The certified daemon still uses fixed genesis membership and round-robin
-producers. This change does not alter existing genesis, block, vote, certificate,
-archive or network bytes. Using the sampler in that daemon still requires
-finalized proof collection/availability, a parent-randomness rule, authenticated
-committee handoff, transition persistence and catch-up verification.
+producers. Existing genesis, block, vote, certificate, archive and network bytes
+are unchanged. The [handoff and rotating execution APIs](38-authenticated-committee-handoff.md)
+now implement complete collection, parent randomness, old-quorum trust transfer,
+system execution, authenticated history replay and state/receipt verification.
+Daemon activation still needs a versioned profile, contribution gossip, an
+availability policy, standby participation and historical handoff/client serving.
 
 The complete roster must be fixed before proof revelation. Missing proofs halt
 this sampler; dropping missing validators or changing the seed would create a

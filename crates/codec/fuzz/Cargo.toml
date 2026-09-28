@@ -13,6 +13,12 @@ cargo-fuzz = true
 [workspace]
 
 [dependencies]
+crypto = { path = "../../crypto" }
+rpc = { path = "../../rpc" }
+storage = { path = "../../storage" }
+p2p = { path = "../../p2p" }
+runtime = { path = "../../runtime" }
+contract-sdk = { path = "../../contract-sdk", default-features = false }
 libfuzzer-sys = "0.4"
 types = { path = "../../types" }
 state = { path = "../../state" }
@@ -98,5 +104,11 @@ doc = false
 [[bin]]
 name = "decode_validator_id"
 path = "fuzz_targets/decode_validator_id.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "decode_extensions"
+path = "fuzz_targets/decode_extensions.rs"
 test = false
 doc = false

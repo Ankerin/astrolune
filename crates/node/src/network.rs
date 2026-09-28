@@ -143,9 +143,36 @@ impl StaticNetwork {
                 .initialize_genesis(network.hash, initial.clone())
                 .map_err(local)?;
         }
+        let checkpoint = self.verify_storage(&storage)?;
+        let producer = BlockProducer::from_checkpoint(
+            network.producer_config(),
+            Some(checkpoint),
+            storage.state().clone(),
+        )?;
+        Ok(RecoveredNetwork { storage, producer })
+    }
+
+    /// Authenticates every retained certificate and complete ancestry against trusted genesis.
+    /// Storage must already have passed its structural replay and state-root recovery checks.
+    /// No signing authority is needed; coherent rollback requires a separate minimum-height anchor.
+    pub fn verify_storage(
+        &self,
+        storage: &ChainStorage,
+    ) -> Result<storage::Checkpoint, NetworkNodeError> {
+        let network = self;
+        let initial = network.genesis.materialize().map_err(input)?;
         let checkpoint = *storage
             .checkpoint()
             .ok_or_else(|| local("missing checkpoint"))?;
+        if storage
+            .state()
+            .get(&consensus::rotation::committee_state_key())
+            .is_some()
+        {
+            return Err(input(
+                "rotating history requires explicit rotating recovery",
+            ));
+        }
         if usize::try_from(checkpoint.height).ok() != Some(storage.block_count()) {
             return Err(input(
                 "certified network requires complete history from genesis",
@@ -176,12 +203,7 @@ impl StaticNetwork {
         if parent != checkpoint.block {
             return Err(input("history checkpoint mismatch"));
         }
-        let producer = BlockProducer::from_checkpoint(
-            network.producer_config(),
-            Some(checkpoint),
-            storage.state().clone(),
-        )?;
-        Ok(RecoveredNetwork { storage, producer })
+        Ok(checkpoint)
     }
 
     fn producer_config(&self) -> ProducerConfig {

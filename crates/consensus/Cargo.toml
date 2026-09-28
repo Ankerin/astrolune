@@ -14,7 +14,9 @@ repository.workspace = true
 [dependencies]
 codec = { version = "0.1.0", path = "../codec" }
 crypto = { version = "0.1.0", path = "../crypto" }
+genesis = { version = "0.1.0", path = "../genesis" }
 keystore = { version = "0.1.0", path = "../keystore" }
+state = { version = "0.1.0", path = "../state" }
 types = { version = "0.1.0", path = "../types" }
 
 [lints]

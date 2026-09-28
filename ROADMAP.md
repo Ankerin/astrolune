@@ -26,13 +26,14 @@ Canonical encodings, protocol domains, hashes, addresses, signatures, checked re
 - [x] Versioned reference-network envelopes and opt-in certified daemon finality.
 - [x] Canonical RFC 9381 VRF proofs, role-bound context, RFC vectors and malformed-proof rejection.
 - [ ] Complete production protocol envelopes and compatibility qualification.
+- [x] Shared extension fuzz oracle and deterministic 100,000-input mutation campaign; [qualification details](docs/37-protocol-qualification.md).
 - [ ] Long fuzz campaigns, dependency/security review, and cross-platform suite qualification.
 
 ## M2 — transactions and state
 
 Signed envelopes, validation order, account/state commitments, immutable snapshots, proofs, state diffs, atomic commit, recovery, pruning, and snapshot exchange.
 
-Current progress: signed admission validates existing transaction fields against an account view. Merkle state commitments, membership and absence proofs, immutable snapshots, bounded transitions, atomic state/whole-chain archive recovery, and verified snapshot exchange are implemented with rollback tests. Proposal execution stays private until successful commit. Sequential signed payment overlays, balance/nonce transitions, fixed reference fees, execution revalidation, and daemon account/submission RPC are implemented. The [versioned transaction envelope](docs/14-versioned-transactions.md), expiry enforcement, and post-commit expiry eviction are implemented. [Append-only block/delta logs](docs/22-append-only-chain-storage.md) now provide durable publication, disk history reads, linear replay and legacy compatibility for new network directories. [Protected signing-journal rollover](docs/23-signing-journal-rollover.md) now continues after the former decision cap with constant file size and lock-preserving recovery. Production fee governance, state indexing, retention and rollback-resistant key custody remain open. Local daemon block/state restart integration is implemented; daemon signing-state integration and independent authentication of recovered history are implemented in the certified reference-network profile. See [state and recovery](docs/10-state-and-recovery.md) and [chain archives](docs/11-chain-archives.md).
+Current progress: signed admission validates existing transaction fields against an account view. Merkle state commitments, membership and absence proofs, immutable snapshots, bounded transitions, atomic state/whole-chain archive recovery, and verified snapshot exchange are implemented with rollback tests. Proposal execution stays private until successful commit. Sequential signed payment overlays, balance/nonce transitions, fixed reference fees, execution revalidation, and daemon account/submission RPC are implemented. The [versioned transaction envelope](docs/14-versioned-transactions.md), expiry enforcement, and post-commit expiry eviction are implemented. [Append-only block/delta logs](docs/22-append-only-chain-storage.md) now provide durable publication, disk history reads, linear replay and legacy compatibility for new network directories. [Protected signing-journal rollover](docs/23-signing-journal-rollover.md) now continues after the former decision cap with constant file size and lock-preserving recovery. Bounded recent transaction indexing and certified receipt recovery are implemented. Production fee governance, historical state indexing, physical retention and rollback-resistant key custody remain open. Local daemon block/state restart integration is implemented; daemon signing-state integration and independent authentication of recovered history are implemented in the certified reference-network profile. See [state and recovery](docs/10-state-and-recovery.md) and [chain archives](docs/11-chain-archives.md).
 
 ## M3 — deterministic Rust contracts
 
@@ -54,7 +55,8 @@ Access leasing, execution waves, multiple lanes, optimistic validation, determin
 - [x] Parallel signed payment waves with checked actual access, private overlays and serial error replay.
 - [x] Node verification/replay integration and serial/parallel differential tests across worker counts.
 - [x] Mixed contract/payment waves, aggregate capacity enforcement and deterministic serial replay.
-- [ ] Consensus-governed system lane and protocol capacity allocation.
+- [x] Explicit rotating-producer system lane with reserved VRF resources, mixed application execution and atomic publication.
+- [ ] Daemon system-lane activation and consensus capacity/fee governance.
 - [ ] Measured locality/fusion/cache/prefetch/pool optimizations and signature batching with equivalence tests.
 
 ## M5 — PoTB and finality
@@ -63,13 +65,14 @@ PoTB state transitions and evidence, audited VRF provider, weighted sampler, par
 
 - [x] Registered-key ECVRF proof generation/verification and offline operator commands.
 - [x] Complete-roster weighted sampling without modulo bias, partial-rotation computation and producer-role sampling.
-- [ ] Finalized VRF collection/availability, parent randomness and authenticated committee handoff in the daemon.
+- [x] Bounded full-roster collection, parent randomness, authenticated handoff, rotating execution/history replay and proof-verifier APIs; [details](docs/38-authenticated-committee-handoff.md).
+- [ ] Activate VRF in the daemon: contribution gossip, unavailable-proof policy, standby signing participation, handoff serving and client catch-up.
 - [ ] Canonical evidence inclusion, active PoTB weights and admission transitions.
 - [ ] Rotating-consensus adversarial simulations, formal safety/liveness and independent provider review.
 
 The [VRF and sampler specification](docs/28-vrf-and-weighted-selection.md) distinguishes implemented selection from daemon activation.
 
-Current progress: authenticated fixed-height vote collection separates rounds/phases/blocks, rejects equivocation and replays, and emits bounded canonical certificates. The producer can verify a trusted committee and certificate before atomic execution/state publication. [Protocol details](docs/15-authenticated-finality.md). [Durable signing](docs/16-durable-signing.md), monotonic decision recovery, process locking, and typed vote signing are implemented/tested. [Local BFT voting](docs/17-local-bft-voting.md), verified prevote proofs, timeout transitions, and atomic version-2 vote/lock recovery are implemented/tested, including payment execution and certified archive recovery. [Signed proposals and a reference round-robin participant](docs/18-signed-proposals-and-participants.md) now coordinate authenticated proposal signing, execution, vote collection, timeout events, and atomic publication. [Certified reference networking](docs/19-reference-network.md) now adds daemon integration, monotonic timers, persisted available values, explicit provisioning, and certified catch-up. Verified weighted VRF selection is implemented. Daemon VRF activation, committee handoff, formal distributed liveness, and production network qualification remain open.
+Current progress: authenticated fixed-height vote collection separates rounds/phases/blocks, rejects equivocation and replays, and emits bounded canonical certificates. The producer can verify a trusted committee and certificate before atomic execution/state publication. [Protocol details](docs/15-authenticated-finality.md). [Durable signing](docs/16-durable-signing.md), monotonic decision recovery, process locking, and typed vote signing are implemented/tested. [Local BFT voting](docs/17-local-bft-voting.md), verified prevote proofs, timeout transitions, and atomic version-2 vote/lock recovery are implemented/tested, including payment execution and certified archive recovery. [Signed proposals and a reference round-robin participant](docs/18-signed-proposals-and-participants.md) now coordinate authenticated proposal signing, execution, vote collection, timeout events, and atomic publication. [Certified reference networking](docs/19-reference-network.md) now adds daemon integration, monotonic timers, persisted available values, explicit provisioning, and certified catch-up. Verified weighted VRF selection, certified handoff and explicit rotating block execution/recovery are implemented. Daemon activation, historical handoff serving, formal distributed liveness and production network qualification remain open.
 
 PoTB progress: [double-vote evidence and a policy workbench](docs/25-potb-evidence.md)
 now verify offences, retain durable bounded proofs and evaluate capped integer
@@ -80,7 +83,7 @@ transitions, admission, VRF collection/activation and committee handoff are stil
 
 Authenticated encrypted transport, peer discovery, rate limiting, compact blocks, finalized sync, bounded queues, stage pipelining, speculative work, external RPC, and adaptive-capacity governance.
 
-Current progress: [certified reference networking](docs/19-reference-network.md) connects independent daemon processes with fixed genesis membership, signed proposals/votes, step timers, payment gossip, bounded mutually authenticated TLS 1.3 exchanges, protected journals, durable available-value recovery, and sequential certified catch-up. Local devnet generation and explicit signer provisioning are implemented. Real process tests cover quorum operation, RPC payments, restart, and late join. [TLS identity validation and provisioning](docs/20-authenticated-transport.md) are implemented with independent transport keys and deadline tests. [Non-voting full nodes](docs/21-observer-nodes.md) now independently authenticate history, execute imported blocks, relay payments, serve RPC, and recover without signing authority. Discovery, public-network hardening, production storage, and rotating consensus remain open.
+Current progress: [certified reference networking](docs/19-reference-network.md) connects independent daemon processes with fixed genesis membership, signed proposals/votes, step timers, payment gossip, bounded mutually authenticated TLS 1.3 exchanges, protected journals, durable available-value recovery, and sequential certified catch-up. Local devnet generation and explicit signer provisioning are implemented. Real process tests cover quorum operation, RPC payments, restart, and late join. [TLS identity validation and provisioning](docs/20-authenticated-transport.md) are implemented with independent transport keys and deadline tests. [Non-voting full nodes](docs/21-observer-nodes.md) now independently authenticate history, execute imported blocks, relay payments, serve RPC, and recover without signing authority. [Scoped private-network discovery, bounded TLS sessions, local metrics and authenticated observer recovery](docs/36-private-network-operations.md) are implemented/tested. Public-network hardening, physical history retention and rotating consensus remain open.
 
 ## M7 — ecosystem
 
@@ -90,7 +93,7 @@ Current progress: the [native-payment CLI wallet](docs/24-wallet-and-rpc-client.
 derives real public identities, signs payments offline to non-overwritable files,
 checks signatures and policy, reads finalized accounts/status, and submits saved
 transactions with explicit ambiguous-outcome handling. The typed RPC client has
-bounded frames, strict response checks and whole-call deadlines. Encrypted wallet custody is implemented with fixed-cost Argon2id and authenticated encryption; see [SDK and vaults](docs/31-rust-sdk-and-wallet-vaults.md). Certified state membership/absence queries and the on-chain DNS registry with an authenticated resolver are implemented; see [state proofs](docs/32-certified-state-proofs.md) and [DNS](docs/33-authenticated-name-registry.md). Receipt queries and transaction finality waiting remain open.
+bounded frames, strict response checks and whole-call deadlines. Encrypted wallet custody is implemented with fixed-cost Argon2id and authenticated encryption; see [SDK and vaults](docs/31-rust-sdk-and-wallet-vaults.md). Certified state membership/absence queries and the on-chain DNS registry with an authenticated resolver are implemented; see [state proofs](docs/32-certified-state-proofs.md) and [DNS](docs/33-authenticated-name-registry.md). Certified receipt queries, bounded recent transaction lookup and authenticated finality waiting are implemented; see [receipts](docs/35-certified-receipts.md).
 
 ## M8 — public testnet and production gates
 
@@ -111,7 +114,7 @@ External audits, public-testnet calibration and key ceremonies are separate rele
 - [ ] Add state/transaction indexing and bounded retention with authenticated recovery.
 - [x] Add encrypted wallet custody, OS-generated wallet keys and direct vault signing.
 - [x] Add certified state membership/absence proofs and offline verification.
-- [ ] Add receipt queries and transaction finality waiting.
+- [x] Add receipt queries and transaction finality waiting.
 - [x] Implement the authenticated on-chain DNS registry and operational resolver.
-- [ ] Complete peer discovery/session management, operational telemetry and operator recovery tooling.
+- [x] Complete scoped private-network peer discovery, bounded sessions, operational telemetry and authenticated observer recovery tooling.
 - [ ] Complete protocol compatibility fixtures, fuzzing, platform and reproducible-release qualification.

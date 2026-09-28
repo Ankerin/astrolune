@@ -1008,6 +1008,14 @@ fn legacy_validator_and_log_observer_exchange_certified_payments_and_recover() {
         validator.storage().state().root()
     );
     assert!(validator.storage().is_legacy_archive());
+    let id = transaction::compute_tx_id(&transfer());
+    let (height, index) = validator.storage().transaction_location(id).unwrap();
+    let recovered_receipts = validator.storage().read_receipts(height).unwrap().unwrap();
+    assert_eq!(recovered_receipts.effects.receipts[index].transaction, id);
+    assert_eq!(
+        Some(recovered_receipts),
+        observer.storage().read_receipts(height).unwrap()
+    );
     assert_eq!(&std::fs::read(path).unwrap()[..8], b"ASTSTORE");
 }
 

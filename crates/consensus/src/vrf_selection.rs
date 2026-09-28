@@ -162,6 +162,28 @@ impl VerifiedVrfSampler {
         Ok(self.draw(members, 1)?[0].id)
     }
 
+    /// Draws within a selected subset using entropy from the complete eligible roster.
+    /// Every selected identity and weight must match the already verified roster.
+    /// Unselected contributors still participate in the transcript and cannot be omitted.
+    pub fn producer_for_subset(
+        &self,
+        committee: &Committee,
+    ) -> Result<ValidatorId, ConsensusError> {
+        committee.total_power()?;
+        if self.input.role != VrfRole::Producer
+            || committee.height != self.input.height
+            || committee
+                .members
+                .iter()
+                .any(|member| !self.members.contains(member))
+        {
+            return Err(ConsensusError::InvalidCommittee);
+        }
+        let mut members = committee.members.clone();
+        members.sort_by_key(|member| member.id);
+        Ok(self.draw(members, 1)?[0].id)
+    }
+
     fn draw(
         &self,
         mut pool: Vec<CommitteeMember>,

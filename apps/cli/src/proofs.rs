@@ -19,21 +19,7 @@ pub(super) fn run(command: &str, args: &[OsString]) -> Result<(), CliError> {
             "usage: cli state-proof|verify-state-proof <genesis> <validators> <key-hex> <minimum-height> <proof-file> [rpc-address]",
         ));
     }
-    let genesis = genesis::Genesis::decode(&read_bounded(
-        Path::new(&args[0]),
-        genesis::MAX_GENESIS_BYTES,
-    )?)
-    .map_err(error)?;
-    let registry = read_bounded(Path::new(&args[1]), genesis::MAX_GENESIS_VALIDATORS * 32)?;
-    if registry.is_empty() || !registry.len().is_multiple_of(32) {
-        return Err(error(
-            "validator registry must contain consecutive 32-byte public keys",
-        ));
-    }
-    let keys: Vec<[u8; 32]> = registry
-        .chunks_exact(32)
-        .map(|key| key.try_into().expect("exact chunk"))
-        .collect();
+    let (genesis, keys) = anchors(Path::new(&args[0]), Path::new(&args[1]))?;
     let key = parse_key(wallet::text(&args[2])?)?;
     let minimum = wallet::integer(&args[3])?;
     let path = Path::new(&args[4]);
@@ -86,4 +72,24 @@ fn parse_key(text: &str) -> Result<StateKey, CliError> {
         })
         .collect::<Result<Vec<_>, _>>()?;
     Ok(StateKey(bytes))
+}
+
+pub(super) fn anchors(
+    genesis_path: &Path,
+    registry_path: &Path,
+) -> Result<(genesis::Genesis, Vec<[u8; 32]>), CliError> {
+    let genesis =
+        genesis::Genesis::decode(&read_bounded(genesis_path, genesis::MAX_GENESIS_BYTES)?)
+            .map_err(error)?;
+    let registry = read_bounded(registry_path, genesis::MAX_GENESIS_VALIDATORS * 32)?;
+    if registry.is_empty() || !registry.len().is_multiple_of(32) {
+        return Err(error(
+            "validator registry must contain consecutive 32-byte public keys",
+        ));
+    }
+    let keys: Vec<[u8; 32]> = registry
+        .chunks_exact(32)
+        .map(|key| key.try_into().expect("exact chunk"))
+        .collect();
+    Ok((genesis, keys))
 }

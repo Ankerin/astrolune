@@ -202,6 +202,40 @@ impl TcpRpcClient {
             .map(Some)
             .map_err(|_| ClientError::Protocol("invalid receipt proof"))
     }
+    /// Polls receipt availability under one total deadline; never resubmits a transaction.
+    /// None means timeout, not rejection. The caller must authenticate any returned proof.
+    pub fn wait_receipt(
+        &self,
+        id: Hash256,
+        timeout: Duration,
+    ) -> Result<Option<crate::CertifiedReceiptProof>, ClientError> {
+        if timeout.is_zero() || timeout > Duration::from_secs(3600) {
+            return Err(ClientError::Protocol("wait timeout must be in (0, 3600s]"));
+        }
+        let deadline = Instant::now() + timeout;
+        loop {
+            let Some(remaining) = deadline
+                .checked_duration_since(Instant::now())
+                .filter(|time| !time.is_zero())
+            else {
+                return Ok(None);
+            };
+            let client = Self {
+                address: self.address,
+                timeout: self.timeout.min(remaining),
+            };
+            match client.receipt(id, None) {
+                Ok(Some(proof)) => return Ok(Some(proof)),
+                Ok(None) => {}
+                Err(ClientError::Io(_)) if Instant::now() >= deadline => return Ok(None),
+                Err(error) => return Err(error),
+            }
+            let pause = deadline
+                .saturating_duration_since(Instant::now())
+                .min(Duration::from_millis(250));
+            std::thread::sleep(pause);
+        }
+    }
     fn call_bounded(
         &self,
         method: &str,

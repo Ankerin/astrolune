@@ -261,6 +261,7 @@ impl AppendOnlyStorage {
         }
         match record {
             Record::Batch(batch) if batch.block.header.height == height => {
+                let batch = *batch;
                 Ok(batch.effects.map(|effects| crate::StoredReceipts {
                     header: batch.block.header,
                     certificate: batch.finality_certificate,

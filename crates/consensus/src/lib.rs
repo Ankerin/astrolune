@@ -16,6 +16,7 @@ pub mod local;
 pub mod potb;
 pub mod prevote;
 pub mod proposal;
+pub mod rotation;
 pub mod sampler;
 pub mod vote;
 pub mod vrf_selection;

@@ -298,7 +298,7 @@ mod tests {
         // presence 1, block header 200, transaction count 8, certificate length 8 + 2.
         for (offset, value) in [
             (8, 1),
-            (8, 3),
+            (8, 4),
             (10, 255),
             (18, 1),
             (90, 255),

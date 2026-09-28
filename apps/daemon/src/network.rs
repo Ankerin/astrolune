@@ -5,11 +5,7 @@
 
 use crate::{DaemonError, io_error, options::Options};
 use codec::{CanonicalDecode, CanonicalEncode};
-use node::{
-    network::{NetworkNodeError, StaticNetwork},
-    network_wire::{MAX_EXCHANGE_BYTES, SyncRequest},
-};
-use p2p::exchange::{read_packet, write_packet};
+use node::network::{NetworkNodeError, StaticNetwork};
 use p2p::tls::{PeerStream, PeerTlsConfig};
 use rpc::{RpcError, RpcRequest, RpcResponse, RpcService, TcpRpcServer};
 use state::StateDatabase;
@@ -26,8 +22,11 @@ use std::{
 
 const IO_TIMEOUT: Duration = Duration::from_secs(2);
 
+mod metrics;
+mod peers;
 mod role;
 use role::PeerNode;
+use telemetry::{NodeMetric, NodeMetrics};
 
 struct NetworkIdentity {
     network: StaticNetwork,
@@ -44,25 +43,7 @@ pub(crate) fn run(options: &Options, genesis: genesis::Genesis) -> Result<(), Da
             .transpose()
             .map_err(io_error)?,
     );
-    println!("AstroLune certified reference network (fixed committee / round-robin)");
-    println!("chain_id  : {}", network.chain_id());
-    println!("genesis_hash: {}", network.genesis_hash());
-    println!(
-        "role      : {}",
-        if options.observer {
-            "observer (no consensus signing)"
-        } else {
-            "validator"
-        }
-    );
-    println!(
-        "transport : {}",
-        if transport.0.is_some() {
-            "TLS 1.3 / mutual authentication"
-        } else {
-            "INSECURE loopback plaintext"
-        }
-    );
+    print_identity(options, &network, &transport);
     if options.dry_run {
         if options.observer {
             node::observer::ObserverNode::validate_directory(&network, &options.config.data_dir)
@@ -86,13 +67,27 @@ pub(crate) fn run(options: &Options, genesis: genesis::Genesis) -> Result<(), Da
         return Ok(());
     }
     let initial_height = node.request().height;
+    let metrics = Arc::new(NodeMetrics::new(initial_height - 1, options.observer));
     let node = Arc::new(Mutex::new(node));
     let storage_failed = Arc::new(AtomicBool::new(false));
     let listener = TcpListener::bind(&options.config.network.p2p_listen).map_err(io_error)?;
     listener.set_nonblocking(true).map_err(io_error)?;
+    let _metrics_server = options
+        .metrics_listen
+        .map(|address| metrics::MetricsServer::start(address, metrics.clone()))
+        .transpose()
+        .map_err(io_error)?;
+    let peers = peers::PeerRuntime::new(
+        options,
+        listener.local_addr().map_err(io_error)?,
+        node.clone(),
+        transport.clone(),
+        metrics.clone(),
+    )?;
     let rpc = Arc::new(Mutex::new(NetworkStatus {
         node: node.clone(),
         chain_id: network.chain_id(),
+        metrics: metrics.clone(),
         storage_failed: storage_failed.clone(),
     }));
     let rpc = TcpRpcServer::bind(rpc, &options.config.network.rpc_listen).map_err(io_error)?;
@@ -106,11 +101,11 @@ pub(crate) fn run(options: &Options, genesis: genesis::Genesis) -> Result<(), Da
             }
         })
         .map_err(io_error)?;
-    let stop = Arc::new(AtomicBool::new(false));
-    let workers = spawn_peers(options, &node, &stop, &transport)?;
+    let workers = peers.spawn()?;
     let signals = DriveSignals {
         active: Arc::new(AtomicUsize::new(0)),
         storage_failed,
+        peers,
     };
     let result = drive(
         options,
@@ -119,13 +114,34 @@ pub(crate) fn run(options: &Options, genesis: genesis::Genesis) -> Result<(), Da
         &signals,
         initial_height,
         &workers.receiver,
-        &transport,
     );
-    stop.store(true, Ordering::Release);
+    signals.peers.stop();
     for worker in workers.handles {
         let _ = worker.join();
     }
     result
+}
+
+fn print_identity(options: &Options, network: &StaticNetwork, transport: &PeerTransport) {
+    println!("AstroLune certified reference network (fixed committee / round-robin)");
+    println!("chain_id  : {}", network.chain_id());
+    println!("genesis_hash: {}", network.genesis_hash());
+    println!(
+        "role      : {}",
+        if options.observer {
+            "observer (no consensus signing)"
+        } else {
+            "validator"
+        }
+    );
+    println!(
+        "transport : {}",
+        if transport.0.is_some() {
+            "TLS 1.3 / mutual authentication"
+        } else {
+            "INSECURE loopback plaintext"
+        }
+    );
 }
 
 fn load_identity(
@@ -208,59 +224,18 @@ impl PeerTransport {
     }
 }
 
-fn spawn_peers(
-    options: &Options,
-    node: &Arc<Mutex<PeerNode>>,
-    stop: &Arc<AtomicBool>,
-    transport: &PeerTransport,
-) -> Result<Workers, DaemonError> {
-    let (sender, receiver) = mpsc::sync_channel(4);
-    let mut handles = Vec::new();
-    for address in &options.peers {
-        let address = *address;
-        let node = node.clone();
-        let stop = stop.clone();
-        let sender = sender.clone();
-        let transport = transport.clone();
-        handles.push(
-            std::thread::Builder::new()
-                .name(format!("peer-{address}"))
-                .spawn(move || {
-                    while !stop.load(Ordering::Acquire) {
-                        let Ok(node) = node.lock() else {
-                            break;
-                        };
-                        let request = node.request();
-                        drop(node);
-                        let exchange = || -> std::io::Result<Vec<u8>> {
-                            let stream = TcpStream::connect_timeout(&address, IO_TIMEOUT)?;
-                            let mut stream = transport.connect(stream)?;
-                            write_packet(&mut stream, &request.encode(), 48, IO_TIMEOUT)?;
-                            read_packet(&mut stream, MAX_EXCHANGE_BYTES, IO_TIMEOUT)
-                        };
-                        if let Ok(bytes) = exchange() {
-                            // A full mailbox drops a redundant snapshot; the next poll retries it.
-                            let _ = sender.try_send(bytes);
-                        }
-                        std::thread::sleep(Duration::from_millis(50));
-                    }
-                })
-                .map_err(io_error)?,
-        );
-    }
-    Ok(Workers { receiver, handles })
-}
-
-struct ConnectionSlot(Arc<AtomicUsize>);
+struct ConnectionSlot(Arc<AtomicUsize>, Arc<NodeMetrics>);
 impl Drop for ConnectionSlot {
     fn drop(&mut self) {
         self.0.fetch_sub(1, Ordering::AcqRel);
+        self.1.subtract(NodeMetric::IncomingSessions, 1);
     }
 }
 
 struct DriveSignals {
     active: Arc<AtomicUsize>,
     storage_failed: Arc<AtomicBool>,
+    peers: peers::PeerRuntime,
 }
 
 fn drive(
@@ -270,7 +245,6 @@ fn drive(
     signals: &DriveSignals,
     initial_height: u64,
     receiver: &mpsc::Receiver<Vec<u8>>,
-    transport: &PeerTransport,
 ) -> Result<(), DaemonError> {
     let mut reported = initial_height;
     loop {
@@ -279,48 +253,29 @@ fn drive(
             match listener.accept() {
                 Ok((stream, _)) => {
                     if signals.active.load(Ordering::Acquire) >= options.config.network.max_peers {
+                        signals.peers.metrics.add(NodeMetric::SessionLimitDrops, 1);
                         continue;
                     }
                     signals.active.fetch_add(1, Ordering::AcqRel);
-                    let slot = ConnectionSlot(signals.active.clone());
-                    let node = node.clone();
-                    let transport = transport.clone();
+                    signals.peers.metrics.add(NodeMetric::IncomingSessions, 1);
+                    let slot =
+                        ConnectionSlot(signals.active.clone(), signals.peers.metrics.clone());
+                    let peers = signals.peers.clone();
                     let storage_failed = signals.storage_failed.clone();
                     std::thread::Builder::new()
                         .name("peer-request".into())
                         .spawn(move || {
                             let _slot = slot;
-                            let serve = || -> Result<(), DaemonError> {
-                                let mut stream = transport.accept(stream).map_err(io_error)?;
-                                let bytes =
-                                    read_packet(&mut stream, 48, IO_TIMEOUT).map_err(io_error)?;
-                                let request = SyncRequest::decode(&bytes).map_err(io_error)?;
-                                let response = {
-                                    let node =
-                                        node.lock().map_err(|_| io_error("node lock poisoned"))?;
-                                    match node.respond(request) {
-                                        Ok(response) => response,
-                                        Err(error) => {
-                                            // Set while holding the node lock, so the driver cannot
-                                            // sign again after observing a local history failure.
-                                            if matches!(error, NetworkNodeError::Local(_)) {
-                                                storage_failed.store(true, Ordering::Release);
-                                                eprintln!("Finalized history read failed: {error}");
-                                            }
-                                            return Err(io_error(error));
-                                        }
-                                    }
-                                };
-                                write_packet(&mut stream, &response, MAX_EXCHANGE_BYTES, IO_TIMEOUT)
-                                    .map_err(io_error)
-                            };
-                            let _ = serve();
+                            let _ = peers.serve(stream, &storage_failed);
                         })
                         .map_err(io_error)?;
                 }
                 Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => break,
                 Err(error) => return Err(io_error(error)),
             }
+        }
+        if signals.peers.failed() {
+            return Err(io_error("peer worker failed; restart required"));
         }
         let mut node = node.lock().map_err(|_| io_error("node lock poisoned"))?;
         if signals.storage_failed.load(Ordering::Acquire) {
@@ -330,7 +285,13 @@ fn drive(
         }
         for bytes in receiver.try_iter().take(4) {
             match node.receive(&bytes) {
-                Ok(_) | Err(NetworkNodeError::Input(_)) => {}
+                Ok(rejected) => signals
+                    .peers
+                    .metrics
+                    .add(NodeMetric::RejectedMessages, rejected as u64),
+                Err(NetworkNodeError::Input(_)) => {
+                    signals.peers.metrics.add(NodeMetric::RejectedMessages, 1);
+                }
                 Err(error) => return Err(io_error(error)),
             }
         }
@@ -340,6 +301,7 @@ fn drive(
             println!("certified block committed at height {}", height - 1);
             println!("state_root: {}", node.storage().state().root());
             reported = height;
+            signals.peers.metrics.finalized(height - 1);
         }
         if options
             .max_blocks
@@ -374,38 +336,48 @@ fn read_bounded(path: &std::path::Path, maximum: usize) -> Result<Vec<u8>, Daemo
 struct NetworkStatus {
     node: Arc<Mutex<PeerNode>>,
     chain_id: u32,
+    metrics: Arc<NodeMetrics>,
     storage_failed: Arc<AtomicBool>,
+}
+impl NetworkStatus {
+    fn receipt(
+        &self,
+        node: &PeerNode,
+        id: types::Hash256,
+        height: Option<u64>,
+    ) -> Result<RpcResponse, RpcError> {
+        let height = height.or_else(|| {
+            node.storage()
+                .transaction_location(id)
+                .map(|(height, _)| height)
+        });
+        let Some(height) = height else {
+            return Ok(RpcResponse::Receipt(None));
+        };
+        let stored = node.storage().read_receipts(height).map_err(|error| {
+            self.storage_failed.store(true, Ordering::Release);
+            self.metrics.add(NodeMetric::LocalFailures, 1);
+            eprintln!("Finalized receipt read failed: {error}");
+            RpcError::Unavailable
+        })?;
+        let proof = stored
+            .filter(|stored| {
+                stored
+                    .effects
+                    .receipts
+                    .iter()
+                    .any(|receipt| receipt.transaction == id)
+            })
+            .map(|stored| rpc::CertifiedReceiptProof(stored).to_bytes())
+            .transpose()?;
+        Ok(RpcResponse::Receipt(proof))
+    }
 }
 impl RpcService for NetworkStatus {
     fn handle(&self, request: RpcRequest) -> Result<RpcResponse, RpcError> {
         let mut node = self.node.lock().map_err(|_| RpcError::Unavailable)?;
         match request {
-            RpcRequest::Receipt { id, height } => {
-                let height = height.or_else(|| {
-                    node.storage()
-                        .transaction_location(id)
-                        .map(|(height, _)| height)
-                });
-                let Some(height) = height else {
-                    return Ok(RpcResponse::Receipt(None));
-                };
-                let stored = node.storage().read_receipts(height).map_err(|error| {
-                    self.storage_failed.store(true, Ordering::Release);
-                    eprintln!("Finalized receipt read failed: {error}");
-                    RpcError::Unavailable
-                })?;
-                let proof = stored
-                    .filter(|stored| {
-                        stored
-                            .effects
-                            .receipts
-                            .iter()
-                            .any(|receipt| receipt.transaction == id)
-                    })
-                    .map(|stored| rpc::CertifiedReceiptProof(stored).to_bytes())
-                    .transpose()?;
-                Ok(RpcResponse::Receipt(proof))
-            }
+            RpcRequest::Receipt { id, height } => self.receipt(&node, id, height),
             RpcRequest::StateProof(key) => {
                 let snapshot = node
                     .storage()
@@ -425,6 +397,7 @@ impl RpcService for NetworkStatus {
                         .read_finalized(height)
                         .map_err(|error| {
                             self.storage_failed.store(true, Ordering::Release);
+                            self.metrics.add(NodeMetric::LocalFailures, 1);
                             eprintln!("Finalized proof read failed: {error}");
                             RpcError::Unavailable
                         })?
@@ -439,6 +412,7 @@ impl RpcService for NetworkStatus {
                     // A locally corrupt certified block must stop voting even when
                     // RPC discovers it before peer catch-up does.
                     self.storage_failed.store(true, Ordering::Release);
+                    self.metrics.add(NodeMetric::LocalFailures, 1);
                     eprintln!("Finalized history read failed: {error}");
                     RpcError::Unavailable
                 })?;
@@ -471,6 +445,8 @@ impl RpcService for NetworkStatus {
                 let tx =
                     types::Transaction::decode(&bytes).map_err(|_| RpcError::InvalidRequest)?;
                 node.submit_transaction(tx)
+                    .inspect(|_| self.metrics.add(NodeMetric::TransactionsAccepted, 1))
+                    .inspect_err(|_| self.metrics.add(NodeMetric::TransactionsRejected, 1))
                     .map(RpcResponse::TransactionAccepted)
                     .map_err(|error| match error {
                         NetworkNodeError::Input(_) => RpcError::InvalidRequest,

@@ -208,10 +208,12 @@ dependencies = [
  "execution",
  "genesis",
  "keystore",
+ "node",
  "p2p",
  "rpc",
  "runtime",
  "state",
+ "storage",
  "transaction",
  "types",
  "wat",
@@ -241,7 +243,9 @@ version = "0.1.0"
 dependencies = [
  "codec",
  "crypto",
+ "genesis",
  "keystore",
+ "state",
  "types",
 ]
 
@@ -365,6 +369,7 @@ dependencies = [
  "rpc",
  "state",
  "storage",
+ "telemetry",
  "transaction",
  "types",
  "zeroize",
@@ -633,6 +638,7 @@ dependencies = [
  "codec",
  "config",
  "consensus",
+ "contract-sdk",
  "crypto",
  "dns",
  "execution",
@@ -642,6 +648,7 @@ dependencies = [
  "node",
  "p2p",
  "rpc",
+ "runtime",
  "state",
  "storage",
  "sync",
@@ -649,6 +656,7 @@ dependencies = [
  "testkit",
  "transaction",
  "types",
+ "wat",
 ]
 
 [[package]]
@@ -805,6 +813,7 @@ checksum = "c08d65885ee38876c4f86fa503fb49d7b507c2b62552df7c70b2fce627e06381"
 name = "p2p"
 version = "0.1.0"
 dependencies = [
+ "codec",
  "rcgen",
  "rustls",
  "time",

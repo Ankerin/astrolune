@@ -23,6 +23,31 @@ impl CertifiedReceiptProof {
         id: Hash256,
         minimum_height: u64,
     ) -> Result<&ExecutionReceipt, RpcError> {
+        self.certified_state()?
+            .verify(genesis, keys, &genesis::genesis_key(), minimum_height)?;
+        self.matching_receipt(id)
+    }
+
+    /// Authenticates a receipt at the exact height of an independently verified
+    /// handoff stream. The untrusted proof cannot choose its own committee.
+    pub fn verify_with_handoffs(
+        &self,
+        trusted: &consensus::rotation::HandoffVerifier,
+        id: Hash256,
+        minimum_height: u64,
+    ) -> Result<&ExecutionReceipt, RpcError> {
+        self.certified_state()?.verify_with_handoffs(
+            trusted,
+            &genesis::genesis_key(),
+            minimum_height,
+        )?;
+        self.matching_receipt(id)
+    }
+
+    fn certified_state(&self) -> Result<CertifiedStateProof, RpcError> {
+        if self.0.certificate.len() > 256 * 1024 {
+            return Err(RpcError::LimitExceeded);
+        }
         self.0
             .effects
             .validate_header(&self.0.header)
@@ -32,14 +57,16 @@ impl CertifiedReceiptProof {
             .effects
             .to_bytes()
             .map_err(|_| RpcError::LimitExceeded)?;
-        let proof = CertifiedStateProof {
+        Ok(CertifiedStateProof {
             root: self.0.header.state_root,
             header: Some(self.0.header),
             certificate: self.0.certificate.clone(),
             genesis: self.0.effects.genesis.clone(),
             value: self.0.effects.genesis.clone(),
-        };
-        proof.verify(genesis, keys, &genesis::genesis_key(), minimum_height)?;
+        })
+    }
+
+    fn matching_receipt(&self, id: Hash256) -> Result<&ExecutionReceipt, RpcError> {
         let mut matching = self
             .0
             .effects
@@ -52,7 +79,6 @@ impl CertifiedReceiptProof {
         }
         Ok(receipt)
     }
-
     /// Serializes exact versioned lengths; this does not authenticate signatures.
     pub fn to_bytes(&self) -> Result<Vec<u8>, RpcError> {
         if self.0.certificate.len() > 256 * 1024 {

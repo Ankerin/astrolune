@@ -21,6 +21,8 @@ mod contracts;
 mod evidence;
 mod network;
 mod proofs;
+mod receipts;
+mod recovery;
 mod vault;
 mod vrf;
 mod wallet;
@@ -65,6 +67,12 @@ Usage: cli <command> [options]
 Commands:
   status [rpc-address]  Read the node's finalized chain status
   account <address> [rpc-address]  Read finalized balance and next nonce
+  receipt <genesis> <validators> <tx-id> <minimum-height> <output> [rpc-address] [block-height]
+           Fetch, authenticate and save a finalized receipt proof
+  verify-receipt <genesis> <validators> <tx-id> <minimum-height> <file>
+           Authenticate a saved receipt offline
+  wait-finality <genesis> <validators> <tx-id> <timeout-seconds> <output> [rpc-address]
+           Wait for a certified receipt without resubmitting the transaction
   state-proof <genesis> <validators> <key-hex> <minimum-height> <output> [rpc-address]
            Fetch, authenticate and save finalized state membership or absence
   verify-state-proof <genesis> <validators> <key-hex> <minimum-height> <file>
@@ -87,6 +95,10 @@ Commands:
            Create a registered validator's context-bound VRF proof offline
   vrf-verify <genesis> <public-key> <epoch> <height> <parent-randomness> <committee|producer> <round> <proof>
            Independently verify the proof and claimed randomness
+  verify-history <genesis> <validators> <directory> <minimum-height>
+           Exclusively recover and authenticate existing finalized history
+  export-history <genesis> <validators> <directory> <minimum-height> <new-directory>
+           Export verified history for an observer, without copying signing authority
   verify   Validate a node configuration
   genesis <file>  Verify binary genesis and derive its initial state root
   devnet <directory> [validators] [--observer] [--contracts]  Create a local test network (default: 4)
@@ -133,6 +145,12 @@ fn run() -> Result<(), CliError> {
         ) => wallet::run(command, &std::env::args_os().skip(2).collect::<Vec<_>>()),
         Some(command @ ("state-proof" | "verify-state-proof")) => {
             proofs::run(command, &std::env::args_os().skip(2).collect::<Vec<_>>())
+        }
+        Some(command @ ("receipt" | "verify-receipt" | "wait-finality")) => {
+            receipts::run(command, &std::env::args_os().skip(2).collect::<Vec<_>>())
+        }
+        Some(command @ ("verify-history" | "export-history")) => {
+            recovery::run(command, &std::env::args_os().skip(2).collect::<Vec<_>>())
         }
         Some("verify") => cmd_verify(),
         Some(command @ ("wallet-create" | "wallet-encrypt")) => {

@@ -231,11 +231,12 @@ impl TcpRpcServer {
     /// Converts an `RpcResponse` to a JSON-RPC response.
     fn response_to_json(id: i64, response: RpcResponse) -> crate::json::JsonRpcResponse {
         match response {
-            RpcResponse::Receipt(None) => rpc_success(id, JsonValue::Null),
+            RpcResponse::Receipt(None) | RpcResponse::Block(None) => {
+                rpc_success(id, JsonValue::Null)
+            }
             RpcResponse::Receipt(Some(bytes)) | RpcResponse::StateProof(bytes) => {
                 rpc_success(id, JsonValue::String(crate::proof::hex(&bytes)))
             }
-            RpcResponse::Block(None) => rpc_success(id, JsonValue::Null),
             RpcResponse::Block(Some(block)) => match crate::block::to_json(&block) {
                 Some(value) => rpc_success(id, value),
                 None => rpc_error(id, -32600, "block response exceeds limit"),
@@ -329,6 +330,29 @@ fn parse_hex_bytes(hex: &str) -> Result<Vec<u8>, String> {
         bytes.push(u8::from_str_radix(s, 16).map_err(|_| "invalid hex character")?);
     }
     Ok(bytes)
+}
+
+fn receipt_request(params: &JsonValue) -> Result<RpcRequest, &'static str> {
+    let text = params
+        .get("id")
+        .and_then(JsonValue::as_str)
+        .ok_or("missing transaction id")?;
+    let id = crate::client::decode_hex(text)
+        .map(types::Hash256)
+        .map_err(|_| "invalid transaction id")?;
+    let height = match params.get("height") {
+        None | Some(JsonValue::Null) => None,
+        Some(JsonValue::String(text))
+            if !text.is_empty() && text.bytes().all(|b| b.is_ascii_digit()) =>
+        {
+            Some(text.parse().map_err(|_| "invalid height")?)
+        }
+        Some(JsonValue::Number(number)) => {
+            Some(u64::try_from(*number).map_err(|_| "invalid height")?)
+        }
+        _ => return Err("invalid receipt height"),
+    };
+    Ok(RpcRequest::Receipt { id, height })
 }
 
 #[cfg(test)]
@@ -431,27 +455,4 @@ mod tests {
         assert!(response.error.is_some());
         assert_eq!(response.error.unwrap().code, -32601);
     }
-}
-
-fn receipt_request(params: &JsonValue) -> Result<RpcRequest, &'static str> {
-    let text = params
-        .get("id")
-        .and_then(JsonValue::as_str)
-        .ok_or("missing transaction id")?;
-    let id = crate::client::decode_hex(text)
-        .map(types::Hash256)
-        .map_err(|_| "invalid transaction id")?;
-    let height = match params.get("height") {
-        None | Some(JsonValue::Null) => None,
-        Some(JsonValue::String(text))
-            if !text.is_empty() && text.bytes().all(|b| b.is_ascii_digit()) =>
-        {
-            Some(text.parse().map_err(|_| "invalid height")?)
-        }
-        Some(JsonValue::Number(number)) => {
-            Some(u64::try_from(*number).map_err(|_| "invalid height")?)
-        }
-        _ => return Err("invalid receipt height"),
-    };
-    Ok(RpcRequest::Receipt { id, height })
 }

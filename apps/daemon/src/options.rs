@@ -26,6 +26,8 @@ Options:
   --tls-dir PATH    Network ca.der, cert.der and PKCS#8 key.der (required for peers)
   --allow-plaintext  Explicit insecure loopback-only development transport
   --peers ADDR,...   Configured peers to poll and reconnect (up to 32)
+  --discover-in CIDR  Discover TLS peers inside this private IPv4 subnet only
+  --metrics-listen ADDR  Optional loopback Prometheus HTTP endpoint
   --round-timeout-ms N  Initial BFT step deadline (100..60000; default 1000)
   --p2p-listen ADDR  Peer socket address (default: 127.0.0.1:17330)
   --rpc-listen ADDR  RPC socket address (default: 127.0.0.1:17331)
@@ -53,6 +55,8 @@ pub(crate) struct Options {
     pub allow_plaintext: bool,
     pub peers: Vec<SocketAddr>,
     pub round_timeout_ms: u64,
+    pub discovery: Option<p2p::discovery::DiscoveryScope>,
+    pub metrics_listen: Option<SocketAddr>,
 }
 
 pub(crate) fn parse(args: impl IntoIterator<Item = OsString>) -> Result<Command, DaemonError> {
@@ -81,6 +85,8 @@ pub(crate) fn parse(args: impl IntoIterator<Item = OsString>) -> Result<Command,
         allow_plaintext: false,
         peers: Vec::new(),
         round_timeout_ms: 1000,
+        discovery: None,
+        metrics_listen: None,
     };
     let mut seen = BTreeSet::new();
     while let Some(arg) = args.next() {
@@ -105,7 +111,7 @@ pub(crate) fn parse(args: impl IntoIterator<Item = OsString>) -> Result<Command,
             "--run" => {}
             "--blocks" | "--data-dir" | "--genesis" | "--p2p-listen" | "--rpc-listen"
             | "--validators" | "--validator-key" | "--tls-dir" | "--peers"
-            | "--round-timeout-ms" => {
+            | "--round-timeout-ms" | "--discover-in" | "--metrics-listen" => {
                 let value = args
                     .next()
                     .ok_or_else(|| invalid(&format!("missing value for {flag}")))?;
@@ -154,6 +160,30 @@ pub(crate) fn parse(args: impl IntoIterator<Item = OsString>) -> Result<Command,
 }
 
 fn validate_network(options: &Options, seen: &BTreeSet<String>) -> Result<(), DaemonError> {
+    if options
+        .metrics_listen
+        .is_some_and(|address| !address.ip().is_loopback())
+    {
+        return Err(invalid("metrics requires a loopback listener"));
+    }
+    if let Some(scope) = options.discovery {
+        let listener: SocketAddr = options
+            .config
+            .network
+            .p2p_listen
+            .parse()
+            .map_err(|_| invalid("invalid P2P listener"))?;
+        // Port zero selects an ephemeral port; the IP still needs to be in scope.
+        let candidate = SocketAddr::new(listener.ip(), listener.port().max(1));
+        if options.tls_dir.is_none()
+            || !scope.contains(candidate)
+            || options.peers.iter().any(|peer| !scope.contains(*peer))
+        {
+            return Err(invalid(
+                "discovery requires TLS and in-scope explicit listener/bootstrap addresses",
+            ));
+        }
+    }
     if options.validators.is_some() {
         if options.genesis.is_none() || (!options.observer && options.validator_key.is_none()) {
             return Err(invalid(
@@ -188,6 +218,8 @@ fn validate_network(options: &Options, seen: &BTreeSet<String>) -> Result<(), Da
             }
         }
     } else if options.validator_key.is_some()
+        || options.discovery.is_some()
+        || options.metrics_listen.is_some()
         || options.observer
         || options.tls_dir.is_some()
         || options.allow_plaintext
@@ -202,7 +234,15 @@ fn validate_network(options: &Options, seen: &BTreeSet<String>) -> Result<(), Da
 }
 
 fn parse_value(options: &mut Options, flag: &str, value: &str) -> Result<(), DaemonError> {
-    if flag == "--peers" {
+    if flag == "--discover-in" {
+        options.discovery = Some(value.parse().map_err(invalid)?);
+    } else if flag == "--metrics-listen" {
+        options.metrics_listen = Some(
+            value
+                .parse()
+                .map_err(|_| invalid("invalid metrics socket address"))?,
+        );
+    } else if flag == "--peers" {
         let mut peers = BTreeSet::new();
         for address in value.split(',') {
             let address: SocketAddr = address
@@ -339,6 +379,57 @@ mod tests {
         assert!(
             parse(["--observer", "--validators", "keys", "--tls-dir", "tls"].map(OsString::from))
                 .is_err()
+        );
+    }
+    #[test]
+    fn discovery_and_metrics_need_explicit_scoped_network_configuration() {
+        let base = [
+            "--validators",
+            "keys",
+            "--genesis",
+            "genesis",
+            "--observer",
+            "--tls-dir",
+            "tls",
+        ];
+        for extra in [
+            vec!["--discover-in", "127.0.0.0/8"],
+            vec!["--metrics-listen", "127.0.0.1:0"],
+            vec![
+                "--discover-in",
+                "10.0.0.0/8",
+                "--p2p-listen",
+                "10.1.1.1:1",
+                "--peers",
+                "10.2.2.2:2",
+            ],
+        ] {
+            assert!(parse(base.iter().chain(extra.iter()).map(OsString::from)).is_ok());
+        }
+        for extra in [
+            vec!["--discover-in", "0.0.0.0/0"],
+            vec!["--discover-in", "10.0.0.0/8"],
+            vec!["--metrics-listen", "0.0.0.0:9090"],
+            vec!["--discover-in", "127.0.0.0/8", "--peers", "192.168.1.1:1"],
+        ] {
+            assert!(parse(base.iter().chain(extra.iter()).map(OsString::from)).is_err());
+        }
+        assert!(parse(["--metrics-listen", "127.0.0.1:0"].map(OsString::from)).is_err());
+        assert!(
+            parse(
+                [
+                    "--validators",
+                    "keys",
+                    "--genesis",
+                    "genesis",
+                    "--observer",
+                    "--allow-plaintext",
+                    "--discover-in",
+                    "127.0.0.0/8"
+                ]
+                .map(OsString::from)
+            )
+            .is_err()
         );
     }
 }

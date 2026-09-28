@@ -100,6 +100,21 @@ impl Fixture {
         }
     }
     fn start(&self, index: usize, peers: &[String]) -> Process {
+        let seeds: Vec<_> = peers
+            .iter()
+            .enumerate()
+            .filter(|(seat, _)| *seat != index - 1)
+            .map(|(_, value)| value.clone())
+            .collect();
+        self.start_with(index, peers, &seeds, &[])
+    }
+    fn start_with(
+        &self,
+        index: usize,
+        peers: &[String],
+        seeds: &[String],
+        extra: &[&str],
+    ) -> Process {
         let data = self.path.join(index.to_string());
         let mut command = Command::new(env!("CARGO_BIN_EXE_daemon"));
         if index == 5 {
@@ -109,6 +124,10 @@ impl Fixture {
                 .arg("--validator-key")
                 .arg(data.join("validator.seed"))
                 .args(["--round-timeout-ms", "500"]);
+        }
+        command.args(extra);
+        if !seeds.is_empty() {
+            command.args(["--peers", &seeds.join(",")]);
         }
         let mut child = Process(
             command
@@ -126,14 +145,6 @@ impl Fixture {
                     &peers[index - 1],
                     "--rpc-listen",
                     "127.0.0.1:0",
-                    "--peers",
-                    &peers
-                        .iter()
-                        .enumerate()
-                        .filter(|(seat, _)| *seat != index - 1)
-                        .map(|(_, address)| address.clone())
-                        .collect::<Vec<_>>()
-                        .join(","),
                 ])
                 .stdout(Stdio::piped())
                 .stderr(Stdio::inherit())
@@ -600,6 +611,26 @@ fn corrupted_history_read_over_rpc_stops_observer_process() {
 fn verify_account_proof(fixture: &Fixture, process: &Process) {
     let client =
         rpc::TcpRpcClient::new(process.1.parse().unwrap(), Duration::from_secs(5)).unwrap();
+    let id = transaction::compute_tx_id(&payment());
+    let receipt = client.receipt(id, None).unwrap().unwrap();
+    assert!(
+        receipt
+            .verify(&fixture.genesis, &fixture.keys, id, 1)
+            .unwrap()
+            .succeeded
+    );
+    let saved = rpc::CertifiedReceiptProof::from_bytes(&receipt.to_bytes().unwrap()).unwrap();
+    assert_eq!(saved, receipt);
+    assert_eq!(
+        client.receipt(id, Some(receipt.0.header.height)).unwrap(),
+        Some(receipt)
+    );
+    assert!(
+        client
+            .receipt(types::Hash256([0xff; 32]), None)
+            .unwrap()
+            .is_none()
+    );
     let key = state::account_key(Address([77; 32]));
     let proof = client.state_proof(&key).unwrap();
     assert_eq!(
@@ -623,4 +654,113 @@ fn verify_account_proof(fixture: &Fixture, process: &Process) {
             .unwrap(),
         None
     );
+}
+
+fn metric(address: &str, name: &str) -> u64 {
+    use std::io::{Read, Write};
+    let mut stream = TcpStream::connect(address).unwrap();
+    stream
+        .set_read_timeout(Some(Duration::from_secs(2)))
+        .unwrap();
+    stream
+        .write_all(b"GET /metrics HTTP/1.1\r\nHost: localhost\r\n\r\n")
+        .unwrap();
+    let mut text = String::new();
+    stream.take(8192).read_to_string(&mut text).unwrap();
+    assert!(text.starts_with("HTTP/1.1 200 OK\r\n"));
+    text.lines()
+        .find_map(|line| line.strip_prefix(&format!("astrolune_{name} ")))
+        .unwrap()
+        .parse()
+        .unwrap()
+}
+
+#[test]
+fn scoped_tls_discovery_builds_a_mesh_reuses_sessions_and_survives_bootstrap_loss() {
+    let fixture = Fixture::new();
+    let mut reservations: Vec<_> = (0..5)
+        .map(|_| Some(TcpListener::bind("127.0.0.1:0").unwrap()))
+        .collect();
+    let peers: Vec<_> = reservations
+        .iter()
+        .map(|value| value.as_ref().unwrap().local_addr().unwrap().to_string())
+        .collect();
+    let mut metric_ports: Vec<_> = (0..5)
+        .map(|_| Some(TcpListener::bind("127.0.0.1:0").unwrap()))
+        .collect();
+    let metrics: Vec<_> = metric_ports
+        .iter()
+        .map(|value| value.as_ref().unwrap().local_addr().unwrap().to_string())
+        .collect();
+    let extra = |index: usize| {
+        [
+            "--discover-in",
+            "127.0.0.0/8",
+            "--metrics-listen",
+            metrics[index - 1].as_str(),
+        ]
+    };
+    drop(reservations[4].take());
+    drop(metric_ports[4].take());
+    let bootstrap = fixture.start_with(5, &peers, &[], &extra(5));
+    let mut validators = Vec::new();
+    for index in 1..=4 {
+        drop(reservations[index - 1].take());
+        drop(metric_ports[index - 1].take());
+        validators.push(fixture.start_with(index, &peers, &[peers[4].clone()], &extra(index)));
+    }
+    let tx = payment();
+    assert!(
+        call(
+            &bootstrap.1,
+            "submit_transaction",
+            &format!(r#"{{"data":"{}"}}"#, hex(&tx.to_bytes()))
+        )
+        .get("error")
+        .is_none()
+    );
+    await_payment(&[
+        &validators[0],
+        &validators[1],
+        &validators[2],
+        &validators[3],
+        &bootstrap,
+    ]);
+    let deadline = Instant::now() + Duration::from_secs(15);
+    loop {
+        if metrics[..4].iter().all(|address| {
+            metric(address, "p2p_known_peers") == 4
+                && metric(address, "p2p_exchanges_total")
+                    > metric(address, "p2p_connections_opened_total") * 3
+        }) {
+            break;
+        }
+        assert!(
+            Instant::now() < deadline,
+            "discovery must find validators and reuse authenticated sessions"
+        );
+        std::thread::sleep(Duration::from_millis(50));
+    }
+    assert_eq!(metric(&metrics[4], "observer"), 1);
+    let height = metrics[..4]
+        .iter()
+        .map(|address| metric(address, "finalized_height"))
+        .max()
+        .unwrap();
+    drop(bootstrap);
+    let deadline = Instant::now() + Duration::from_secs(20);
+    while metrics[..4]
+        .iter()
+        .any(|address| metric(address, "finalized_height") <= height + 1)
+    {
+        assert!(
+            Instant::now() < deadline,
+            "direct discovered routes must keep finalizing without bootstrap"
+        );
+        std::thread::sleep(Duration::from_millis(50));
+    }
+    drop(validators.remove(0));
+    let restarted = fixture.start_with(1, &peers, &[peers[1].clone()], &extra(1));
+    await_payment(&[&restarted]);
+    verify_account_proof(&fixture, &restarted);
 }

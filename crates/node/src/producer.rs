@@ -13,6 +13,8 @@
 //!              -> atomic finalized storage
 //! ```
 
+mod rotation;
+
 use std::collections::BTreeMap;
 
 use execution::{
@@ -161,6 +163,8 @@ pub struct BlockProducer {
     admission_sequence: u64,
     /// Genesis-backed chains use authenticated native payments.
     account_execution: bool,
+    rotation: Option<consensus::rotation::CommitteeState>,
+    contributions: Option<consensus::rotation::VrfBatch>,
 }
 
 impl BlockProducer {
@@ -218,6 +222,8 @@ impl BlockProducer {
             validator: BasicValidator::empty(),
             admission_sequence: 0,
             account_execution: false,
+            rotation: None,
+            contributions: None,
         }
     }
 
@@ -249,6 +255,8 @@ impl BlockProducer {
             validator,
             admission_sequence: 0,
             account_execution: false,
+            rotation: None,
+            contributions: None,
         }
     }
 
@@ -281,6 +289,7 @@ impl BlockProducer {
     /// The transaction is validated and admitted only if it passes bounds
     /// checks and does not conflict with existing entries.
     pub fn submit_transaction(&mut self, tx: Transaction) -> Result<Hash256, ProducerError> {
+        self.ensure_rotation_profile()?;
         let context = ValidationContext {
             chain_id: self.config.chain_id,
             next_height: self.height,
@@ -292,7 +301,7 @@ impl BlockProducer {
             let mut session = SignedSession::new(
                 snapshot.as_ref(),
                 context,
-                self.config.block_capacity,
+                self.admission_capacity()?,
                 self.contracts_enabled(),
             );
             let output = session.execute(&tx)?;
@@ -337,14 +346,29 @@ impl BlockProducer {
     /// Returns [`ProducerError`] if transaction execution fails or the
     /// state root cannot be computed.
     pub fn produce_block(&mut self) -> Result<BlockProposal, ProducerError> {
+        self.ensure_rotation_profile()?;
+        if self.rotation.is_some() {
+            self.produce_rotating_block()
+        } else {
+            self.produce_application_block(
+                &self.state,
+                self.config.block_capacity,
+                self.config.max_block_transactions,
+            )
+        }
+    }
+
+    fn produce_application_block(
+        &self,
+        base: &InMemoryState,
+        capacity: Resources,
+        maximum_transactions: usize,
+    ) -> Result<BlockProposal, ProducerError> {
         // Select transactions from the mempool based on priority and capacity
         let selected = if self.account_execution {
             self.mempool.candidates()
         } else {
-            self.mempool.select(
-                self.config.max_block_transactions,
-                self.config.block_capacity,
-            )
+            self.mempool.select(maximum_transactions, capacity)
         };
 
         let mut transactions: Vec<Transaction> = selected
@@ -352,21 +376,21 @@ impl BlockProducer {
             .map(|entry| entry.transaction.clone())
             .collect();
 
-        let parent_root = self.state.root();
+        let parent_root = base.root();
         // Proposal execution must not publish state before storage accepts finalization.
-        let mut staged = self.state.clone();
+        let mut staged = base.clone();
         let (outputs, state_root) = if self.account_execution {
-            let snapshot = self.state.snapshot().map_err(ExecutionError::from)?;
+            let snapshot = base.snapshot().map_err(ExecutionError::from)?;
             let mut session = SignedSession::new(
                 snapshot.as_ref(),
                 self.validation_context(),
-                self.config.block_capacity,
+                capacity,
                 self.contracts_enabled(),
             );
             let mut accepted = Vec::new();
             let mut outputs = Vec::new();
             for tx in transactions {
-                if accepted.len() == self.config.max_block_transactions {
+                if accepted.len() == maximum_transactions {
                     break;
                 }
                 match session.execute(&tx) {
@@ -389,7 +413,7 @@ impl BlockProducer {
                 .map_err(ExecutionError::from)?;
             (outputs, root)
         } else {
-            self.execute_transactions(&mut staged, &transactions)?
+            self.execute_application_transactions(&mut staged, &transactions, capacity)?
         };
         let transactions_root = compute_transactions_root(&transactions);
 
@@ -434,6 +458,7 @@ impl BlockProducer {
         if committee.chain_id() != self.config.chain_id || committee.height() != self.height {
             return Err(consensus::ConsensusError::InvalidTransition.into());
         }
+        self.check_rotation_committee(committee.root())?;
         let mut proposal = self.produce_block()?;
         proposal.block.header.committee_root = committee.root();
         Ok(proposal)
@@ -453,6 +478,7 @@ impl BlockProducer {
         if committee.chain_id() != self.config.chain_id || committee.height() != self.height {
             return Err(consensus::ConsensusError::InvalidTransition.into());
         }
+        self.check_rotation_committee(committee.root())?;
         committee.verify_certificate(certificate, &proposal.block.header)?;
         let bytes = certificate
             .encode()
@@ -475,7 +501,10 @@ impl BlockProducer {
             .height
             .checked_add(1)
             .ok_or_else(|| ProducerError::Assembly("block height exhausted".into()))?;
+        self.verify_rotation_certificate(proposal, &certificate)?;
         let (staged, diffs) = self.prepare_verified(proposal)?;
+
+        let next_rotation = self.next_rotation(&staged)?;
 
         let effects = if self.account_execution {
             let snapshot = staged.snapshot().map_err(ExecutionError::from)?;
@@ -502,6 +531,8 @@ impl BlockProducer {
 
         // Publish locally only after the storage transaction succeeds.
         self.state = staged;
+        self.rotation = next_rotation;
+        self.contributions = None;
         let selected_keys: Vec<_> = proposal
             .block
             .transactions
@@ -526,6 +557,7 @@ impl BlockProducer {
     /// Bounds, parent, capacity, and transaction commitments are checked before execution.
     pub fn execute_received_block(&self, block: Block) -> Result<BlockProposal, ProducerError> {
         let header = &block.header;
+        self.check_rotation_committee(header.committee_root)?;
         if header.height != self.height
             || header.parent != self.parent_hash
             || header.capacity != self.config.block_capacity
@@ -582,6 +614,7 @@ impl BlockProducer {
             .checked_add(1)
             .ok_or_else(|| ProducerError::Assembly("block height exhausted".into()))?;
         let header = &proposal.block.header;
+        self.check_rotation_committee(header.committee_root)?;
         if proposal.block.transactions.len() > self.config.max_block_transactions
             || proposal.block.transactions.iter().any(|tx| {
                 tx.chain_id != self.config.chain_id
@@ -639,27 +672,29 @@ impl BlockProducer {
         }
     }
 
-    fn execute_transactions(
+    fn execute_application_transactions(
         &self,
         staged: &mut InMemoryState,
         transactions: &[Transaction],
+        capacity: Resources,
     ) -> Result<(Vec<TransactionOutput>, Hash256), ExecutionError> {
+        let parent = staged.root();
         if self.account_execution && self.contracts_enabled() {
             execute_signed_parallel(
                 staged,
                 transactions,
-                self.state.root(),
+                parent,
                 self.validation_context(),
-                self.config.block_capacity,
+                capacity,
                 std::thread::available_parallelism().map_or(1, |count| count.get().min(8)),
             )
         } else if self.account_execution {
             execute_payments_parallel(
                 staged,
                 transactions,
-                self.state.root(),
+                parent,
                 self.validation_context(),
-                self.config.block_capacity,
+                capacity,
                 std::thread::available_parallelism().map_or(1, |count| count.get().min(8)),
             )
         } else {
@@ -672,7 +707,7 @@ impl BlockProducer {
                     max_transaction_bytes: self.config.max_transaction_bytes,
                 },
             )
-            .execute_block(transactions, self.state.root())
+            .execute_block(transactions, parent)
         }
     }
 

@@ -5,6 +5,9 @@
 
 #![forbid(unsafe_code)]
 
+mod operational;
+pub use operational::{NodeMetric, NodeMetrics};
+
 use std::collections::BTreeMap;
 use std::sync::Mutex;
 
@@ -43,11 +46,11 @@ struct Inner {
 }
 
 impl InMemoryTelemetry {
-    /// Creates a new sink with the given per-metric capacity.
+    /// Creates a sink capped at 4096 samples per metric and 256 names. Zero disables recording.
     #[must_use]
     pub fn new(max_history: usize) -> Self {
         Self {
-            max_history,
+            max_history: max_history.min(4096),
             inner: Mutex::new(Inner {
                 map: BTreeMap::new(),
                 total: 0,
@@ -110,7 +113,11 @@ impl InMemoryTelemetry {
 impl TelemetrySink for InMemoryTelemetry {
     fn record(&self, metric: Metric) {
         let mut inner = self.inner.lock().expect("telemetry lock poisoned");
-        inner.total += 1;
+        if self.max_history == 0 || (inner.map.len() >= 256 && !inner.map.contains_key(metric.name))
+        {
+            return;
+        }
+        inner.total = inner.total.saturating_add(1);
         let entry = inner.map.entry(metric.name).or_default();
         if entry.len() >= self.max_history {
             entry.remove(0);
@@ -134,7 +141,7 @@ impl Counter {
 
     /// Increments the counter by one and records the new value into the sink.
     pub fn inc(&mut self, sink: &dyn TelemetrySink) {
-        self.value += 1;
+        self.value = self.value.saturating_add(1);
         sink.record(Metric {
             name: self.name,
             value: self.value,
@@ -311,5 +318,26 @@ mod tests {
         });
         assert_eq!(tel.values("s"), vec![30]);
         assert_eq!(tel.count("s"), 1);
+    }
+    #[test]
+    fn zero_history_disables_recording_and_name_cardinality_is_bounded() {
+        let disabled = InMemoryTelemetry::new(0);
+        disabled.record(Metric {
+            name: "ignored",
+            value: 1,
+        });
+        assert_eq!(disabled.total_count(), 0);
+        assert!(disabled.values("ignored").is_empty());
+        let bounded = InMemoryTelemetry::new(usize::MAX);
+        assert_eq!(bounded.max_history, 4096);
+        for index in 0..300 {
+            bounded.record(Metric {
+                name: Box::leak(format!("metric-{index}").into_boxed_str()),
+                value: 1,
+            });
+        }
+        assert_eq!(bounded.total_count(), 256);
+        assert_eq!(bounded.count("metric-255"), 1);
+        assert_eq!(bounded.count("metric-256"), 0);
     }
 }

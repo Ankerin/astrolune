@@ -36,7 +36,7 @@ AstroLune is a research and engineering workspace for a modular blockchain node.
 
 | Area | Direction | Current shape |
 | --- | --- | --- |
-| Consensus | PoTB weight, weighted VRF committees, partial rotation | Verified VRF and weighted selection; live rotation pending |
+| Consensus | PoTB weight, weighted VRF committees, partial rotation | [Verified VRF, handoff and rotating execution APIs](docs/38-authenticated-committee-handoff.md); daemon activation pending |
 | Finality | Proposal, prevote, and precommit with > ⅔ voting power | Certified fixed-committee daemon network |
 | Execution | Deterministic state transitions with parallel scheduling | Parallel signed payments and ABI-v2 contract waves |
 | Persistence | Snapshots, archives, genesis, accounts, and recovery | Reference implementation baseline |
@@ -171,6 +171,10 @@ transactions and submit them through validator or observer RPC. Submission
 reports admission separately from finalization and preserves the signed file
 when the network outcome is uncertain.
 
+[Certified receipt queries](docs/35-certified-receipts.md) and `wait-finality` independently verify execution against trusted genesis membership. [State proofs](docs/32-certified-state-proofs.md), the [DNS resolver](docs/33-authenticated-name-registry.md) and [contract source packages](docs/34-contract-source-packages.md) have dedicated operator instructions.
+
+[Private-network operations](docs/36-private-network-operations.md) cover scoped peer discovery, reusable TLS sessions, local Prometheus metrics and authenticated history export for observer recovery.
+
 ### Local demonstration chain
 
 Run the daemon, then resume it with two additional blocks:
@@ -204,7 +208,7 @@ Genesis initializes a durable height-zero anchor with account balances and valid
 
 Without genesis, the daemon uses chain ID 7 and keeps account/submission RPC unavailable. Genesis-backed nodes accept signed native payments and serve committed account bytes through RPC. The mode without `--validators` still uses placeholder certificates; certified networking requires an exact public-key registry and a previously provisioned protected signing journal.
 
-Archive version 2 is required; old version-1 archives are rejected without migration or rewriting. The consensus library authenticates votes and certificates; see [authenticated finality](docs/15-authenticated-finality.md). `BlockProducer` provides an explicit certified commit path. The [local BFT guard](docs/17-local-bft-voting.md) verifies prevote proofs and preserves vote locks across timeouts and restarts using a [protected durable journal](docs/16-durable-signing.md).
+Archive versions 2 and 3 are readable; receipt-producing commits write version 3. Old version-1 archives are rejected without migration or rewriting. The consensus library authenticates votes and certificates; see [authenticated finality](docs/15-authenticated-finality.md). `BlockProducer` provides an explicit certified commit path. The [local BFT guard](docs/17-local-bft-voting.md) verifies prevote proofs and preserves vote locks across timeouts and restarts using a [protected durable journal](docs/16-durable-signing.md).
 
 The [reference round-robin participant](docs/18-signed-proposals-and-participants.md) authenticates signed proposals and coordinates execution, voting, round changes, and atomic publication. The [network driver](docs/19-reference-network.md) connects it to the daemon, mutually authenticated TLS exchange, timers, durable proposal recovery, and certified catch-up. [Transport identity validation and provisioning](docs/20-authenticated-transport.md) are implemented. Verified weighted VRF selection is implemented in the consensus library. Live committee rotation and production qualification remain unfinished. [Contract profile 2](docs/30-signed-contracts.md) adds explicit genesis activation of signed deployments, calls and parallel mixed execution.
 

@@ -13,6 +13,7 @@ repository.workspace = true
 publish = false
 
 [dependencies]
+telemetry = { version = "0.1.0", path = "../../crates/telemetry" }
 codec = { version = "0.1.0", path = "../../crates/codec" }
 config = { version = "0.1.0", path = "../../crates/config" }
 consensus = { version = "0.1.0", path = "../../crates/consensus" }

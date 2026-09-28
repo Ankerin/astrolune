@@ -221,7 +221,7 @@ mod tests {
         let Record::Batch(decoded) = decode(&encoded).unwrap() else {
             panic!("expected batch")
         };
-        assert_eq!(decoded, batch_value);
+        assert_eq!(*decoded, batch_value);
         for bytes in [anchor(cp, &state).unwrap(), encoded] {
             for at in 0..bytes.len() {
                 assert!(decode(&bytes[..at]).is_err());

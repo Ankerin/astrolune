@@ -26,7 +26,7 @@ cargo run -p daemon -- --observer --run \
   --peers 127.0.0.1:18001,127.0.0.1:18002,127.0.0.1:18003
 ```
 
-Configure validators to poll the observer address as well if transactions submitted to its RPC must reach them. The version-1 request selects a height; gossip is returned when peer heights agree. An observer that only polls validators can catch up and serve RPC reads, but its outbound polling alone does not push pending transactions to them. Payment admission at an observer's current head does not guarantee inclusion or finality.
+Configure validators to poll the observer address as well if transactions submitted to its RPC must reach them, or enable [scoped discovery](36-private-network-operations.md) for reciprocal authenticated routes. The version-1 request selects a height; gossip is returned when peer heights agree. An observer that only polls validators can catch up and serve RPC reads, but its outbound polling alone does not push pending transactions to them. Payment admission at an observer's current head does not guarantee inclusion or finality.
 
 `--observer` requires `--validators` and `--genesis`, rejects `--validator-key` and `--round-timeout-ms`, and uses the same explicit transport selection as validators. `--blocks N` counts imported certified heights; with no available finalized blocks it waits. `--blocks 0` verifies recovery without opening listeners. `--dry-run` validates public network context, TLS identity, and directory-role compatibility without writing files.
 
@@ -42,4 +42,4 @@ No observer API provides signing authority. Storage failures propagate as fatal 
 
 Tests cover payment admission/gossip, certified catch-up, observer-to-observer history serving, restart, replay rejection, forged finality, mutated block bodies, nonsequential heights, truncated exchanges, insufficient validator quorum, archive write failure, role separation, and rejection of demonstration history. An actual multi-process TLS test submits a payment to an observer, finalizes it with three of four validators, and checks recovery without any observer consensus seed or journal.
 
-Observers use the current bounded whole-chain archive and fixed genesis committee. This role adds independent verification and RPC capacity; it does not complete production persistence, PoTB/VRF, committee rotation, contracts, discovery, or public-network qualification. No new hardware benchmark or throughput claim is made.
+New observers use the append-only log and fixed genesis committee; legacy archives remain supported. Signed contracts, scoped discovery, bounded sessions, metrics and authenticated observer export are implemented. Physical retention, PoTB/VRF activation, committee rotation and public-network qualification remain open. No new hardware benchmark or throughput claim is made.

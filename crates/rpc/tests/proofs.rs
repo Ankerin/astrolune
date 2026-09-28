@@ -46,6 +46,15 @@ fn fixture() -> (Genesis, Vec<[u8; 32]>) {
 }
 
 fn finalized(genesis: &Genesis, keys: &[[u8; 32]], root: Hash256) -> (BlockHeader, Vec<u8>) {
+    finalized_receipts(genesis, keys, root, Hash256([2; 32]))
+}
+
+fn finalized_receipts(
+    genesis: &Genesis,
+    keys: &[[u8; 32]],
+    root: Hash256,
+    receipts_root: Hash256,
+) -> (BlockHeader, Vec<u8>) {
     let committee = Committee {
         height: 9,
         members: genesis
@@ -63,7 +72,7 @@ fn finalized(genesis: &Genesis, keys: &[[u8; 32]], root: Hash256) -> (BlockHeade
         parent: genesis.commitment().unwrap(),
         transactions_root: Hash256([1; 32]),
         state_root: root,
-        receipts_root: Hash256([2; 32]),
+        receipts_root,
         committee_root: context.root(),
         capacity: genesis.capacity,
     };
@@ -178,4 +187,71 @@ fn genesis_proof_requires_exact_trusted_materialized_state() {
     let mut extra_certificate = proof;
     extra_certificate.certificate.push(0);
     assert!(extra_certificate.verify(&genesis, &keys, &key, 0).is_err());
+}
+
+#[test]
+fn certified_receipts_bind_execution_output_order_genesis_and_quorum() {
+    let (genesis, keys) = fixture();
+    let db = genesis.materialize().unwrap();
+    let snapshot = db.snapshot().unwrap();
+    let receipts: Vec<_> = (1..=2)
+        .map(|id| types::ExecutionReceipt {
+            transaction: Hash256([id; 32]),
+            succeeded: true,
+            resources: Resources::ZERO,
+            output_root: Hash256([id + 1; 32]),
+        })
+        .collect();
+    let root = crypto::compute_receipts_root(
+        &receipts
+            .iter()
+            .map(types::ExecutionReceipt::commitment)
+            .collect::<Vec<_>>(),
+    );
+    let (header, certificate) = finalized_receipts(&genesis, &keys, db.root(), root);
+    let proof = rpc::CertifiedReceiptProof(storage::StoredReceipts {
+        header,
+        certificate,
+        effects: storage::BlockEffects {
+            receipts,
+            genesis: state::StateValueProof::create(snapshot.as_ref(), &genesis::genesis_key())
+                .unwrap(),
+        },
+    });
+    let id = Hash256([1; 32]);
+    assert_eq!(
+        proof.verify(&genesis, &keys, id, 9).unwrap(),
+        &proof.0.effects.receipts[0]
+    );
+    assert!(proof.verify(&genesis, &keys, id, 10).is_err());
+    assert!(proof.verify(&genesis, &keys, Hash256([99; 32]), 0).is_err());
+    let encoded = proof.to_bytes().unwrap();
+    assert_eq!(
+        rpc::CertifiedReceiptProof::from_bytes(&encoded).unwrap(),
+        proof
+    );
+    for size in 0..encoded.len() {
+        assert!(rpc::CertifiedReceiptProof::from_bytes(&encoded[..size]).is_err());
+    }
+    assert!(rpc::CertifiedReceiptProof::from_bytes(&[encoded.as_slice(), &[0]].concat()).is_err());
+    for mutation in 0..5 {
+        let mut changed = proof.clone();
+        match mutation {
+            0 => changed.0.effects.receipts[0].output_root.0[0] ^= 1,
+            1 => changed.0.effects.receipts.reverse(),
+            2 => changed.0.header.parent = Hash256::ZERO,
+            3 => {
+                changed.0.effects.receipts.pop();
+            }
+            _ => {
+                let mut certificate = FinalityCertificate::decode(&changed.0.certificate).unwrap();
+                certificate.signatures.pop();
+                changed.0.certificate = certificate.encode().unwrap();
+            }
+        }
+        assert!(changed.verify(&genesis, &keys, id, 0).is_err());
+    }
+    let mut foreign = genesis;
+    foreign.rotation_count = 2;
+    assert!(proof.verify(&foreign, &keys, id, 0).is_err());
 }

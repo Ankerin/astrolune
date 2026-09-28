@@ -41,6 +41,13 @@ For a concise source-tree map, read [`../ARCHITECTURE.md`](../ARCHITECTURE.md).
 | [29-parallel-payments-and-wasm.md](29-parallel-payments-and-wasm.md) | parallel payment execution, deterministic WebAssembly sandbox, host ABI, metering and contract tools |
 | [30-signed-contracts.md](30-signed-contracts.md) | explicit genesis activation, signed deploy/call, namespaces, fees, mixed waves and certified recovery |
 | [31-rust-sdk-and-wallet-vaults.md](31-rust-sdk-and-wallet-vaults.md) | allocation-free WASM SDK, FFI boundary, encrypted wallet custody and password handling |
+| [32-certified-state-proofs.md](32-certified-state-proofs.md) | certified membership/absence queries and independent offline verification |
+| [33-authenticated-name-registry.md](33-authenticated-name-registry.md) | name ownership, bounded leases and proof-verifying resolver |
+| [34-contract-source-packages.md](34-contract-source-packages.md) | bounded offline source bundles and exact artifact reconstruction |
+| [35-certified-receipts.md](35-certified-receipts.md) | durable receipts, recent transaction lookup and authenticated finality waiting |
+| [36-private-network-operations.md](36-private-network-operations.md) | scoped peer discovery, bounded sessions, local metrics and authenticated observer recovery |
+| [37-protocol-qualification.md](37-protocol-qualification.md) | shared decoder/WASM mutation oracle, fuzz entry points and qualification limits |
+| [38-authenticated-committee-handoff.md](38-authenticated-committee-handoff.md) | complete VRF batches, old-quorum handoff, rotating system execution and authenticated recovery |
 
 Legacy-shaped filenames such as `03-vm-and-gas.md`, `05-contract-languages.md`, and `06-deferred-services.md` are retained temporarily to preserve links. Their contents describe the current Rust architecture.
 
@@ -72,8 +79,3 @@ The key words **MUST**, **MUST NOT**, **SHOULD**, and **MAY** express intended p
 ## License
 
 MIT, copyright AstroLune contributors, 2026.
-
-- [Certified state proofs](32-certified-state-proofs.md)
-- [Authenticated name registry and resolver](33-authenticated-name-registry.md)
-
-- [Contract source packages](34-contract-source-packages.md)

@@ -6,6 +6,7 @@
 #![forbid(unsafe_code)]
 #![allow(clippy::missing_errors_doc)]
 
+pub mod discovery;
 pub mod error;
 pub mod exchange;
 pub mod frame;
