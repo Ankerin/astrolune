@@ -160,10 +160,7 @@ fn load_identity(
             "validator registry must contain complete 32-byte public keys".into(),
         ));
     }
-    let keys = registry
-        .chunks_exact(32)
-        .map(|key| <[u8; 32]>::try_from(key).expect("complete key chunk"))
-        .collect();
+    let keys = registry.as_chunks::<32>().0.to_vec();
     let network = StaticNetwork::new(genesis, keys).map_err(io_error)?;
     if options.observer {
         return Ok(NetworkIdentity {

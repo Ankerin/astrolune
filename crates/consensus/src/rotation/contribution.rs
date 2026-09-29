@@ -157,8 +157,10 @@ impl VrfBatch {
         decoder.finish()?;
         let result = Self {
             entries: entries
-                .chunks_exact(VrfContribution::BYTES)
-                .map(VrfContribution::from_bytes)
+                .as_chunks::<{ VrfContribution::BYTES }>()
+                .0
+                .iter()
+                .map(|chunk| VrfContribution::from_bytes(chunk))
                 .collect::<Result<_, _>>()?,
         };
         result.validate_shape()?;

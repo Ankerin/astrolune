@@ -4,7 +4,7 @@
 //! Fixed-cost encrypted wallet seed files with authenticated headers.
 
 use argon2::{Algorithm, Argon2, Block, Params, Version};
-use chacha20poly1305::{AeadInPlace, KeyInit, XChaCha20Poly1305, XNonce};
+use chacha20poly1305::{AeadInOut, KeyInit, Tag, XChaCha20Poly1305, XNonce};
 use zeroize::Zeroizing;
 
 const HEADER: usize = 96;
@@ -64,10 +64,10 @@ pub fn encrypt_wallet_seed(seed: &[u8; 32], password: &[u8]) -> Result<Vec<u8>, 
     let cipher = XChaCha20Poly1305::new((&*key).into());
     let mut secret = Zeroizing::new(*seed);
     let tag = cipher
-        .encrypt_in_place_detached(
-            XNonce::from_slice(&bytes[40..64]),
+        .encrypt_inout_detached(
+            <&XNonce>::try_from(&bytes[40..64]).map_err(|_| VaultError::InvalidFormat)?,
             &bytes[..HEADER],
-            secret.as_mut(),
+            secret.as_mut_slice().into(),
         )
         .map_err(|_| VaultError::Provider)?;
     bytes[HEADER..HEADER + 32].copy_from_slice(secret.as_ref());
@@ -97,11 +97,11 @@ pub fn decrypt_wallet_seed(
     let mut seed = Zeroizing::new([0; 32]);
     seed.copy_from_slice(&bytes[HEADER..HEADER + 32]);
     cipher
-        .decrypt_in_place_detached(
-            XNonce::from_slice(&bytes[40..64]),
+        .decrypt_inout_detached(
+            <&XNonce>::try_from(&bytes[40..64]).map_err(|_| VaultError::InvalidFormat)?,
             &bytes[..HEADER],
-            seed.as_mut(),
-            bytes[HEADER + 32..].into(),
+            seed.as_mut_slice().into(),
+            <&Tag>::try_from(&bytes[HEADER + 32..]).map_err(|_| VaultError::InvalidFormat)?,
         )
         .map_err(|_| VaultError::Authentication)?;
     if crypto::blake2s::ed25519_public_key(&seed) != bytes[64..HEADER] {

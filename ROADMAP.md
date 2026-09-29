@@ -28,6 +28,8 @@ Canonical encodings, protocol domains, hashes, addresses, signatures, checked re
 - [ ] Complete production protocol envelopes and compatibility qualification.
 - [x] Shared extension fuzz oracle and deterministic 100,000-input mutation campaign; [qualification details](docs/37-protocol-qualification.md).
 - [ ] Long fuzz campaigns, dependency/security review, and cross-platform suite qualification.
+- [x] Upgrade qualification: current stable dependencies, legacy vault compatibility,
+  strict Rust 1.98.1 checks and bounded registry advisory lookup; [evidence](docs/39-toolchain-and-release-qualification.md).
 
 ## M2 — transactions and state
 
@@ -40,7 +42,7 @@ Current progress: signed admission validates existing transaction fields against
 Pinned contract toolchain, canonical target selection, validator, interpreter, host ABI, metering, SDK, reproducible artifacts, source verification, and differential backends.
 
 - [x] Integer-only WebAssembly ABI v2 validator and interpreter with bounded memory, fuel, state access and staged writes/events.
-- [x] Pinned Rust 1.93.1 standalone contract builds, repeated-byte comparison, artifact validation, sandbox execution and code-hash verification CLI.
+- [x] Pinned Rust 1.98.1 standalone contract builds, repeated-byte comparison, artifact validation, sandbox execution and code-hash verification CLI.
 - [x] Signed deployment/call transactions, nonce/fee transitions, explicit genesis activation and certified restart/catch-up tests.
 - [x] Allocation-free Rust SDK bindings, bundled builds and real wasm32 host-call tests.
 - [x] Restricted Cargo package/source manifests and offline published-source verification.
@@ -98,6 +100,11 @@ bounded frames, strict response checks and whole-call deadlines. Encrypted walle
 ## M8 — public testnet and production gates
 
 Distributed calibration, interoperability, long fuzz campaigns, reproducible releases, dependency review, external cryptography/consensus/runtime/security audits, key ceremonies, monitoring, incident response, and operator runbooks.
+
+- [x] Deterministic native archive generation, complete binary/document payloads and per-file checksums.
+- [x] Two independent native builds with byte-identity checks; Windows verified locally, Linux/Windows gates configured in CI.
+- [x] Run pinned Rust-to-WASM SDK and source-package tests in the release CI matrix.
+- [ ] Observe Linux and independent-machine reproducibility and finish release authority/signing qualification.
 
 Detailed status and unresolved decisions are tracked in [`docs/08-implementation-status.md`](docs/08-implementation-status.md).
 

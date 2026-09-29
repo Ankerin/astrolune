@@ -311,7 +311,7 @@ fn parse_hex_address(hex: &str) -> Result<types::Address, String> {
         return Err(format!("address must be 64 hex chars, got {}", hex.len()));
     }
     let mut bytes = [0u8; 32];
-    for (i, chunk) in hex.as_bytes().chunks_exact(2).enumerate() {
+    for (i, chunk) in hex.as_bytes().as_chunks::<2>().0.iter().enumerate() {
         let s = std::str::from_utf8(chunk).map_err(|_| "invalid hex character")?;
         bytes[i] = u8::from_str_radix(s, 16).map_err(|_| "invalid hex character")?;
     }
@@ -325,7 +325,7 @@ fn parse_hex_bytes(hex: &str) -> Result<Vec<u8>, String> {
         return Err("hex string must have even length".into());
     }
     let mut bytes = Vec::with_capacity(hex.len() / 2);
-    for chunk in hex.as_bytes().chunks_exact(2) {
+    for chunk in hex.as_bytes().as_chunks::<2>().0 {
         let s = std::str::from_utf8(chunk).map_err(|_| "invalid hex character")?;
         bytes.push(u8::from_str_radix(s, 16).map_err(|_| "invalid hex character")?);
     }

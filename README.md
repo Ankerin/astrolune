@@ -2,6 +2,8 @@
 
 <div align="center">
 
+![AstroLune — Rust, VRF and BFT](docs/assets/astrolune-banner.png)
+
 # AstroLune
 
 ### A Rust-first foundation for a verifiable, fast-finality network
@@ -15,7 +17,7 @@ gradual committee rotation, and prevote/precommit BFT finality in a modular Rust
   <a href="https://github.com/Ankerin/astrolune/actions/workflows/markdown-links.yml"><img src="https://img.shields.io/github/actions/workflow/status/Ankerin/astrolune/markdown-links.yml?branch=master&style=for-the-badge&logo=markdown&logoColor=white&label=Links" alt="Markdown links workflow status"></a>
 </p>
 <p>
-  <img src="https://img.shields.io/badge/Rust-1.93.1%20%7C%20Edition%202024-dea584?style=for-the-badge&logo=rust&logoColor=white" alt="Rust 1.93.1 and Edition 2024">
+  <img src="https://img.shields.io/badge/Rust-1.98.1%20%7C%20Edition%202024-dea584?style=for-the-badge&logo=rust&logoColor=white" alt="Rust 1.98.1 and Edition 2024">
   <a href="LICENSE"><img src="https://img.shields.io/github/license/Ankerin/astrolune?style=for-the-badge&logo=opensourceinitiative&logoColor=white" alt="MIT License"></a>
   <a href="https://github.com/Ankerin/astrolune"><img src="https://img.shields.io/github/repo-size/Ankerin/astrolune?style=for-the-badge&logo=github&logoColor=white" alt="Repository size"></a>
 </p>
@@ -119,7 +121,10 @@ Validator hardware requirements depend on the deployment profile:
 
 Mainnet participation targets operators able to meet this hardware baseline. These are design requirements, not benchmark guarantees or checks currently enforced by the daemon. See [validator hardware and operational requirements](docs/07-validator-requirements.md).
 
-The repository pins Rust `1.93.1` with rustfmt and Clippy through [`rust-toolchain.toml`](rust-toolchain.toml). Install Rust with [rustup](https://rustup.rs/); entering the repository selects the pinned toolchain.
+The repository pins Rust `1.98.1` with rustfmt and Clippy through [`rust-toolchain.toml`](rust-toolchain.toml). Install Rust with [rustup](https://rustup.rs/); entering the repository selects the pinned toolchain.
+
+On Windows with an older standalone Rust installation in `PATH`, run
+`. ./tools/enter-dev.ps1` to select the rustup proxies in the current shell.
 
 Cryptographic foundations use pinned BLAKE2s and Ed25519 backends; dependency versions are recorded in `Cargo.lock`. Reference state and [whole-chain archive persistence](docs/11-chain-archives.md) use standard-library file I/O and locks.
 

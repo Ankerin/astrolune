@@ -85,7 +85,7 @@ cargo contract test contract.wasm input.bin
 cargo contract verify contract.wasm <expected-code-hash>
 ```
 
-`build` accepts a standalone `no_std` Rust source, requires rustc 1.93.1 and its
+`build` accepts a standalone `no_std` Rust source, requires rustc 1.98.1 and its
 `wasm32-unknown-unknown` libraries, and compiles twice with fixed optimization,
 panic, metadata, memory and symbol settings. It validates equal binary outputs
 before exclusively creating the destination. `ASTROLUNE_CONTRACT_SYSROOT` can

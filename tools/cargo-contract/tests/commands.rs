@@ -83,7 +83,7 @@ fn validates_executes_and_rejects_wrong_commitment_or_unsupported_commands() {
 }
 
 #[test]
-#[ignore = "requires Rust 1.93.1 wasm32-unknown-unknown libraries; optional ASTROLUNE_CONTRACT_SYSROOT"]
+#[ignore = "requires Rust 1.98.1 wasm32-unknown-unknown libraries; optional ASTROLUNE_CONTRACT_SYSROOT"]
 fn pinned_rust_build_is_repeatable_and_executable() {
     let path = std::env::temp_dir().join(format!(
         "astrolune-contract-build-test-{}",
@@ -123,7 +123,7 @@ fn pinned_rust_build_is_repeatable_and_executable() {
 }
 
 #[test]
-#[ignore = "requires Rust 1.93.1 wasm32 libraries; optional ASTROLUNE_CONTRACT_SYSROOT"]
+#[ignore = "requires Rust 1.98.1 wasm32 libraries; optional ASTROLUNE_CONTRACT_SYSROOT"]
 fn sdk_bindings_execute_all_host_calls_in_the_reference_interpreter() {
     use runtime::{ModuleValidator, WASM_VERSION, WasmCall, WasmRuntime};
     use std::collections::{BTreeMap, BTreeSet};
@@ -194,7 +194,7 @@ fn sdk_bindings_execute_all_host_calls_in_the_reference_interpreter() {
 }
 
 #[test]
-#[ignore = "requires Rust 1.93.1 wasm32 libraries; optional ASTROLUNE_CONTRACT_SYSROOT"]
+#[ignore = "requires Rust 1.98.1 wasm32 libraries; optional ASTROLUNE_CONTRACT_SYSROOT"]
 fn registry_wasm_enforces_ownership_expiry_and_matches_the_native_transition() {
     use contract_sdk::registry::{self, RegistryCall};
     use runtime::{ModuleValidator, WASM_VERSION, WasmCall, WasmRuntime};
@@ -324,7 +324,7 @@ fn registry_actions() -> [(contract_sdk::registry::RegistryAction<'static>, u8, 
 }
 
 #[test]
-#[ignore = "requires Rust 1.93.1 wasm32 libraries; optional ASTROLUNE_CONTRACT_SYSROOT"]
+#[ignore = "requires Rust 1.98.1 wasm32 libraries; optional ASTROLUNE_CONTRACT_SYSROOT"]
 fn multi_file_source_package_rebuilds_independently_and_detects_wrong_artifacts() {
     let path =
         std::env::temp_dir().join(format!("astrolune-source-package-{}", std::process::id()));

@@ -334,8 +334,7 @@ impl PeerManager {
     pub fn disconnect(&self, peer_id: &PeerId) -> bool {
         self.peers
             .lock()
-            .map(|mut peers| peers.remove(peer_id).is_some())
-            .unwrap_or(false)
+            .is_ok_and(|mut peers| peers.remove(peer_id).is_some())
     }
 
     /// Sends a frame to a specific peer.
@@ -392,7 +391,7 @@ impl PeerManager {
     /// Returns the number of currently connected peers.
     #[must_use]
     pub fn peer_count(&self) -> usize {
-        self.peers.lock().map(|peers| peers.len()).unwrap_or(0)
+        self.peers.lock().map_or(0, |peers| peers.len())
     }
 
     /// Returns the list of connected peer IDs.

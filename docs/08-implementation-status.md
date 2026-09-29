@@ -123,7 +123,7 @@ Before production implementation, resolve:
 2. VRF availability and live committee activation; construction and unbiased weighted sampling are specified.
 3. Rotating weighted BFT lock, unlock, timeout, and handoff rules.
 4. Canonical encoding and hash suite.
-5. Cross-platform contract artifact qualification; bounded offline source reconstruction, ABI-v2 WebAssembly, its host SDK and Rust 1.93.1 builds are implemented.
+5. Cross-platform contract artifact qualification; bounded offline source reconstruction, ABI-v2 WebAssembly, its host SDK and Rust 1.98.1 builds are implemented.
 6. Production state indexing and concrete durable chain database engine; the reference Merkle commitment is specified.
 7. Fees, transaction ordering, anti-MEV policy, and lane borrowing.
 8. Adaptive-capacity observation, manipulation resistance, and activation.

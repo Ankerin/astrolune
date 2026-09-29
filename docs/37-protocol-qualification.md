@@ -49,3 +49,7 @@ establish those properties.
 On 2026-09-29 the expanded 13-seed campaign, including the four new rotation
 envelopes, passed 100,000 mutations. The same change passed workspace tests,
 Clippy with warnings denied, rustdoc and standalone fuzz-target compilation.
+
+The subsequent Rust 1.98.1 upgrade repeated those checks and adds reproducible
+native builds, deterministic archives and the legacy vault fixture; see
+[toolchain and release qualification](39-toolchain-and-release-qualification.md).

@@ -65,7 +65,9 @@ fn parse_key(text: &str) -> Result<StateKey, CliError> {
     }
     let bytes = text
         .as_bytes()
-        .chunks_exact(2)
+        .as_chunks::<2>()
+        .0
+        .iter()
         .map(|pair| {
             let pair = std::str::from_utf8(pair).map_err(error)?;
             u8::from_str_radix(pair, 16).map_err(error)
@@ -87,9 +89,6 @@ pub(super) fn anchors(
             "validator registry must contain consecutive 32-byte public keys",
         ));
     }
-    let keys: Vec<[u8; 32]> = registry
-        .chunks_exact(32)
-        .map(|key| key.try_into().expect("exact chunk"))
-        .collect();
+    let keys: Vec<[u8; 32]> = registry.as_chunks::<32>().0.to_vec();
     Ok((genesis, keys))
 }

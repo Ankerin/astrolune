@@ -118,7 +118,9 @@ impl<'a> BorrowedWitness<'a> {
                 leaf_count: self.leaf_count,
                 siblings: self
                     .siblings
-                    .chunks_exact(32)
+                    .as_chunks::<32>()
+                    .0
+                    .iter()
                     .map(|chunk| {
                         let mut hash = [0; 32];
                         hash.copy_from_slice(chunk);

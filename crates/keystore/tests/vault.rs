@@ -8,6 +8,20 @@ use keystore::vault::{
 };
 
 #[test]
+fn original_provider_vault_remains_readable_after_dependency_upgrades() {
+    let bytes = include_bytes!("fixtures/wallet-v1.bin");
+    let seed = decrypt_wallet_seed(bytes, b"astrolune-vault-fixture-v1").unwrap();
+    assert_eq!(
+        *seed,
+        [
+            0x9d, 0x61, 0xb1, 0x9d, 0xef, 0xfd, 0x5a, 0x60, 0xba, 0x84, 0x4a, 0xf4, 0x92, 0xec,
+            0x2c, 0xc4, 0x44, 0x49, 0xc5, 0x69, 0x7b, 0x32, 0x69, 0x19, 0x70, 0x3b, 0xac, 0x03,
+            0x1c, 0xae, 0x7f, 0x60,
+        ]
+    );
+}
+
+#[test]
 fn random_vaults_round_trip_and_authenticate_every_header_class() {
     let password = b"correct horse battery staple";
     let seed = generate_wallet_seed().unwrap();

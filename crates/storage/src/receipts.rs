@@ -112,8 +112,10 @@ impl BlockEffects {
             }
             let data = decoder.read_exact(count * 97)?;
             let receipts = data
-                .chunks_exact(97)
-                .map(ExecutionReceipt::decode)
+                .as_chunks::<97>()
+                .0
+                .iter()
+                .map(|chunk| ExecutionReceipt::decode(chunk))
                 .collect::<Result<Vec<_>, _>>()?;
             let length = decoder.read_u32()? as usize;
             if length > 2048 {

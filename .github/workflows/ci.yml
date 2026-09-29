@@ -26,7 +26,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7.0.1
       - name: Install pinned Rust toolchain
         run: rustup show
       - run: cargo fmt --all --check
@@ -40,10 +40,10 @@ jobs:
     runs-on: ${{ matrix.os }}
     timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7.0.1
       - name: Install pinned Rust toolchain
         run: rustup show
-      - uses: Swatinem/rust-cache@v2
+      - uses: Swatinem/rust-cache@v2.9.2
       - run: cargo clippy --locked --workspace --all-targets --all-features -- -D warnings
 
   tests:
@@ -56,14 +56,17 @@ jobs:
     runs-on: ${{ matrix.os }}
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7.0.1
       - name: Install pinned Rust toolchain
         run: rustup show
-      - uses: Swatinem/rust-cache@v2
+      - uses: Swatinem/rust-cache@v2.9.2
         with:
           key: ${{ matrix.profile }}
       - name: Unit, integration, and documentation tests
         run: cargo test --locked --workspace --all-features --profile ${{ matrix.profile }}
+      - name: Pinned Rust wasm32 builds and SDK integration
+        if: matrix.profile == 'release'
+        run: cargo test --locked -p cargo-contract --release -- --ignored
 
   docs:
     name: Documentation
@@ -72,10 +75,10 @@ jobs:
     env:
       RUSTDOCFLAGS: -D warnings
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7.0.1
       - name: Install pinned Rust toolchain
         run: rustup show
-      - uses: Swatinem/rust-cache@v2
+      - uses: Swatinem/rust-cache@v2.9.2
       - run: cargo doc --locked --workspace --all-features --no-deps
 
   build:
@@ -91,14 +94,17 @@ jobs:
     runs-on: ${{ matrix.os }}
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7.0.1
       - name: Install pinned Rust toolchain
         run: rustup show
-      - uses: Swatinem/rust-cache@v2
+      - uses: Swatinem/rust-cache@v2.9.2
         with:
           key: ${{ matrix.target }}
-      - name: Build release workspace
-        run: cargo build --locked --workspace --all-features --release --target ${{ matrix.target }}
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.14.7"
+      - name: Independently rebuild and compare release binaries
+        run: python -B .github/scripts/verify-native-build.py ${{ matrix.target }} --binaries-output target/${{ matrix.target }}/release
       - name: Smoke-test release binaries and daemon recovery
         shell: bash
         env:
@@ -113,9 +119,8 @@ jobs:
           "$bin/daemon" --data-dir "$data_dir" --blocks 3 --p2p-listen 127.0.0.1:0 --rpc-listen 127.0.0.2:0
           "$bin/daemon" --data-dir "$data_dir" --blocks 2 --p2p-listen 127.0.0.1:0 --rpc-listen 127.0.0.2:0
           "$bin/daemon" --data-dir "$data_dir" --blocks 0
-      - uses: actions/setup-python@v7
-        with:
-          python-version: "3.11"
+      - name: Reproducible archive regression tests
+        run: python -B -m unittest discover -s .github/scripts -p 'test_*.py' -v
       - name: Package binaries with checksums and build metadata
         run: python .github/scripts/package-build.py ${{ matrix.target }}
       - uses: actions/upload-artifact@v7
@@ -130,13 +135,13 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7.0.1
       - uses: actions/setup-go@v7
         with:
-          go-version: "1.24.x"
+          go-version: "1.27.1"
           cache: false
       - name: Install actionlint
-        run: go install github.com/rhysd/actionlint/cmd/actionlint@v1.7.7
+        run: go install github.com/rhysd/actionlint/cmd/actionlint@v1.7.12
       - run: actionlint -color
 
   quality:

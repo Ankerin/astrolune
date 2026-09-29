@@ -168,7 +168,9 @@ impl TcpRpcClient {
         }
         let bytes = hex
             .as_bytes()
-            .chunks_exact(2)
+            .as_chunks::<2>()
+            .0
+            .iter()
             .map(|pair| {
                 let text = std::str::from_utf8(pair)
                     .map_err(|_| ClientError::Protocol("invalid proof hex"))?;
@@ -371,7 +373,9 @@ fn proof_hex(hex: &str, max: usize) -> Result<Vec<u8>, ClientError> {
         return Err(ClientError::LimitExceeded);
     }
     hex.as_bytes()
-        .chunks_exact(2)
+        .as_chunks::<2>()
+        .0
+        .iter()
         .map(|pair| {
             let text = std::str::from_utf8(pair)
                 .map_err(|_| ClientError::Protocol("invalid proof hex"))?;

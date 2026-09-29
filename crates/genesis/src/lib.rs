@@ -299,12 +299,16 @@ impl CanonicalDecode for Genesis {
             rotation_count,
             runtime_version,
             validators: validator_bytes
-                .chunks_exact(48)
-                .map(GenesisValidator::decode)
+                .as_chunks::<48>()
+                .0
+                .iter()
+                .map(|chunk| GenesisValidator::decode(chunk))
                 .collect::<Result<_, _>>()?,
             allocations: allocation_bytes
-                .chunks_exact(40)
-                .map(Allocation::decode)
+                .as_chunks::<40>()
+                .0
+                .iter()
+                .map(|chunk| Allocation::decode(chunk))
                 .collect::<Result<_, _>>()?,
         };
         genesis.validate().map_err(|_| DecodeError::NonCanonical)?;

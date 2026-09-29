@@ -91,10 +91,7 @@ fn resolver(args: &[String]) -> Result<CertifiedResolver, String> {
     if bytes.is_empty() || !bytes.len().is_multiple_of(32) {
         return Err("invalid validator registry".into());
     }
-    let validators = bytes
-        .chunks_exact(32)
-        .map(|key| key.try_into().expect("exact chunk"))
-        .collect();
+    let validators = bytes.as_chunks::<32>().0.to_vec();
     let trust = RegistryTrust {
         genesis,
         validators,

@@ -19,7 +19,7 @@ storage = { path = "../../storage" }
 p2p = { path = "../../p2p" }
 runtime = { path = "../../runtime" }
 contract-sdk = { path = "../../contract-sdk", default-features = false }
-libfuzzer-sys = "0.4"
+libfuzzer-sys = "0.4.13"
 types = { path = "../../types" }
 state = { path = "../../state" }
 genesis = { path = "../../genesis" }

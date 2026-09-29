@@ -43,10 +43,7 @@ fn context(genesis: &Path, keys: &Path, height: u64) -> Result<AuthenticatedComm
     if bytes.len() != genesis.validators.len() * 32 {
         return Err(error("registry length does not match genesis"));
     }
-    let keys: Vec<_> = bytes
-        .chunks_exact(32)
-        .map(|key| <[u8; 32]>::try_from(key).expect("complete key"))
-        .collect();
+    let keys: Vec<_> = bytes.as_chunks::<32>().0.to_vec();
     let committee = Committee {
         height,
         members: genesis

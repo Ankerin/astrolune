@@ -17,7 +17,7 @@ use types::{Hash256, hash::domain_hash};
 const MAGIC: &[u8; 8] = b"ALPKG001";
 const MAX_PACKAGE: usize = 4 * 1024 * 1024;
 const MAX_FILES: usize = 128;
-const PROFILE: &[u8] = b"rustc1.93.1/wasm32/abi2/meter1/package1/compress-relocations";
+const PROFILE: &[u8] = b"rustc1.98.1/wasm32/abi2/meter1/package1/compress-relocations";
 
 pub(super) fn run(command: &str, args: &[OsString]) -> Result<(), String> {
     match (command, args) {

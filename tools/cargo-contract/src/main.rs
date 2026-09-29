@@ -20,7 +20,7 @@ use std::{
 };
 use types::{Address, Resources};
 
-const HELP: &str = "AstroLune contract tools\n\nUsage: cargo contract <command>\n\nCommands:\n  init <new-directory>  Create a restricted Cargo contract package\n  package <directory> <source.alpkg>  Bundle bounded source files and SDK identity\n  build-package <directory> <new-output-directory>  Build a package and save its sources and commitments\n  verify-source <source.alpkg> <module.wasm>  Rebuild published sources and compare exact artifact bytes\n  build <source.rs> <output.wasm>  Build a standalone no_std Rust contract twice and compare bytes\n  validate <module.wasm>  Check the integer-only ABI v2 and print its commitment\n  test <module.wasm> [input-file]  Execute with empty state and bounded resources\n  verify <module.wasm> <code-hash>  Validate and compare an expected code commitment\n\nBuild requires Rust 1.93.1 and its wasm32-unknown-unknown standard library.\nThe source must export memory and call() -> i32 using the astrolune_v2 ABI.\nUse cli sign-deploy/sign-call/submit on a genesis runtime_version 2 network.\n";
+const HELP: &str = "AstroLune contract tools\n\nUsage: cargo contract <command>\n\nCommands:\n  init <new-directory>  Create a restricted Cargo contract package\n  package <directory> <source.alpkg>  Bundle bounded source files and SDK identity\n  build-package <directory> <new-output-directory>  Build a package and save its sources and commitments\n  verify-source <source.alpkg> <module.wasm>  Rebuild published sources and compare exact artifact bytes\n  build <source.rs> <output.wasm>  Build a standalone no_std Rust contract twice and compare bytes\n  validate <module.wasm>  Check the integer-only ABI v2 and print its commitment\n  test <module.wasm> [input-file]  Execute with empty state and bounded resources\n  verify <module.wasm> <code-hash>  Validate and compare an expected code commitment\n\nBuild requires Rust 1.98.1 and its wasm32-unknown-unknown standard library.\nThe source must export memory and call() -> i32 using the astrolune_v2 ABI.\nUse cli sign-deploy/sign-call/submit on a genesis runtime_version 2 network.\n";
 
 fn main() {
     if let Err(error) = run(std::env::args_os().skip(1).collect()) {
@@ -134,8 +134,8 @@ fn build(source: &Path, output: &Path, runtime: &WasmRuntime) -> Result<(), Stri
         .arg("--version")
         .output()
         .map_err(|e| e.to_string())?;
-    if !compiler.status.success() || !compiler.stdout.starts_with(b"rustc 1.93.1 ") {
-        return Err("contract compiler must be rustc 1.93.1".into());
+    if !compiler.status.success() || !compiler.stdout.starts_with(b"rustc 1.98.1 ") {
+        return Err("contract compiler must be rustc 1.98.1".into());
     }
     let directory = build_directory()?;
     let sdk_library = sdk::compile(&directory.0)?;

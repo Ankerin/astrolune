@@ -20,8 +20,8 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v4
-      - uses: lycheeverse/lychee-action@v2
+      - uses: actions/checkout@v7.0.1
+      - uses: lycheeverse/lychee-action@v2.9.0
         with:
           args: --verbose --no-progress './**/*.md'
           fail: true

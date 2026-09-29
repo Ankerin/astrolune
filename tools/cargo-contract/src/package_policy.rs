@@ -7,7 +7,7 @@ use proc_macro2::{TokenStream, TokenTree};
 use std::str::FromStr;
 use toml::{Table, Value};
 
-pub(super) const MANIFEST: &str = "# Copyright (c) 2026 Astrolune contributors\n# SPDX-License-Identifier: MIT\n[package]\nname = \"astrolune-contract\"\nversion = \"0.1.0\"\nedition = \"2024\"\nrust-version = \"1.93.1\"\n[lib]\ncrate-type = [\"cdylib\"]\n[dependencies.contract-sdk]\nversion = \"=0.1.0\"\ndefault-features = false\n[workspace]\n";
+pub(super) const MANIFEST: &str = "# Copyright (c) 2026 Astrolune contributors\n# SPDX-License-Identifier: MIT\n[package]\nname = \"astrolune-contract\"\nversion = \"0.1.0\"\nedition = \"2024\"\nrust-version = \"1.98.1\"\n[lib]\ncrate-type = [\"cdylib\"]\n[dependencies.contract-sdk]\nversion = \"=0.1.0\"\ndefault-features = false\n[workspace]\n";
 
 pub(super) fn manifest(bytes: &[u8]) -> Result<(), String> {
     if bytes.len() > 16 * 1024 {
@@ -54,9 +54,9 @@ pub(super) fn manifest(bytes: &[u8]) -> Result<(), String> {
         return Err("package version must be a numeric major.minor.patch".into());
     }
     if package.get("edition").and_then(Value::as_str) != Some("2024")
-        || package.get("rust-version").and_then(Value::as_str) != Some("1.93.1")
+        || package.get("rust-version").and_then(Value::as_str) != Some("1.98.1")
     {
-        return Err("package must pin edition 2024 and rust-version 1.93.1".into());
+        return Err("package must pin edition 2024 and rust-version 1.98.1".into());
     }
     let library = child(&table, "lib")?;
     only(library, &["crate-type"])?;

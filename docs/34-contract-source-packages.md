@@ -18,7 +18,7 @@ directories are never overwritten. `verify-source` rebuilds the bundle with
 the pinned tools and compares the entire artifact, not just a claimed hash.
 It performs no network operation or publication.
 
-The supported Cargo profile fixes Rust 1.93.1, edition 2024, `src/lib.rs`,
+The supported Cargo profile fixes Rust 1.98.1, edition 2024, `src/lib.rs`,
 `cdylib`, and the bundled `contract-sdk =0.1.0` without default features.
 Ordinary nested Rust modules are supported. The build driver uses the reviewed
 manifest to select this fixed rustc profile; it does not run Cargo build scripts,
@@ -26,6 +26,12 @@ fetch dependencies or apply ambient Cargo configuration. Other dependencies,
 features, workspace membership, target/profile overrides, `.cargo`, build
 scripts and lockfiles are rejected. Package description, license and authors
 may be included as metadata.
+
+The Rust upgrade changes the source-package build-profile commitment. A bundle
+created for the former Rust 1.93.1 profile must be verified with that former
+toolchain or rebuilt/repackaged explicitly for 1.98.1. Previously deployed ABI-v2
+WASM bytes keep their existing code hashes; dependency updates do not rewrite
+deployed state or silently relabel old source bundles.
 
 The versioned `ALPKG001` bundle commits to its build profile and the exact bundled
 SDK/ABI source bytes. It contains sorted, unique, length-prefixed paths and file

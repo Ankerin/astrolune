@@ -8,6 +8,13 @@ All notable changes to AstroLune will be documented in this file. The format fol
 
 ### Fixed
 
+- Upgrade the pinned native/wasm32 compiler to Rust 1.98.1 and refresh dependency
+  locks. Migrate vault encryption to the current AEAD API while retaining a
+  compatibility fixture produced by the original providers.
+- Add the project README banner and deterministic native archives containing all
+  four binaries, documentation, normalized metadata and per-file SHA-256 hashes.
+- Run real Rust-to-WASM package/SDK checks in the Linux/Windows release-test matrix.
+
 - Add complete VRF contribution collection, bounded authenticated committee handoff,
   rotating-producer system execution with reserved resources, full history replay,
   and state/receipt verification against an independent handoff stream.
