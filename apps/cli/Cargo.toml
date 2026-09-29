@@ -34,4 +34,4 @@ zeroize = "1.8"
 workspace = true
 
 [dev-dependencies]
-wat = "=1.228.0"
+wat = "=1.259.0"
