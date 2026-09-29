@@ -12,7 +12,7 @@ authors.workspace = true
 repository.workspace = true
 
 [dependencies]
-argon2 = { version = "=0.5.3", default-features = false, features = ["alloc", "zeroize"] }
+argon2 = { version = "=0.6.0", default-features = false, features = ["alloc", "zeroize"] }
 chacha20poly1305 = { version = "=0.10.1", default-features = false }
 getrandom = "=0.3.4"
 crypto = { version = "0.1.0", path = "../crypto" }
