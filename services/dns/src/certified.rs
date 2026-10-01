@@ -53,23 +53,37 @@ impl RegistryTrust {
         code: &CertifiedStateProof,
         value: &CertifiedStateProof,
     ) -> Result<Resolution, String> {
+        self.verify_using(name, minimum, code, value, |proof, key, minimum| {
+            proof
+                .verify(&self.genesis, &self.validators, key, minimum)
+                .map_err(|_| "registry proof failed authentication".into())
+        })
+    }
+
+    fn verify_using<'a>(
+        &self,
+        name: &str,
+        minimum: u64,
+        code: &'a CertifiedStateProof,
+        value: &'a CertifiedStateProof,
+        mut verify: impl FnMut(
+            &'a CertifiedStateProof,
+            &StateKey,
+            u64,
+        ) -> Result<Option<&'a [u8]>, String>,
+    ) -> Result<Resolution, String> {
         if self.genesis.runtime_version != 2 {
             return Err("registry requires activated ABI v2".into());
         }
         let name = canonical_name(name)?;
         let code_key = transaction::contract_code_key(self.address);
-        let code_bytes = code
-            .verify(&self.genesis, &self.validators, &code_key, minimum)
-            .map_err(|_| "registry code proof failed authentication")?
-            .ok_or("registry is not deployed")?;
+        let code_bytes = verify(code, &code_key, minimum)?.ok_or("registry is not deployed")?;
         if runtime::wasm_code_hash(code_bytes) != self.code_hash {
             return Err("registry code commitment mismatch".into());
         }
         let minimum = minimum.max(code.header.map_or(0, |header| header.height));
         let key = self.state_key(&name)?;
-        let bytes = value
-            .verify(&self.genesis, &self.validators, &key, minimum)
-            .map_err(|_| "registry value proof failed authentication")?;
+        let bytes = verify(value, &key, minimum)?;
         let height = value.header.map_or(0, |header| header.height);
         let lease = bytes
             .map(Lease::decode)
@@ -111,6 +125,7 @@ pub struct CertifiedResolver {
     trust: RegistryTrust,
     client: TcpRpcClient,
     minimum: u64,
+    handoffs: Option<consensus::rotation::HandoffVerifier>,
 }
 impl CertifiedResolver {
     /// Creates a resolver with operator-supplied freshness floor and trust anchors.
@@ -120,6 +135,7 @@ impl CertifiedResolver {
             trust,
             client,
             minimum,
+            handoffs: None,
         }
     }
 
@@ -134,7 +150,45 @@ impl CertifiedResolver {
             .client
             .state_proof(&key)
             .map_err(|error| error.to_string())?;
-        let result = self.trust.verify(name, self.minimum, &code, &value)?;
+        let result = if self.trust.genesis.version == genesis::ROTATING_GENESIS_VERSION {
+            let mut trusted = match &self.handoffs {
+                Some(trusted) => trusted.clone(),
+                None => consensus::rotation::HandoffVerifier::new(
+                    &self.trust.genesis,
+                    &self.trust.validators,
+                )
+                .map_err(|error| error.to_string())?,
+            };
+            let deadline = std::time::Instant::now() + std::time::Duration::from_secs(30);
+            let result = self.trust.verify_using(
+                name,
+                self.minimum,
+                &code,
+                &value,
+                |proof, key, minimum| {
+                    let height = proof
+                        .header
+                        .ok_or("registry requires finalized deployment")?
+                        .height;
+                    if height < minimum {
+                        return Err("registry proof precedes freshness floor".into());
+                    }
+                    let remaining = deadline
+                        .checked_duration_since(std::time::Instant::now())
+                        .ok_or("handoff deadline exceeded")?;
+                    self.client
+                        .advance_handoffs(&mut trusted, height, 10_000, remaining)
+                        .map_err(|error| error.to_string())?;
+                    proof
+                        .verify_with_handoffs(&trusted, key, minimum)
+                        .map_err(|_| "registry proof failed authentication".into())
+                },
+            )?;
+            self.handoffs = Some(trusted);
+            result
+        } else {
+            self.trust.verify(name, self.minimum, &code, &value)?
+        };
         self.minimum = self.minimum.max(result.height);
         Ok(result)
     }

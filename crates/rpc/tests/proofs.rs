@@ -213,6 +213,7 @@ fn certified_receipts_bind_execution_output_order_genesis_and_quorum() {
         header,
         certificate,
         effects: storage::BlockEffects {
+            committee: None,
             receipts,
             genesis: state::StateValueProof::create(snapshot.as_ref(), &genesis::genesis_key())
                 .unwrap(),

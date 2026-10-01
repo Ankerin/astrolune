@@ -3,6 +3,8 @@
 
 //! Fixed-membership reference network with durable voting and certified catch-up.
 
+mod rotation;
+
 use crate::network_wire::{
     MAX_EXCHANGE_BYTES, MAX_TRANSACTION_BYTES, NetworkMessage, SyncRequest, decode_exchange,
     encode_block, encode_exchange,
@@ -11,11 +13,12 @@ use crate::{
     BlockProducer, ProducerConfig, ProducerError, RoundRobinValidator, SignedBlockProposal,
     TimeoutEvent, ValidatorError,
 };
+use consensus::rotation::{ContributionPool, HandoffVerifier, VrfContribution};
 use consensus::{
     AuthenticatedCommittee, Committee, CommitteeMember, LocalBft, LocalBftError, PotbWeight,
     PrevoteCertificate, Vote, VotePhase, VotingStep,
 };
-use keystore::{DurableSigner, KeystoreError, Signer};
+use keystore::{ChainSigner, DurableSigner, KeystoreError, Signer};
 use std::{
     collections::BTreeMap,
     io::{Read, Write},
@@ -90,7 +93,9 @@ impl StaticNetwork {
     /// Explicitly selects all genesis validators for the fixed round-robin profile.
     pub fn new(genesis: genesis::Genesis, keys: Vec<[u8; 32]>) -> Result<Self, NetworkNodeError> {
         let hash = genesis.commitment().map_err(input)?;
-        if genesis.committee_size != genesis.validators.len() || keys.len() > MAX_NETWORK_VALIDATORS
+        if (genesis.version == genesis::GENESIS_VERSION
+            && genesis.committee_size != genesis.validators.len())
+            || keys.len() > MAX_NETWORK_VALIDATORS
         {
             return Err(input(
                 "reference network requires the complete genesis committee, at most 32 validators",
@@ -102,6 +107,9 @@ impl StaticNetwork {
             keys,
         };
         result.committee(1)?;
+        if result.rotating() {
+            HandoffVerifier::new(&result.genesis, &result.keys).map_err(input)?;
+        }
         Ok(result)
     }
     /// Trusted genesis namespace.
@@ -114,8 +122,26 @@ impl StaticNetwork {
     pub const fn chain_id(&self) -> u32 {
         self.genesis.chain_id
     }
+    /// Whether independently configured genesis explicitly activates VRF rotation.
+    #[must_use]
+    pub const fn rotating(&self) -> bool {
+        self.genesis.version == genesis::ROTATING_GENESIS_VERSION
+    }
+    pub(crate) fn current_committee(
+        &self,
+        producer: &BlockProducer,
+    ) -> Result<AuthenticatedCommittee, NetworkNodeError> {
+        match producer.rotation_state() {
+            Some(current) if self.rotating() => current.context().map_err(input),
+            None if !self.rotating() => self.committee(producer.height()),
+            _ => Err(input("execution profile disagrees with trusted genesis")),
+        }
+    }
     /// Reconstructs a height-bound context from trusted immutable membership.
     pub fn committee(&self, height: u64) -> Result<AuthenticatedCommittee, NetworkNodeError> {
+        if self.rotating() && height != 1 {
+            return Err(input("rotating authority requires verified handoffs"));
+        }
         AuthenticatedCommittee::new(
             self.genesis.chain_id,
             &Committee {
@@ -143,6 +169,15 @@ impl StaticNetwork {
                 .initialize_genesis(network.hash, initial.clone())
                 .map_err(local)?;
         }
+        if self.rotating() {
+            let (producer, _) = BlockProducer::recover_rotation(
+                self.producer_config(),
+                &self.genesis,
+                &self.keys,
+                &storage,
+            )?;
+            return Ok(RecoveredNetwork { storage, producer });
+        }
         let checkpoint = self.verify_storage(&storage)?;
         let producer = BlockProducer::from_checkpoint(
             network.producer_config(),
@@ -159,6 +194,18 @@ impl StaticNetwork {
         &self,
         storage: &ChainStorage,
     ) -> Result<storage::Checkpoint, NetworkNodeError> {
+        if self.rotating() {
+            BlockProducer::recover_rotation(
+                self.producer_config(),
+                &self.genesis,
+                &self.keys,
+                storage,
+            )?;
+            return storage
+                .checkpoint()
+                .copied()
+                .ok_or_else(|| local("missing checkpoint"));
+        }
         let network = self;
         let initial = network.genesis.materialize().map_err(input)?;
         let checkpoint = *storage
@@ -221,6 +268,8 @@ impl StaticNetwork {
 pub struct NetworkNode {
     network: StaticNetwork,
     participant: Option<RoundRobinValidator>,
+    standby: Option<(BlockProducer, DurableSigner)>,
+    contributions: Option<ContributionPool>,
     storage: ChainStorage,
     voter: ValidatorId,
     proposal: Option<SignedBlockProposal>,
@@ -247,22 +296,14 @@ impl NetworkNode {
             ));
         }
         let RecoveredNetwork { storage, producer } = network.recover(directory)?;
-        let checkpoint = *storage
-            .checkpoint()
-            .ok_or_else(|| local("missing checkpoint"))?;
         let voter = signer.validator_id(&signer.key_handle()).map_err(local)?;
-        let local_voter =
-            LocalBft::new(network.committee(producer.height())?, signer, network.hash)
-                .map_err(local)?;
-        let participant = RoundRobinValidator::new(
-            producer,
-            local_voter,
-            network.committee(checkpoint.height + 1)?,
-        )?;
+        let (participant, standby) = Self::bind_height(&network, producer, signer)?;
         let mut result = Self {
-            evidence: crate::evidence::EvidenceStore::open(directory, &network)?,
+            evidence: crate::evidence::EvidenceStore::open(directory, &network, &storage)?,
             network,
-            participant: Some(participant),
+            participant,
+            standby,
+            contributions: None,
             storage,
             voter,
             proposal: None,
@@ -272,7 +313,10 @@ impl NetworkNode {
             timer: None,
             base_timeout,
         };
-        result.restore_cache()?;
+        result.start_contributions()?;
+        if result.participant.is_some() {
+            result.restore_cache()?;
+        }
         Ok(result)
     }
 
@@ -301,18 +345,20 @@ impl NetworkNode {
     pub fn request(&self) -> SyncRequest {
         SyncRequest {
             genesis: self.network.hash,
-            height: self.participant().producer().height(),
+            height: self.producer().height(),
         }
     }
     /// Current round, useful for operator diagnostics and simulations.
     #[must_use]
     pub fn round(&self) -> u32 {
-        self.participant().local().round()
+        self.participant
+            .as_ref()
+            .map_or(0, |participant| participant.local().round())
     }
     /// Admits a signed transaction for both production and gossip.
     pub fn submit_transaction(&mut self, tx: Transaction) -> Result<Hash256, NetworkNodeError> {
         let id = crate::hash_transaction(&tx);
-        self.participant_mut().submit_transaction(tx)?;
+        self.producer_mut().submit_transaction(tx)?;
         Ok(id)
     }
 
@@ -331,7 +377,7 @@ impl NetworkNode {
         } else if request.height == self.request().height {
             let mut messages = self.consensus_messages();
             let mut size = 0;
-            for tx in self.participant().producer().pending_transactions() {
+            for tx in self.producer().pending_transactions() {
                 size += transaction::estimate_encoded_len(&tx);
                 if size > 2 * 1024 * 1024 {
                     break;
@@ -347,6 +393,14 @@ impl NetworkNode {
 
     fn consensus_messages(&self) -> Vec<NetworkMessage> {
         let mut messages = Vec::new();
+        if let Some(pool) = &self.contributions {
+            messages.extend(pool.entries().cloned().map(|contribution| {
+                NetworkMessage::VrfContribution {
+                    height: self.request().height,
+                    contribution,
+                }
+            }));
+        }
         if let Some((block, proof)) = &self.valid {
             messages.push(NetworkMessage::ValidValue {
                 block: block.clone(),
@@ -383,29 +437,28 @@ impl NetworkNode {
     }
 
     fn receive_message(&mut self, message: NetworkMessage) -> Result<(), NetworkNodeError> {
+        if self.participant.is_none()
+            && matches!(
+                &message,
+                NetworkMessage::Vote(_)
+                    | NetworkMessage::ValidValue { .. }
+                    | NetworkMessage::Proposal { .. }
+            )
+        {
+            return Ok(());
+        }
         match message {
+            NetworkMessage::VrfContribution {
+                height,
+                contribution,
+            } => {
+                self.receive_contribution(height, contribution)?;
+            }
             NetworkMessage::Transaction(tx) => {
                 self.submit_transaction(tx)?;
             }
             NetworkMessage::Finalized { block, certificate } => {
-                if block.header.height != self.request().height {
-                    return Err(input("stale or nonsequential finalized block"));
-                }
-                self.participant()
-                    .local()
-                    .committee()
-                    .verify_certificate(&certificate, &block.header)
-                    .map_err(input)?;
-                let proposal = self
-                    .participant()
-                    .producer()
-                    .execute_received_block(block)?;
-                let participant = self
-                    .participant
-                    .as_mut()
-                    .ok_or_else(|| local("height handoff incomplete"))?;
-                participant.commit_finalized(&proposal, &certificate, &mut self.storage)?;
-                self.advance_height()?;
+                self.receive_finalized(block, &certificate)?;
             }
             NetworkMessage::Vote(vote) => {
                 self.receive_peer_vote(vote)?;
@@ -528,6 +581,19 @@ impl NetworkNode {
 
     /// Drives one bounded unit of work using a monotonic clock. No synthetic votes exist.
     pub fn tick(&mut self, now: Instant) -> Result<(), NetworkNodeError> {
+        if self.participant.is_none() {
+            return Ok(());
+        }
+        if self.proposal.is_none()
+            && self.valid.is_none()
+            && self
+                .contributions
+                .as_ref()
+                .is_some_and(|pool| !pool.missing().is_empty())
+        {
+            self.timer = None;
+            return Ok(());
+        }
         if let Some(certificate) = self.participant().certificate().cloned()
             && let Some(proposal) = &self.proposal
             && proposal.envelope.block == certificate.block
@@ -650,26 +716,16 @@ impl NetworkNode {
     }
 
     fn advance_height(&mut self) -> Result<(), NetworkNodeError> {
-        let checkpoint = *self
-            .storage
-            .checkpoint()
-            .ok_or_else(|| local("missing committed checkpoint"))?;
-        let (producer, previous) = self
-            .participant
-            .take()
-            .ok_or_else(|| local("missing participant"))?
-            .into_parts();
-        let voter = LocalBft::new(
-            self.network.committee(producer.height())?,
-            previous.into_signer(),
-            self.network.hash,
-        )
-        .map_err(local)?;
-        self.participant = Some(RoundRobinValidator::new(
-            producer,
-            voter,
-            self.network.committee(checkpoint.height + 1)?,
-        )?);
+        let (producer, signer) = if let Some(participant) = self.participant.take() {
+            let (producer, previous) = participant.into_parts();
+            (producer, previous.into_signer())
+        } else {
+            self.standby
+                .take()
+                .ok_or_else(|| local("missing standby state"))?
+        };
+        (self.participant, self.standby) = Self::bind_height(&self.network, producer, signer)?;
+        self.start_contributions()?;
         self.proposal = None;
         self.valid = None;
         self.votes.clear();

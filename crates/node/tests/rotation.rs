@@ -192,6 +192,10 @@ fn system_payment_and_contract_commit_together_and_recover_after_rotations() {
             producer
                 .commit_certified_block(&proposal, &certificate, &context, &mut storage)
                 .unwrap();
+            assert_eq!(
+                node::handoff::read_handoff(&storage, height).unwrap(),
+                Some(handoff.clone())
+            );
             trusted.apply(&handoff).unwrap();
             assert_eq!(producer.rotation_state(), Some(trusted.current()));
             assert_eq!(
@@ -235,6 +239,7 @@ fn system_payment_and_contract_commit_together_and_recover_after_rotations() {
         assert_eq!(recovered, trusted);
         assert_eq!(restored.rotation_state(), Some(trusted.current()));
         assert_eq!(restored.height(), 4);
+        verify_retained_stream(&genesis, &keys, &storage, &trusted);
     }
 }
 
@@ -263,6 +268,7 @@ fn failed_publication_preserves_committee_state_batch_and_pending_transactions()
     assert_eq!(producer.pending_count(), 1);
     assert_eq!(producer.produce_block().unwrap(), proposal);
     assert_eq!(storage.checkpoint().unwrap().height, 0);
+    assert!(node::handoff::read_handoff(&storage, 1).unwrap().is_none());
     std::fs::remove_dir(dir.0.join("chain.bin.pending")).unwrap();
     producer
         .commit_block(&proposal, certificate.encode().unwrap(), &mut storage)
@@ -398,4 +404,22 @@ fn application_admission_cannot_spend_reserved_system_capacity_or_the_system_slo
             proposal
         );
     }
+}
+
+fn verify_retained_stream(
+    genesis: &genesis::Genesis,
+    keys: &[[u8; 32]],
+    storage: &ChainStorage,
+    trusted: &HandoffVerifier,
+) {
+    let mut stream = HandoffVerifier::new(genesis, keys).unwrap();
+    assert!(node::handoff::read_handoff(storage, 0).unwrap().is_none());
+    assert!(node::handoff::read_handoff(storage, 4).unwrap().is_none());
+    for height in 1..=3 {
+        let handoff = node::handoff::read_handoff(storage, height)
+            .unwrap()
+            .unwrap();
+        stream.apply(&handoff).unwrap();
+    }
+    assert_eq!(&stream, trusted);
 }

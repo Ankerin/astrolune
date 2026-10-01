@@ -39,6 +39,12 @@ impl Genesis {
         let hash = self.commitment()?;
         let mut diff = StateDiff::new();
         diff.put(genesis_key(), hash.as_bytes().to_vec());
+        if self.version == crate::ROTATING_GENESIS_VERSION {
+            diff.put(
+                StateKey(types::domain::ROTATING_PROFILE_KEY.to_vec()),
+                vec![2],
+            );
+        }
         if self.runtime_version == 2 {
             diff.put(runtime_key(), 2u32.to_le_bytes().to_vec());
         }

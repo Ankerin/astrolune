@@ -131,6 +131,9 @@ impl Fixture {
         Self::with_runtime(count, 1)
     }
     fn with_runtime(count: u8, runtime_version: u32) -> Self {
+        Self::with_profile(count, runtime_version, 1, usize::from(count))
+    }
+    fn with_profile(count: u8, runtime_version: u32, version: u16, committee_size: usize) -> Self {
         let path = std::env::temp_dir().join(format!(
             "astrolune-network-{}-{}",
             std::process::id(),
@@ -149,9 +152,9 @@ impl Fixture {
             .collect();
         validators.sort_by_key(|validator| validator.id);
         let genesis = Genesis {
-            version: 1,
+            version,
             chain_id: 42,
-            committee_size: usize::from(count),
+            committee_size,
             rotation_count: 1,
             runtime_version,
             capacity: Resources {
@@ -1096,4 +1099,140 @@ fn network_crosses_full_signing_journal_recovers_and_finalizes_payments() {
         std::fs::metadata(path).unwrap().len(),
         keystore::MAX_ROLLOVER_JOURNAL_BYTES
     );
+}
+
+#[test]
+fn rotating_roster_pauses_without_a_proof_then_changes_seats_and_recovers() {
+    let fixture = Fixture::with_profile(4, 2, 2, 3);
+    assert!(fixture.network.committee(2).is_err());
+    let mut nodes = paused_rotating_nodes(&fixture);
+    let start = Instant::now();
+    let mut saw_standby = [false; 4];
+    let mut resumed = [false; 4];
+    for step in 0..600 {
+        exchange(&mut nodes, start + Duration::from_millis(step * 20));
+        for (index, node) in nodes.iter().enumerate() {
+            resumed[index] |= saw_standby[index] && !node.is_standby();
+            saw_standby[index] |= node.is_standby();
+        }
+        if nodes.iter().all(|node| node.request().height >= 12) {
+            break;
+        }
+    }
+    assert!(
+        nodes.iter().all(|node| node.request().height >= 12),
+        "full roster must resume progress"
+    );
+    assert!(
+        saw_standby.iter().filter(|seen| **seen).count() >= 2,
+        "multiple registered identities must leave the committee"
+    );
+    let source = nodes
+        .iter()
+        .max_by_key(|node| node.request().height)
+        .unwrap();
+    let source_height = source.request().height;
+    let mut observer =
+        ObserverNode::open(fixture.network.clone(), &fixture.path.join("observer")).unwrap();
+    while observer.request().height < source_height {
+        assert_eq!(
+            observer
+                .receive(&source.respond(observer.request()).unwrap())
+                .unwrap(),
+            0
+        );
+    }
+    assert_eq!(
+        observer.storage().checkpoint(),
+        source.storage().checkpoint()
+    );
+    let keys: Vec<_> = (1..=4)
+        .map(|seed| ed25519_public_key(&[seed; 32]))
+        .collect();
+    let mut trusted = consensus::rotation::HandoffVerifier::new(&fixture.genesis, &keys).unwrap();
+    for height in 1..source_height {
+        let handoff = node::handoff::read_handoff(source.storage(), height)
+            .unwrap()
+            .unwrap();
+        trusted.apply(&handoff).unwrap();
+    }
+    assert_eq!(
+        trusted.parent(),
+        source.storage().checkpoint().unwrap().block
+    );
+    assert_eq!(
+        state::read_account(
+            source.storage().state().snapshot().unwrap().as_ref(),
+            Address([77; 32])
+        )
+        .unwrap()
+        .unwrap()
+        .balance,
+        123
+    );
+    // A stale proof is rejected without displacing any valid current contribution.
+    reject_stale_contribution(&mut nodes, &fixture.network, source_height);
+    drop(nodes);
+    let mut reopened: Vec<_> = (1..=4).map(|index| fixture.open(index)).collect();
+    for step in 0..200 {
+        exchange(
+            &mut reopened,
+            Instant::now() + Duration::from_millis(step * 20),
+        );
+        if reopened
+            .iter()
+            .all(|node| node.request().height > source_height)
+        {
+            break;
+        }
+    }
+    assert!(
+        reopened
+            .iter()
+            .all(|node| node.request().height > source_height)
+    );
+    drop(observer);
+    let recovered =
+        ObserverNode::open(fixture.network.clone(), &fixture.path.join("observer")).unwrap();
+    assert_eq!(recovered.request().height, source_height);
+}
+
+fn paused_rotating_nodes(fixture: &Fixture) -> Vec<NetworkNode> {
+    let mut nodes: Vec<_> = (1..=3).map(|index| fixture.open(index)).collect();
+    nodes[0].submit_transaction(transfer()).unwrap();
+    let start = Instant::now();
+    for step in 0..25 {
+        exchange(&mut nodes, start + Duration::from_secs(step));
+    }
+    assert!(
+        nodes
+            .iter()
+            .all(|node| node.request().height == 1 && node.round() == 0)
+    );
+    assert!(
+        nodes
+            .iter()
+            .all(|node| node.missing_contributions().len() == 1)
+    );
+    nodes.push(fixture.open(4));
+    nodes
+}
+
+fn reject_stale_contribution(
+    nodes: &mut [NetworkNode],
+    network: &StaticNetwork,
+    source_height: u64,
+) {
+    let old = node::handoff::read_handoff(nodes[0].storage(), 1)
+        .unwrap()
+        .unwrap();
+    let packet = encode_exchange(
+        network.genesis_hash(),
+        &[NetworkMessage::VrfContribution {
+            height: source_height,
+            contribution: old.contributions.entries()[0].clone(),
+        }],
+    )
+    .unwrap();
+    assert_eq!(nodes[0].receive(&packet).unwrap(), 1);
 }

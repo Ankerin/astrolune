@@ -19,6 +19,7 @@ use config::{NetworkConfig, NodeConfig, SecretRef};
 
 mod contracts;
 mod evidence;
+mod handoffs;
 mod network;
 mod proofs;
 mod receipts;
@@ -101,7 +102,7 @@ Commands:
            Export verified history for an observer, without copying signing authority
   verify   Validate a node configuration
   genesis <file>  Verify binary genesis and derive its initial state root
-  devnet <directory> [validators] [--observer] [--contracts]  Create a local test network (default: 4)
+  devnet <directory> [validators] [--observer] [--contracts] [--vrf]  Create a local test network (default: 4)
   init-validator <genesis> <seed> <directory>  Provision a protected signing journal
   init-network-tls <directory> [peers]  Create independent TLS identities (default: 4)
   help     Show this message

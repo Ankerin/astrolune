@@ -17,6 +17,8 @@ pub use materialize::{genesis_key, runtime_key, validator_key};
 
 /// Supported canonical genesis format.
 pub const GENESIS_VERSION: u16 = 1;
+/// Explicit full-roster VRF rotation profile; version 1 retains fixed membership.
+pub const ROTATING_GENESIS_VERSION: u16 = 2;
 /// Maximum validators in the reference genesis format.
 pub const MAX_GENESIS_VALIDATORS: usize = 4096;
 /// Maximum initial allocations in the reference genesis format.
@@ -72,7 +74,7 @@ impl Genesis {
     /// Returns [`GenesisError`] when identifiers, capacity, committee parameters,
     /// validators, or allocations violate canonical genesis rules.
     pub fn validate(&self) -> Result<(), GenesisError> {
-        if self.version != GENESIS_VERSION {
+        if !matches!(self.version, GENESIS_VERSION | ROTATING_GENESIS_VERSION) {
             return Err(GenesisError::UnsupportedVersion);
         }
         if self.chain_id == 0 || self.runtime_version == 0 {
@@ -270,7 +272,7 @@ impl CanonicalDecode for Genesis {
         }
         let mut dec = Decoder::new(bytes);
         let version = dec.read_u16()?;
-        if version != GENESIS_VERSION {
+        if !matches!(version, GENESIS_VERSION | ROTATING_GENESIS_VERSION) {
             return Err(DecodeError::Unsupported);
         }
         let chain_id = dec.read_u32()?;

@@ -70,5 +70,6 @@ provisioned four-validator TLS devnet plus observer and a real finalized payment
 
 No hosted CI runs were started. Linux execution and reproducibility on independent
 machines remain to be observed; equal builds on one Windows host establish only
-the measured scope. Live rotating consensus, active PoTB, governance, physical
-retention and alternate runtime qualification retain their own ROADMAP entries.
+the measured scope. [Live rotating consensus](40-live-vrf-network.md) was subsequently
+implemented. Active PoTB, governance, physical retention and alternate runtime
+qualification retain their own ROADMAP entries.

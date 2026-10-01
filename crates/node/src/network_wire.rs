@@ -44,6 +44,13 @@ pub enum NetworkMessage {
         /// Canonical prevote certificate bytes.
         proof: Vec<u8>,
     },
+    /// Full-roster role-separated VRF contribution for the current finalized context.
+    VrfContribution {
+        /// Height whose system transaction will commit the next committee.
+        height: u64,
+        /// Both deterministic proofs under the registered identity.
+        contribution: consensus::rotation::VrfContribution,
+    },
     /// Signed native transaction; admission remains state-aware.
     Transaction(Transaction),
 }
@@ -190,6 +197,14 @@ pub fn encode_exchange(
                 put_blob(&mut bytes, &encode_block(block)?)?;
                 put_blob(&mut bytes, proof)?;
             }
+            NetworkMessage::VrfContribution {
+                height,
+                contribution,
+            } => {
+                bytes.push(5);
+                bytes.extend_from_slice(&height.to_le_bytes());
+                put_blob(&mut bytes, &contribution.to_bytes()?)?;
+            }
             NetworkMessage::Transaction(tx) => {
                 bytes.push(4);
                 let encoded = tx.to_bytes();
@@ -237,6 +252,13 @@ pub fn decode_exchange(genesis: Hash256, bytes: &[u8]) -> Result<Vec<NetworkMess
                 &mut reader,
                 MAX_TRANSACTION_BYTES,
             )?)?),
+            5 => NetworkMessage::VrfContribution {
+                height: reader.read_u64()?,
+                contribution: consensus::rotation::VrfContribution::from_bytes(blob(
+                    &mut reader,
+                    consensus::rotation::VrfContribution::BYTES,
+                )?)?,
+            },
             _ => return Err(DecodeError::Unsupported),
         });
     }

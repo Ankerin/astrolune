@@ -78,7 +78,8 @@ impl CertifiedStateProof {
             return Err(invalid());
         }
         if let Some(header) = &self.header {
-            if header.height == 0
+            if trusted.version == genesis::ROTATING_GENESIS_VERSION
+                || header.height == 0
                 || header.height < minimum_height
                 || header.state_root != self.root
                 || trusted.committee_size != trusted.validators.len()

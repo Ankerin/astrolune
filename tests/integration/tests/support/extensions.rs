@@ -12,7 +12,19 @@ use std::{
 use types::{Address, Hash256, Resources};
 
 pub fn check(bytes: &[u8]) -> usize {
+    use codec::{CanonicalDecode, CanonicalEncode};
     let mut accepted = check_rotation(bytes);
+    if let Ok(genesis) = genesis::Genesis::decode(bytes) {
+        assert_eq!(genesis.to_bytes(), bytes);
+        accepted += 1;
+    }
+    if let Ok(messages) = node::network_wire::decode_exchange(Hash256([1; 32]), bytes) {
+        assert_eq!(
+            node::network_wire::encode_exchange(Hash256([1; 32]), &messages).unwrap(),
+            bytes
+        );
+        accepted += 1;
+    }
     if let Ok(proof) = crypto::VrfOutput::decode(bytes) {
         assert_eq!(proof.encode().unwrap().as_slice(), bytes);
         let key = crypto::blake2s::ed25519_public_key(&[1; 32]);

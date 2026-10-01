@@ -415,3 +415,54 @@ fn symbolic_journal_alias_is_rejected() {
         KeystoreError::InvalidJournal
     );
 }
+
+#[test]
+fn vrf_proofs_are_non_exporting_namespaced_and_do_not_consume_a_vote_position() {
+    let fixture = Fixture::new();
+    let signer = DurableSigner::create_protected(fixture.path(), context(), [1; 32]).unwrap();
+    let input = crypto::VrfInput {
+        chain_id: 7,
+        genesis: context().genesis,
+        epoch: 2,
+        height: 2,
+        parent_randomness: Hash256([9; 32]),
+        round: 0,
+        role: crypto::VrfRole::Committee,
+    };
+    drop(signer);
+    let before = fs::read(fixture.path()).unwrap();
+    let signer = DurableSigner::open(fixture.path(), context(), [1; 32]).unwrap();
+    let proof = signer.prove_vrf(input).unwrap();
+    crypto::vrf::verify_vrf(&signer.public_key(), input.seed(), &proof).unwrap();
+    assert_eq!(proof, signer.prove_vrf(input).unwrap());
+    assert_eq!(signer.last_position(), None);
+    for mutation in 0..5 {
+        let mut changed = input;
+        match mutation {
+            0 => changed.chain_id += 1,
+            1 => changed.genesis.0[0] ^= 1,
+            2 => changed.round = 1,
+            3 => changed.epoch += 1,
+            _ => {
+                changed.height = 1;
+                changed.epoch = 1;
+            }
+        }
+        assert!(signer.prove_vrf(changed).is_err());
+    }
+    let other = signer
+        .prove_vrf(crypto::VrfInput {
+            role: crypto::VrfRole::Producer,
+            ..input
+        })
+        .unwrap();
+    assert_ne!(other, proof);
+    drop(signer);
+    assert_eq!(fs::read(fixture.path()).unwrap(), before);
+    let reopened = DurableSigner::open(fixture.path(), context(), [1; 32]).unwrap();
+    assert_eq!(reopened.prove_vrf(input).unwrap(), proof);
+    drop(reopened);
+    let unprotected = Fixture::new();
+    let signer = DurableSigner::create(unprotected.path(), context(), [1; 32]).unwrap();
+    assert_eq!(signer.prove_vrf(input), Err(KeystoreError::InvalidSafety));
+}

@@ -200,6 +200,11 @@ impl ContributionPool {
         Ok(true)
     }
 
+    /// Verified entries for bounded gossip; order is canonical and duplicates are absent.
+    pub fn entries(&self) -> impl Iterator<Item = &VrfContribution> {
+        self.entries.values()
+    }
+
     /// Registered validators whose proofs are still unavailable, in identity order.
     #[must_use]
     pub fn missing(&self) -> Vec<ValidatorId> {

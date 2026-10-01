@@ -166,7 +166,15 @@ impl BlockProducer {
     }
 
     pub(super) fn ensure_rotation_profile(&self) -> Result<(), ProducerError> {
-        if self.rotation.is_none() && self.state.get(&committee_state_key()).is_some() {
+        if self.rotation.is_none()
+            && (self.state.get(&committee_state_key()).is_some()
+                || self
+                    .state
+                    .get(&types::StateKey(
+                        types::domain::ROTATING_PROFILE_KEY.to_vec(),
+                    ))
+                    .is_some())
+        {
             return Err(invalid(
                 "persisted rotating state requires authenticated rotation recovery",
             ));

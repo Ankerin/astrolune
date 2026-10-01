@@ -31,7 +31,7 @@ pub const MAX_ROTATION_VALIDATORS: usize = 32;
 /// Reserved finalized state location for the committee of the following height.
 #[must_use]
 pub fn committee_state_key() -> StateKey {
-    StateKey(b"astrolune/consensus/committee/v1".to_vec())
+    StateKey(types::domain::COMMITTEE_STATE_KEY.to_vec())
 }
 
 /// Validated immutable committee state. Authority comes from genesis or a handoff.

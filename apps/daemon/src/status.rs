@@ -71,6 +71,7 @@ impl RpcService for ChainStatus {
                 let proof = rpc::CertifiedStateProof::create(snapshot.as_ref(), &key, finality)?;
                 Ok(RpcResponse::StateProof(proof.to_bytes()?))
             }
+            RpcRequest::CommitteeHandoff(_) => Ok(RpcResponse::CommitteeHandoff(None)),
             RpcRequest::Block(height) => {
                 let block = node
                     .storage()

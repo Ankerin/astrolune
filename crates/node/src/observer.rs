@@ -161,7 +161,7 @@ impl ObserverNode {
                 if block.header.height != self.request().height {
                     return Err(input("stale or nonsequential finalized block"));
                 }
-                let committee = self.network.committee(self.request().height)?;
+                let committee = self.network.current_committee(&self.chain.producer)?;
                 committee
                     .verify_certificate(&certificate, &block.header)
                     .map_err(input)?;
@@ -176,7 +176,8 @@ impl ObserverNode {
             NetworkMessage::Transaction(transaction) => {
                 self.submit_transaction(transaction)?;
             }
-            NetworkMessage::Proposal { .. }
+            NetworkMessage::VrfContribution { .. }
+            | NetworkMessage::Proposal { .. }
             | NetworkMessage::Vote(_)
             | NetworkMessage::ValidValue { .. } => {}
         }

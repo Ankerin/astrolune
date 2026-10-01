@@ -40,6 +40,8 @@ pub enum RpcRequest {
     ChainStatus,
     /// Reads one retained finalized block by exact height.
     Block(u64),
+    /// Reads one retained, untrusted committee transition by finalized height.
+    CommitteeHandoff(u64),
     /// Returns one finalized account view.
     Account(Address),
     /// Returns a value/absence proof and its finalized head certificate.
@@ -53,6 +55,8 @@ pub enum RpcRequest {
 pub enum RpcResponse {
     /// Finalized block body; absent for an unknown/pruned/genesis-only height.
     Block(Option<Box<types::Block>>),
+    /// Canonical handoff; None means unavailable, not proof of an absent transition.
+    CommitteeHandoff(Option<Vec<u8>>),
     /// Chain identity and finalized head.
     ChainStatus {
         /// Chain replay-protection identifier.
@@ -170,6 +174,7 @@ impl RpcService for InMemoryRpcService {
             RpcRequest::Receipt { .. } => Ok(RpcResponse::Receipt(None)),
             RpcRequest::StateProof(_) => Err(RpcError::Unavailable),
             RpcRequest::Block(_) => Ok(RpcResponse::Block(None)),
+            RpcRequest::CommitteeHandoff(_) => Ok(RpcResponse::CommitteeHandoff(None)),
             RpcRequest::ChainStatus => Ok(RpcResponse::ChainStatus {
                 chain_id: self.chain_id,
                 finalized_height: self.finalized_height,

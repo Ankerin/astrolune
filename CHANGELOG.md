@@ -8,6 +8,12 @@ All notable changes to AstroLune will be documented in this file. The format fol
 
 ### Fixed
 
+- Activate explicit genesis-v2 VRF networking with complete-roster proof gossip,
+  protected standby participation, verified restart, persisted handoff RPC,
+  bounded client catch-up, offline CLI proof sidecars and rotating DNS verification.
+  Version-1 networks retain their fixed profile. Add real mutual-TLS process and
+  adversarial recovery tests and extend the mutation corpus to 16 structured seeds.
+
 - Upgrade the pinned native/wasm32 compiler to Rust 1.98.1 and refresh dependency
   locks. Migrate vault encryption to the current AEAD API while retaining a
   compatibility fixture produced by the original providers.
@@ -18,7 +24,7 @@ All notable changes to AstroLune will be documented in this file. The format fol
 - Add complete VRF contribution collection, bounded authenticated committee handoff,
   rotating-producer system execution with reserved resources, full history replay,
   and state/receipt verification against an independent handoff stream.
-  Existing daemon profiles retain fixed membership; live activation remains separate.
+  Version-1 daemon profiles retain fixed membership.
 
 - Verify RFC 9381 VRF proofs for registered keys, reject noncanonical/malleable proofs,
   bind inputs to chain/parent/height/role, and implement unbiased weighted selection.

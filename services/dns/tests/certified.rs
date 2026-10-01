@@ -266,3 +266,170 @@ fn resolver_process_serves_verified_results_and_rejects_mismatched_peer_proofs()
     mock.join().unwrap();
     std::fs::remove_dir_all(path).unwrap();
 }
+
+fn sign_rotating_header(
+    current: &consensus::rotation::CommitteeState,
+    header: &BlockHeader,
+) -> FinalityCertificate {
+    let context = current.context().unwrap();
+    let voter = ValidatorId(crypto::blake2s_hash(&current.roster()[0].public_key).0);
+    let vote = Vote {
+        chain_id: current.chain_id(),
+        committee_root: context.root(),
+        height: header.height,
+        round: 0,
+        phase: VotePhase::Precommit,
+        block: Some(header.compute_hash()),
+        voter,
+        signature: [0; 64],
+    };
+    FinalityCertificate {
+        chain_id: current.chain_id(),
+        height: header.height,
+        round: 0,
+        committee_root: context.root(),
+        block: header.compute_hash(),
+        signatures: vec![CertificateSignature {
+            voter,
+            signature: ed25519_sign(&[1; 32], &vote.signing_hash().0),
+        }],
+    }
+}
+
+fn rotating_fixture() -> (
+    RegistryTrust,
+    CertifiedStateProof,
+    CertifiedStateProof,
+    consensus::rotation::CommitteeHandoff,
+) {
+    use consensus::rotation::{
+        CommitteeHandoff, HandoffVerifier, VrfBatch, VrfContribution, committee_state_key,
+    };
+    let (mut trust, code, value) = fixture();
+    let code_key = transaction::contract_code_key(trust.address);
+    let name_key = trust.state_key("alice").unwrap();
+    let mut diff = StateDiff::new();
+    diff.put(
+        code_key.clone(),
+        code.verify(&trust.genesis, &trust.validators, &code_key, 0)
+            .unwrap()
+            .unwrap()
+            .to_vec(),
+    );
+    diff.put(
+        name_key.clone(),
+        value
+            .verify(&trust.genesis, &trust.validators, &name_key, 0)
+            .unwrap()
+            .unwrap()
+            .to_vec(),
+    );
+    trust.genesis.version = 2;
+    let mut trusted = HandoffVerifier::new(&trust.genesis, &trust.validators).unwrap();
+    let contribution = VrfContribution {
+        validator: trust.genesis.validators[0].id,
+        committee: crypto::prove_vrf(
+            &[1; 32],
+            trusted.current().input(crypto::VrfRole::Committee).unwrap(),
+        )
+        .unwrap(),
+        producer: crypto::prove_vrf(
+            &[1; 32],
+            trusted.current().input(crypto::VrfRole::Producer).unwrap(),
+        )
+        .unwrap(),
+    };
+    let contributions = VrfBatch::new(vec![contribution]).unwrap();
+    let next = trusted.current().transition(&contributions).unwrap();
+    diff.put(committee_state_key(), next.to_bytes().unwrap());
+    let mut db = trust.genesis.materialize().unwrap();
+    db.commit(db.root(), &[diff]).unwrap();
+    let snapshot = db.snapshot().unwrap();
+    let mut header = BlockHeader {
+        height: 1,
+        parent: trusted.parent(),
+        transactions_root: Hash256::ZERO,
+        receipts_root: Hash256::ZERO,
+        state_root: db.root(),
+        committee_root: trusted.current().context().unwrap().root(),
+        capacity: trust.genesis.capacity,
+    };
+    let handoff = CommitteeHandoff {
+        header,
+        certificate: sign_rotating_header(trusted.current(), &header),
+        contributions,
+        next_state: state::StateValueProof::create(snapshot.as_ref(), &committee_state_key())
+            .unwrap(),
+    };
+    trusted.apply(&handoff).unwrap();
+    header.height = 2;
+    header.parent = trusted.parent();
+    header.committee_root = trusted.current().context().unwrap().root();
+    let certificate = sign_rotating_header(trusted.current(), &header)
+        .encode()
+        .unwrap();
+    let code = CertifiedStateProof::create(
+        snapshot.as_ref(),
+        &code_key,
+        Some((header, certificate.clone())),
+    )
+    .unwrap();
+    let value =
+        CertifiedStateProof::create(snapshot.as_ref(), &name_key, Some((header, certificate)))
+            .unwrap();
+    (trust, code, value, handoff)
+}
+
+#[test]
+fn network_resolver_streams_rotation_then_reuses_authority_and_rejects_rollback() {
+    use std::{
+        fmt::Write as _,
+        io::{Read, Write},
+        net::TcpListener,
+        time::Duration,
+    };
+    let (trust, code, value, handoff) = rotating_fixture();
+    assert!(trust.verify("alice", 0, &code, &value).is_err());
+    let mut stale = code.clone();
+    stale.header.as_mut().unwrap().height = 1;
+    let replies = vec![
+        code.to_bytes().unwrap(),
+        value.to_bytes().unwrap(),
+        handoff.to_bytes().unwrap(),
+        code.to_bytes().unwrap(),
+        value.to_bytes().unwrap(),
+        stale.to_bytes().unwrap(),
+        value.to_bytes().unwrap(),
+    ];
+    let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+    let client =
+        rpc::TcpRpcClient::new(listener.local_addr().unwrap(), Duration::from_secs(3)).unwrap();
+    let task = std::thread::spawn(move || {
+        for reply in replies {
+            let (mut stream, _) = listener.accept().unwrap();
+            stream
+                .set_read_timeout(Some(Duration::from_secs(3)))
+                .unwrap();
+            let mut prefix = [0; 4];
+            stream.read_exact(&mut prefix).unwrap();
+            let size = u32::from_le_bytes(prefix) as usize;
+            assert!(size < 1024);
+            stream.read_exact(&mut vec![0; size]).unwrap();
+            let mut hex = String::new();
+            for byte in reply {
+                write!(hex, "{byte:02x}").unwrap();
+            }
+            let response = format!(r#"{{"jsonrpc":"2.0","id":1,"result":"{hex}"}}"#);
+            stream
+                .write_all(&u32::try_from(response.len()).unwrap().to_le_bytes())
+                .unwrap();
+            stream.write_all(response.as_bytes()).unwrap();
+        }
+    });
+    let mut resolver = dns::certified::CertifiedResolver::new(trust, client, 2);
+    let first = resolver.resolve("alice").unwrap();
+    assert_eq!(first.lease.as_ref().unwrap().owner, Address([2; 32]));
+    assert_eq!(resolver.resolve("alice").unwrap(), first);
+    assert!(resolver.resolve("alice").is_err());
+    task.join().unwrap();
+}

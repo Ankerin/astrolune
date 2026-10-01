@@ -118,6 +118,11 @@ impl FullNodeService<FileBackedStorage> {
         path: impl AsRef<std::path::Path>,
         genesis: &genesis::Genesis,
     ) -> Result<Self, ProducerError> {
+        if genesis.version == genesis::ROTATING_GENESIS_VERSION {
+            return Err(ProducerError::Assembly(
+                "rotating genesis requires the certified network driver".into(),
+            ));
+        }
         let initial = genesis
             .materialize()
             .map_err(|error| ProducerError::Assembly(error.to_string()))?;

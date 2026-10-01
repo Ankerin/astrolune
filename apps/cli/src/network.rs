@@ -52,7 +52,13 @@ fn daemon_command() -> String {
 }
 
 pub(crate) fn devnet() -> Result<(), CliError> {
-    let (directory, count, with_observer, with_contracts) = devnet_options()?;
+    let DevnetOptions {
+        directory,
+        count,
+        with_observer,
+        with_contracts,
+        with_vrf,
+    } = devnet_options()?;
     std::fs::create_dir(&directory).map_err(error)?;
     let authority = TransportAuthority::generate().map_err(error)?;
     let keys: Vec<_> = (1..=count)
@@ -68,7 +74,11 @@ pub(crate) fn devnet() -> Result<(), CliError> {
     validators.sort_by_key(|validator| validator.id);
     let wallet = transaction::address_from_public_key(&ed25519_public_key(&[240; 32]));
     let genesis = Genesis {
-        version: 1,
+        version: if with_vrf {
+            genesis::ROTATING_GENESIS_VERSION
+        } else {
+            genesis::GENESIS_VERSION
+        },
         chain_id: 42,
         capacity: Resources {
             compute: 1_000_000,
@@ -76,7 +86,11 @@ pub(crate) fn devnet() -> Result<(), CliError> {
             io: 1_000_000,
             bandwidth: 1_000_000,
         },
-        committee_size: usize::from(count),
+        committee_size: usize::from(if with_vrf {
+            count.saturating_sub(1).max(1)
+        } else {
+            count
+        }),
         rotation_count: 1,
         runtime_version: if with_contracts { 2 } else { 1 },
         validators,
@@ -95,6 +109,9 @@ pub(crate) fn devnet() -> Result<(), CliError> {
     let mut instructions = String::from(
         "Local reference network. CONSENSUS AND WALLET KEYS ARE PUBLIC TEST FIXTURES.\nNever use these keys or this genesis for valuable funds.\nTransport keys are independent random secrets, valid for one year.\n\nStart each command in a separate terminal from the repository root:\n\n",
     );
+    if with_vrf {
+        instructions.push_str("Genesis v2 activates VRF rotation. Keep every registered validator online, including standby identities; a missing contribution pauses block production.\n\n");
+    }
     for index in 1..=count {
         let data = directory.join(format!("node-{index}"));
         std::fs::create_dir(&data).map_err(error)?;
@@ -243,7 +260,14 @@ pub(crate) fn init_validator() -> Result<(), CliError> {
     Ok(())
 }
 
-fn devnet_options() -> Result<(PathBuf, u8, bool, bool), CliError> {
+struct DevnetOptions {
+    directory: PathBuf,
+    count: u8,
+    with_observer: bool,
+    with_contracts: bool,
+    with_vrf: bool,
+}
+fn devnet_options() -> Result<DevnetOptions, CliError> {
     let mut args = std::env::args_os().skip(2).peekable();
     let directory = PathBuf::from(
         args.next()
@@ -251,7 +275,7 @@ fn devnet_options() -> Result<(PathBuf, u8, bool, bool), CliError> {
     );
     let count: u8 = if args
         .peek()
-        .is_some_and(|value| value == "--observer" || value == "--contracts")
+        .is_some_and(|value| value == "--observer" || value == "--contracts" || value == "--vrf")
     {
         4
     } else {
@@ -265,17 +289,28 @@ fn devnet_options() -> Result<(PathBuf, u8, bool, bool), CliError> {
     };
     let mut with_observer = false;
     let mut with_contracts = false;
+    let mut with_vrf = false;
     for value in args {
         if value == "--observer" && !with_observer {
             with_observer = true;
         } else if value == "--contracts" && !with_contracts {
             with_contracts = true;
+        } else if value == "--vrf" && !with_vrf {
+            with_vrf = true;
         } else {
-            return Err(error("expected unique --observer or --contracts flags"));
+            return Err(error(
+                "expected unique --observer, --contracts or --vrf flags",
+            ));
         }
     }
     if !(1..=32).contains(&count) {
         return Err(error("validator count must be 1..32"));
     }
-    Ok((directory, count, with_observer, with_contracts))
+    Ok(DevnetOptions {
+        directory,
+        count,
+        with_observer,
+        with_contracts,
+        with_vrf,
+    })
 }

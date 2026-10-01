@@ -109,6 +109,7 @@ fn fixture() -> (Fixture, Hash256, rpc::CertifiedReceiptProof) {
         header,
         certificate,
         effects: storage::BlockEffects {
+            committee: None,
             receipts: vec![receipt],
             genesis: state::StateValueProof::create(
                 db.snapshot().unwrap().as_ref(),

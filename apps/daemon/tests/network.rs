@@ -30,6 +30,9 @@ struct Fixture {
 }
 impl Fixture {
     fn new() -> Self {
+        Self::with_profile(1, 4)
+    }
+    fn with_profile(version: u16, committee_size: usize) -> Self {
         let path = std::env::temp_dir().join(format!(
             "astrolune-network-process-{}-{}",
             std::process::id(),
@@ -48,9 +51,9 @@ impl Fixture {
             .collect();
         validators.sort_by_key(|member| member.id);
         let genesis = Genesis {
-            version: 1,
+            version,
             chain_id: 42,
-            committee_size: 4,
+            committee_size,
             rotation_count: 1,
             runtime_version: 1,
             capacity: Resources {
@@ -763,4 +766,82 @@ fn scoped_tls_discovery_builds_a_mesh_reuses_sessions_and_survives_bootstrap_los
     let restarted = fixture.start_with(1, &peers, &[peers[1].clone()], &extra(1));
     await_payment(&[&restarted]);
     verify_account_proof(&fixture, &restarted);
+}
+
+#[test]
+fn tls_rotating_profile_serves_verifiable_handoffs_and_recovers_all_roles() {
+    let fixture = Fixture::with_profile(2, 3);
+    let mut reservations: Vec<_> = (0..5)
+        .map(|_| Some(TcpListener::bind("127.0.0.1:0").unwrap()))
+        .collect();
+    let peers: Vec<_> = reservations
+        .iter()
+        .map(|listener| listener.as_ref().unwrap().local_addr().unwrap().to_string())
+        .collect();
+    let mut processes = Vec::new();
+    for index in 1..=4 {
+        drop(reservations[index - 1].take());
+        processes.push(fixture.start(index, &peers));
+    }
+    let tx = payment();
+    let submitted = call(
+        &processes[0].1,
+        "submit_transaction",
+        &format!(r#"{{"data":"{}"}}"#, hex(&tx.to_bytes())),
+    );
+    assert!(submitted.get("error").is_none(), "{submitted:?}");
+    await_payment(&processes.iter().collect::<Vec<_>>());
+    let client =
+        rpc::TcpRpcClient::new(processes[0].1.parse().unwrap(), Duration::from_secs(5)).unwrap();
+    let deadline = Instant::now() + Duration::from_secs(40);
+    while client.chain_status().unwrap().finalized_height < 4 {
+        assert!(Instant::now() < deadline, "rotating quorum did not advance");
+        std::thread::sleep(Duration::from_millis(100));
+    }
+    let key = state::account_key(Address([77; 32]));
+    let proof = client.state_proof(&key).unwrap();
+    let mut trusted =
+        consensus::rotation::HandoffVerifier::new(&fixture.genesis, &fixture.keys).unwrap();
+    client
+        .advance_handoffs(
+            &mut trusted,
+            proof.header.unwrap().height,
+            100,
+            Duration::from_secs(20),
+        )
+        .unwrap();
+    let value = proof
+        .verify_with_handoffs(&trusted, &key, 4)
+        .unwrap()
+        .unwrap();
+    assert_eq!(
+        value,
+        AccountState {
+            nonce: 0,
+            balance: 123
+        }
+        .to_bytes()
+    );
+    assert!(
+        proof
+            .verify(&fixture.genesis, &fixture.keys, &key, 0)
+            .is_err()
+    );
+    drop(reservations[4].take());
+    let observer = fixture.start(5, &peers);
+    await_payment(&[&observer]);
+    drop(observer);
+    drop(processes);
+    let mut restarted = Vec::new();
+    for index in 1..=5 {
+        restarted.push(fixture.start(index, &peers));
+    }
+    await_payment(&restarted.iter().collect::<Vec<_>>());
+    let client =
+        rpc::TcpRpcClient::new(restarted[4].1.parse().unwrap(), Duration::from_secs(5)).unwrap();
+    let first = client.committee_handoff(1).unwrap().unwrap();
+    let mut fresh =
+        consensus::rotation::HandoffVerifier::new(&fixture.genesis, &fixture.keys).unwrap();
+    fresh.apply(&first).unwrap();
+    assert_eq!(fresh.current().context().unwrap().members().count(), 3);
 }

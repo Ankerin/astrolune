@@ -55,7 +55,7 @@ impl fmt::Display for ClientError {
         match self {
             Self::Io(error) => write!(f, "RPC transport: {error}"),
             Self::Protocol(message) => write!(f, "RPC protocol: {message}"),
-            Self::LimitExceeded => write!(f, "RPC request exceeds the transaction limit"),
+            Self::LimitExceeded => write!(f, "RPC request or history exceeds the configured limit"),
             Self::Remote { code, message } => {
                 // Escape terminal controls supplied by an untrusted server.
                 write!(f, "RPC rejected request ({code}): {message:?}")
@@ -139,6 +139,92 @@ impl TcpRpcClient {
 
     fn call(&self, method: &str, params: JsonValue) -> Result<JsonValue, ClientError> {
         self.call_bounded(method, params, MAX_RESPONSE_BYTES)
+    }
+
+    /// Fetches one untrusted handoff, with bounded framing and an exact-height check.
+    /// Decoding does not establish authority; use `HandoffVerifier::apply` to authenticate it.
+    pub fn committee_handoff(
+        &self,
+        height: u64,
+    ) -> Result<Option<consensus::rotation::CommitteeHandoff>, ClientError> {
+        use consensus::rotation::CommitteeHandoff;
+        let value = self.call_bounded(
+            "committee_handoff",
+            JsonValue::Object(vec![(
+                "height".into(),
+                JsonValue::String(height.to_string()),
+            )]),
+            CommitteeHandoff::MAX_BYTES * 2 + 1024,
+        )?;
+        if value == JsonValue::Null {
+            return Ok(None);
+        }
+        let hex = value
+            .as_str()
+            .ok_or(ClientError::Protocol("invalid handoff response"))?;
+        let bytes = proof_hex(hex, CommitteeHandoff::MAX_BYTES)?;
+        let handoff = CommitteeHandoff::from_bytes(&bytes)
+            .map_err(|_| ClientError::Protocol("invalid canonical handoff"))?;
+        if handoff.header.height != height {
+            return Err(ClientError::Protocol("handoff height mismatch"));
+        }
+        Ok(Some(handoff))
+    }
+
+    /// Advances authenticated authority to `target_height` (the next header to verify).
+    /// Reads at most `max_steps` transitions under one total deadline in (0, 3600s].
+    /// A missing or invalid transition stops immediately; only the verified prefix is
+    /// retained on failure, allowing callers to resume from the last trusted position.
+    pub fn advance_handoffs(
+        &self,
+        trusted: &mut consensus::rotation::HandoffVerifier,
+        target_height: u64,
+        max_steps: u64,
+        timeout: Duration,
+    ) -> Result<(), ClientError> {
+        self.advance_handoffs_with(trusted, target_height, max_steps, timeout, |_| Ok(()))
+    }
+
+    /// Streams each authenticated transition to a bounded consumer before advancing authority.
+    /// A consumer failure retains the previously accepted prefix, just like a transport failure.
+    pub fn advance_handoffs_with(
+        &self,
+        trusted: &mut consensus::rotation::HandoffVerifier,
+        target_height: u64,
+        max_steps: u64,
+        timeout: Duration,
+        mut accept: impl FnMut(&consensus::rotation::CommitteeHandoff) -> Result<(), ClientError>,
+    ) -> Result<(), ClientError> {
+        let steps = target_height
+            .checked_sub(trusted.current().height())
+            .ok_or(ClientError::Protocol(
+                "handoff target precedes trusted position",
+            ))?;
+        if steps > max_steps {
+            return Err(ClientError::LimitExceeded);
+        }
+        if timeout.is_zero() || timeout > Duration::from_secs(3600) {
+            return Err(ClientError::Protocol(
+                "handoff timeout must be in (0, 3600s]",
+            ));
+        }
+        let deadline = Instant::now() + timeout;
+        for _ in 0..steps {
+            let client = Self {
+                address: self.address,
+                timeout: self.timeout.min(remaining(deadline)?),
+            };
+            let handoff = client
+                .committee_handoff(trusted.current().height())?
+                .ok_or(ClientError::Protocol("required handoff unavailable"))?;
+            let mut next = trusted.clone();
+            next.apply(&handoff)
+                .map_err(|_| ClientError::Protocol("handoff authentication failed"))?;
+            remaining(deadline)?;
+            accept(&handoff)?;
+            *trusted = next;
+        }
+        Ok(())
     }
 
     /// Fetches an untrusted proof bundle. Call its `verify` method with independent genesis/keys.

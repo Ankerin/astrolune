@@ -120,6 +120,7 @@ fn install(
     .encode()
     .unwrap();
     let effects = storage::BlockEffects {
+        committee: None,
         receipts: vec![],
         genesis: state::StateValueProof::create(
             storage.state().snapshot().unwrap().as_ref(),

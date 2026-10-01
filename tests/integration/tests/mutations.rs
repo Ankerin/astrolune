@@ -36,6 +36,7 @@ fn seeds() -> Vec<Vec<u8>> {
     let proof =
         rpc::CertifiedStateProof::create(snapshot.as_ref(), &genesis::genesis_key(), None).unwrap();
     let effects = storage::BlockEffects {
+        committee: None,
         receipts: vec![],
         genesis: value.clone(),
     };
@@ -147,12 +148,38 @@ fn rotation_seeds(genesis: &genesis::Genesis, key: [u8; 32]) -> Vec<Vec<u8>> {
         )
         .unwrap(),
     };
-    let result = vec![
+    let mut result = vec![
         current.to_bytes().unwrap(),
         contribution.to_bytes().unwrap(),
         batch.to_bytes().unwrap(),
         handoff.to_bytes().unwrap(),
     ];
+    result.push(
+        node::network_wire::encode_exchange(
+            Hash256([1; 32]),
+            &[node::network_wire::NetworkMessage::VrfContribution {
+                height: 1,
+                contribution,
+            }],
+        )
+        .unwrap(),
+    );
+    let mut rotating = genesis.clone();
+    rotating.version = genesis::ROTATING_GENESIS_VERSION;
+    result.push(codec::CanonicalEncode::to_bytes(&rotating));
+    result.push(
+        storage::BlockEffects {
+            receipts: vec![],
+            genesis: state::StateValueProof::create(
+                database.snapshot().unwrap().as_ref(),
+                &genesis::genesis_key(),
+            )
+            .unwrap(),
+            committee: Some(handoff.next_state.clone()),
+        }
+        .to_bytes()
+        .unwrap(),
+    );
     verifier.apply(&handoff).unwrap();
     result
 }

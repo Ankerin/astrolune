@@ -22,6 +22,7 @@ impl EvidenceStore {
     pub(crate) fn open(
         directory: &Path,
         network: &StaticNetwork,
+        storage: &storage::ChainStorage,
     ) -> Result<Self, NetworkNodeError> {
         let directory = directory.join("equivocation");
         let mut result = Self {
@@ -47,7 +48,7 @@ impl EvidenceStore {
                 .map_err(local)?;
             let proof = DoubleVoteEvidence::decode(&bytes).map_err(local)?;
             proof
-                .verify(&network.committee(proof.height())?)
+                .verify(&network.historical_committee(storage, proof.height())?)
                 .map_err(local)?;
             if proof.voter() != id {
                 return Err(local("equivocation proof identity mismatch"));

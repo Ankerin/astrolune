@@ -14,7 +14,7 @@ pub const MAX_BLOCK_RECEIPTS: usize = 16_384;
 /// Maximum recent transaction IDs retained in the optional lookup index.
 pub const MAX_INDEXED_TRANSACTIONS: usize = 100_000;
 /// Bound on encoded receipts plus the small genesis membership witness.
-pub const MAX_RECEIPTS_BYTES: usize = MAX_BLOCK_RECEIPTS * 97 + 4096;
+pub const MAX_RECEIPTS_BYTES: usize = MAX_BLOCK_RECEIPTS * 97 + 8192;
 
 /// Execution data published atomically alongside the finalized block and state delta.
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -23,6 +23,8 @@ pub struct BlockEffects {
     pub receipts: Vec<ExecutionReceipt>,
     /// Post-state witness binding this block to its independently trusted genesis.
     pub genesis: StateValueProof,
+    /// Optional authenticated next-committee witness, retained for streaming handoffs.
+    pub committee: Option<StateValueProof>,
 }
 impl BlockEffects {
     /// Checks all receipt IDs, their commitment, resource totals and genesis membership.
@@ -66,6 +68,17 @@ impl BlockEffects {
         {
             return Err(StorageError::VerificationFailed);
         }
+        if let Some(proof) = &self.committee {
+            let value = proof
+                .verify(
+                    header.state_root,
+                    &types::StateKey(types::domain::COMMITTEE_STATE_KEY.to_vec()),
+                )
+                .map_err(|_| StorageError::VerificationFailed)?;
+            if value.is_none_or(|bytes| bytes.is_empty() || bytes.len() > 2712) {
+                return Err(StorageError::VerificationFailed);
+            }
+        }
         Ok(())
     }
 
@@ -81,7 +94,12 @@ impl BlockEffects {
         if proof.len() > 2048 {
             return Err(StorageError::LimitExceeded);
         }
-        let mut bytes = b"ALEFFECT".to_vec();
+        let mut bytes = if self.committee.is_some() {
+            b"ALEFF002"
+        } else {
+            b"ALEFFECT"
+        }
+        .to_vec();
         bytes.extend_from_slice(
             &u32::try_from(self.receipts.len())
                 .map_err(|_| StorageError::LimitExceeded)?
@@ -96,6 +114,20 @@ impl BlockEffects {
                 .to_le_bytes(),
         );
         bytes.extend_from_slice(&proof);
+        if let Some(committee) = &self.committee {
+            let proof = committee
+                .to_bytes()
+                .map_err(|_| StorageError::LimitExceeded)?;
+            if proof.len() > 4096 {
+                return Err(StorageError::LimitExceeded);
+            }
+            bytes.extend_from_slice(
+                &u32::try_from(proof.len())
+                    .map_err(|_| StorageError::LimitExceeded)?
+                    .to_le_bytes(),
+            );
+            bytes.extend_from_slice(&proof);
+        }
         Ok(bytes)
     }
 
@@ -103,9 +135,11 @@ impl BlockEffects {
     pub fn from_bytes(bytes: &[u8]) -> Result<Self, StorageError> {
         fn decode(bytes: &[u8]) -> Result<BlockEffects, codec::DecodeError> {
             let mut decoder = Decoder::new(bytes);
-            if decoder.read_exact(8)? != b"ALEFFECT" {
-                return Err(codec::DecodeError::Unsupported);
-            }
+            let rotation = match decoder.read_exact(8)? {
+                b"ALEFFECT" => false,
+                b"ALEFF002" => true,
+                _ => return Err(codec::DecodeError::Unsupported),
+            };
             let count = decoder.read_u32()? as usize;
             if count > MAX_BLOCK_RECEIPTS {
                 return Err(codec::DecodeError::LimitExceeded);
@@ -123,8 +157,24 @@ impl BlockEffects {
             }
             let genesis = StateValueProof::from_bytes(decoder.read_exact(length)?)
                 .map_err(|_| codec::DecodeError::NonCanonical)?;
+            let committee = if rotation {
+                let length = decoder.read_u32()? as usize;
+                if length > 4096 {
+                    return Err(codec::DecodeError::LimitExceeded);
+                }
+                Some(
+                    StateValueProof::from_bytes(decoder.read_exact(length)?)
+                        .map_err(|_| codec::DecodeError::NonCanonical)?,
+                )
+            } else {
+                None
+            };
             decoder.finish()?;
-            Ok(BlockEffects { receipts, genesis })
+            Ok(BlockEffects {
+                receipts,
+                genesis,
+                committee,
+            })
         }
         if bytes.len() > MAX_RECEIPTS_BYTES {
             return Err(StorageError::LimitExceeded);
@@ -176,6 +226,65 @@ impl RecentTransactions {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn effects_preserve_legacy_bytes_and_authenticate_the_optional_witness() {
+        use state::{InMemoryState, StateDatabase, StateDiff};
+        let mut db = InMemoryState::new();
+        let key = types::StateKey(types::domain::COMMITTEE_STATE_KEY.to_vec());
+        let mut diff = StateDiff::new();
+        diff.put(genesis::genesis_key(), vec![7; 32]);
+        diff.put(key.clone(), vec![9; 100]);
+        db.commit(db.root(), &[diff]).unwrap();
+        let snapshot = db.snapshot().unwrap();
+        let mut effects = BlockEffects {
+            receipts: vec![],
+            genesis: StateValueProof::create(snapshot.as_ref(), &genesis::genesis_key()).unwrap(),
+            committee: None,
+        };
+        let header = BlockHeader {
+            height: 1,
+            parent: Hash256::ZERO,
+            state_root: db.root(),
+            receipts_root: crypto::compute_receipts_root(&[]),
+            transactions_root: Hash256::ZERO,
+            committee_root: Hash256::ZERO,
+            capacity: types::Resources::ZERO,
+        };
+        let proof = effects.genesis.to_bytes().unwrap();
+        let mut legacy = b"ALEFFECT".to_vec();
+        legacy.extend_from_slice(&0_u32.to_le_bytes());
+        legacy.extend_from_slice(&u32::try_from(proof.len()).unwrap().to_le_bytes());
+        legacy.extend_from_slice(&proof);
+        assert_eq!(effects.to_bytes().unwrap(), legacy);
+        assert_eq!(BlockEffects::from_bytes(&legacy).unwrap(), effects);
+        effects.validate_header(&header).unwrap();
+        effects.committee = Some(StateValueProof::create(snapshot.as_ref(), &key).unwrap());
+        let encoded = effects.to_bytes().unwrap();
+        assert_eq!(&encoded[..8], b"ALEFF002");
+        assert_eq!(BlockEffects::from_bytes(&encoded).unwrap(), effects);
+        effects.validate_header(&header).unwrap();
+        for size in 0..encoded.len() {
+            assert!(BlockEffects::from_bytes(&encoded[..size]).is_err());
+        }
+        assert!(BlockEffects::from_bytes(&[encoded.as_slice(), &[0]].concat()).is_err());
+        let mut excessive = encoded;
+        excessive[legacy.len()..legacy.len() + 4].copy_from_slice(&4097_u32.to_le_bytes());
+        assert!(BlockEffects::from_bytes(&excessive).is_err());
+        effects.committee = Some(effects.genesis.clone());
+        assert!(effects.validate_header(&header).is_err());
+        effects.committee = Some(
+            StateValueProof::create(snapshot.as_ref(), &types::StateKey(b"missing".to_vec()))
+                .unwrap(),
+        );
+        assert!(effects.validate_header(&header).is_err());
+        let mut changed = StateDiff::new();
+        changed.put(key.clone(), vec![8; 100]);
+        db.commit(db.root(), &[changed]).unwrap();
+        effects.committee =
+            Some(StateValueProof::create(db.snapshot().unwrap().as_ref(), &key).unwrap());
+        assert!(effects.validate_header(&header).is_err());
+    }
 
     #[test]
     fn recent_index_evicts_old_positions_without_erasing_a_newer_duplicate() {

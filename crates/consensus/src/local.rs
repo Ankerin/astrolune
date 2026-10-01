@@ -74,6 +74,11 @@ pub struct LocalBft {
 }
 
 impl LocalBft {
+    /// Produces a VRF contribution through the non-exporting protected signer.
+    pub fn prove_vrf(&self, input: crypto::VrfInput) -> Result<crypto::VrfOutput, LocalBftError> {
+        self.signer.prove_vrf(input).map_err(Into::into)
+    }
+
     /// Starts or resumes voting from a protected journal and trusted chain context.
     ///
     /// Restores the last signed round/step/lock at this height. A later trusted

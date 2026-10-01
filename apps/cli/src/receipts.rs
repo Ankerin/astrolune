@@ -43,10 +43,32 @@ pub(super) fn run(command: &str, args: &[OsString]) -> Result<(), CliError> {
     } else {
         parameter
     };
-    let receipt = proof
-        .verify(&genesis, &keys, id, minimum)
-        .map_err(|_| error("receipt proof failed independent authentication"))?;
+    if proof.0.header.height < minimum {
+        return Err(error("receipt proof precedes minimum height"));
+    }
+    let client = (command != "verify-receipt")
+        .then(|| wallet::client(args.get(5)))
+        .transpose()?;
+    let handoffs = if genesis.version == genesis::ROTATING_GENESIS_VERSION {
+        Some(crate::handoffs::anchor(
+            output,
+            &genesis,
+            &keys,
+            proof.0.header.height,
+            client.as_ref(),
+        )?)
+    } else {
+        None
+    };
+    let receipt = match &handoffs {
+        Some(trust) => proof.verify_with_handoffs(&trust.verifier, id, minimum),
+        None => proof.verify(&genesis, &keys, id, minimum),
+    }
+    .map_err(|_| error("receipt proof failed independent authentication"))?;
     if command != "verify-receipt" {
+        if let Some(trust) = &handoffs {
+            trust.publish()?;
+        }
         wallet::write_new(output, &proof.to_bytes().map_err(error)?)?;
     }
     println!("transaction_id: {id}");

@@ -58,7 +58,8 @@ Access leasing, execution waves, multiple lanes, optimistic validation, determin
 - [x] Node verification/replay integration and serial/parallel differential tests across worker counts.
 - [x] Mixed contract/payment waves, aggregate capacity enforcement and deterministic serial replay.
 - [x] Explicit rotating-producer system lane with reserved VRF resources, mixed application execution and atomic publication.
-- [ ] Daemon system-lane activation and consensus capacity/fee governance.
+- [x] Explicit genesis-v2 daemon activation of the VRF system lane.
+- [ ] Consensus capacity/fee governance.
 - [ ] Measured locality/fusion/cache/prefetch/pool optimizations and signature batching with equivalence tests.
 
 ## M5 — PoTB and finality
@@ -68,24 +69,24 @@ PoTB state transitions and evidence, audited VRF provider, weighted sampler, par
 - [x] Registered-key ECVRF proof generation/verification and offline operator commands.
 - [x] Complete-roster weighted sampling without modulo bias, partial-rotation computation and producer-role sampling.
 - [x] Bounded full-roster collection, parent randomness, authenticated handoff, rotating execution/history replay and proof-verifier APIs; [details](docs/38-authenticated-committee-handoff.md).
-- [ ] Activate VRF in the daemon: contribution gossip, unavailable-proof policy, standby signing participation, handoff serving and client catch-up.
+- [x] Activate VRF in the daemon: contribution gossip, complete-roster availability policy, standby signing participation, persisted handoff serving and RPC/CLI/DNS catch-up; [profile and tests](docs/40-live-vrf-network.md).
 - [ ] Canonical evidence inclusion, active PoTB weights and admission transitions.
 - [ ] Rotating-consensus adversarial simulations, formal safety/liveness and independent provider review.
 
 The [VRF and sampler specification](docs/28-vrf-and-weighted-selection.md) distinguishes implemented selection from daemon activation.
 
-Current progress: authenticated fixed-height vote collection separates rounds/phases/blocks, rejects equivocation and replays, and emits bounded canonical certificates. The producer can verify a trusted committee and certificate before atomic execution/state publication. [Protocol details](docs/15-authenticated-finality.md). [Durable signing](docs/16-durable-signing.md), monotonic decision recovery, process locking, and typed vote signing are implemented/tested. [Local BFT voting](docs/17-local-bft-voting.md), verified prevote proofs, timeout transitions, and atomic version-2 vote/lock recovery are implemented/tested, including payment execution and certified archive recovery. [Signed proposals and a reference round-robin participant](docs/18-signed-proposals-and-participants.md) now coordinate authenticated proposal signing, execution, vote collection, timeout events, and atomic publication. [Certified reference networking](docs/19-reference-network.md) now adds daemon integration, monotonic timers, persisted available values, explicit provisioning, and certified catch-up. Verified weighted VRF selection, certified handoff and explicit rotating block execution/recovery are implemented. Daemon activation, historical handoff serving, formal distributed liveness and production network qualification remain open.
+Current progress: authenticated fixed-height vote collection separates rounds/phases/blocks, rejects equivocation and replays, and emits bounded canonical certificates. The producer can verify a trusted committee and certificate before atomic execution/state publication. [Protocol details](docs/15-authenticated-finality.md). [Durable signing](docs/16-durable-signing.md), monotonic decision recovery, process locking, and typed vote signing are implemented/tested. [Local BFT voting](docs/17-local-bft-voting.md), verified prevote proofs, timeout transitions, and atomic version-2 vote/lock recovery are implemented/tested, including payment execution and certified archive recovery. [Signed proposals and a reference round-robin participant](docs/18-signed-proposals-and-participants.md) now coordinate authenticated proposal signing, execution, vote collection, timeout events, and atomic publication. [Certified reference networking](docs/19-reference-network.md) now adds daemon integration, monotonic timers, persisted available values, explicit provisioning, and certified catch-up. Verified weighted VRF selection, certified handoff and explicit rotating block execution/recovery are implemented. Genesis-v2 daemon activation, historical handoff serving and client catch-up are implemented. Formal distributed liveness and production network qualification remain open.
 
 PoTB progress: [double-vote evidence and a policy workbench](docs/25-potb-evidence.md)
 now verify offences, retain durable bounded proofs and evaluate capped integer
-scores over finalized history. Canonical evidence inclusion, active weight
-transitions, admission, VRF collection/activation and committee handoff are still required.
+scores over finalized history. VRF collection, activation and committee handoff are implemented. Canonical evidence inclusion, active weight
+transitions and admission remain open.
 
 ## M6 — node and networking
 
 Authenticated encrypted transport, peer discovery, rate limiting, compact blocks, finalized sync, bounded queues, stage pipelining, speculative work, external RPC, and adaptive-capacity governance.
 
-Current progress: [certified reference networking](docs/19-reference-network.md) connects independent daemon processes with fixed genesis membership, signed proposals/votes, step timers, payment gossip, bounded mutually authenticated TLS 1.3 exchanges, protected journals, durable available-value recovery, and sequential certified catch-up. Local devnet generation and explicit signer provisioning are implemented. Real process tests cover quorum operation, RPC payments, restart, and late join. [TLS identity validation and provisioning](docs/20-authenticated-transport.md) are implemented with independent transport keys and deadline tests. [Non-voting full nodes](docs/21-observer-nodes.md) now independently authenticate history, execute imported blocks, relay payments, serve RPC, and recover without signing authority. [Scoped private-network discovery, bounded TLS sessions, local metrics and authenticated observer recovery](docs/36-private-network-operations.md) are implemented/tested. Public-network hardening, physical history retention and rotating consensus remain open.
+Current progress: [certified reference networking](docs/19-reference-network.md) connects independent daemon processes with fixed genesis membership, signed proposals/votes, step timers, payment gossip, bounded mutually authenticated TLS 1.3 exchanges, protected journals, durable available-value recovery, and sequential certified catch-up. Local devnet generation and explicit signer provisioning are implemented. Real process tests cover quorum operation, RPC payments, restart, and late join. [TLS identity validation and provisioning](docs/20-authenticated-transport.md) are implemented with independent transport keys and deadline tests. [Non-voting full nodes](docs/21-observer-nodes.md) now independently authenticate history, execute imported blocks, relay payments, serve RPC, and recover without signing authority. [Scoped private-network discovery, bounded TLS sessions, local metrics and authenticated observer recovery](docs/36-private-network-operations.md) are implemented/tested. Public-network hardening, physical history retention remain open. Explicit genesis-v2 rotating consensus is implemented.
 
 ## M7 — ecosystem
 
@@ -113,7 +114,8 @@ Detailed status and unresolved decisions are tracked in [`docs/08-implementation
 Private membership does not remove the following unimplemented software work.
 External audits, public-testnet calibration and key ceremonies are separate release activities.
 
-- [ ] Activate PoTB/VRF and committee transitions, including restart, unavailable-proof and catch-up behavior.
+- [x] Activate VRF and committee transitions, including restart, complete-roster unavailable-proof policy and catch-up.
+- [ ] Activate PoTB weights, evidence inclusion and admission transitions.
 - [x] Connect signed deploy/call transactions to the WebAssembly runtime.
 - [x] Complete the Rust SDK host adapter.
 - [x] Complete bounded source-package tooling and exact artifact reconstruction.

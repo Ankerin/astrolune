@@ -38,8 +38,8 @@ AstroLune is a research and engineering workspace for a modular blockchain node.
 
 | Area | Direction | Current shape |
 | --- | --- | --- |
-| Consensus | PoTB weight, weighted VRF committees, partial rotation | [Verified VRF, handoff and rotating execution APIs](docs/38-authenticated-committee-handoff.md); daemon activation pending |
-| Finality | Proposal, prevote, and precommit with > ⅔ voting power | Certified fixed-committee daemon network |
+| Consensus | PoTB weight, weighted VRF committees, partial rotation | [Live VRF rotation, standby participation and verified catch-up](docs/40-live-vrf-network.md) |
+| Finality | Proposal, prevote, and precommit with > ⅔ voting power | Certified fixed or genesis-v2 rotating daemon network |
 | Execution | Deterministic state transitions with parallel scheduling | Parallel signed payments and ABI-v2 contract waves |
 | Persistence | Snapshots, archives, genesis, accounts, and recovery | Reference implementation baseline |
 | Contracts | Restricted deterministic Rust runtime boundary | Metered integer WebAssembly; signed deployment and calls |
@@ -162,6 +162,8 @@ cargo run -p cargo-contract -- --help
 
 ```sh
 cargo run -p cli -- devnet target/local-network 4
+# Optional rotating committee with contracts and an observer:
+cargo run -p cli -- devnet target/rotating-network 4 --vrf --contracts --observer
 ```
 
 Add `--observer` to provision an additional non-voting full node with its own TLS identity and RPC endpoint. [Observer setup and recovery](docs/21-observer-nodes.md) describe independent verification and operation without consensus keys.

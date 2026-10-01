@@ -25,6 +25,12 @@ pub const POTB_WEIGHT: &[u8] = b"astrolune.potb.weight.v1";
 /// Committee root commitment domain.
 pub const COMMITTEE: &[u8] = b"astrolune.committee.v1";
 
+/// Genesis activation marker for the explicit rotating consensus profile.
+pub const ROTATING_PROFILE_KEY: &[u8] = b"astrolune/consensus/profile/v2";
+
+/// Reserved finalized state key for the next rotating committee.
+pub const COMMITTEE_STATE_KEY: &[u8] = b"astrolune/consensus/committee/v1";
+
 /// Finality certificate domain.
 pub const FINALITY: &[u8] = b"astrolune.finality.v1";
 

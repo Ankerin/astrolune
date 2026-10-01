@@ -8,11 +8,10 @@ explicit rotating execution API with a reserved system transaction, atomic
 publication and authenticated history replay. State and receipt proof verifiers
 can use an independently verified handoff stream.
 
-The daemon still runs its fixed-committee profile. These APIs do not activate a
-new genesis version or change the existing network, signing or RPC wire formats.
-Live activation still needs contribution gossip, signer/standby participation,
-availability policy, historical handoff serving and client integration. Active
-PoTB weights, finalized evidence and admission are separate remaining changes.
+[Genesis-v2 live activation](40-live-vrf-network.md) now connects these APIs to
+contribution gossip, standby participation, complete-roster availability,
+historical handoff RPC and CLI/DNS catch-up. Version-1 genesis retains fixed
+membership. Active PoTB weights, finalized evidence and admission remain separate.
 
 ## Authority and randomness
 
@@ -138,8 +137,7 @@ positioned at the proof header's exact height. They check parent, old quorum,
 genesis membership, minimum height and the requested value or receipt. Verify
 a proof before applying the handoff for that same block. A stale verifier or
 a proof-provided committee cannot bypass missing history. Genesis-only proofs
-continue to use the existing verifier. The daemon and command-line clients still
-use their existing fixed-committee path pending live-profile activation.
+continue to use the existing verifier. Genesis-v2 daemon, CLI and DNS clients now use the live handoff path.
 
 ## Validation
 
@@ -154,4 +152,4 @@ local/imported proposals, inject a disk publication failure, recover three
 rotations from each storage backend, reject forged stored certificates and prevent
 silent downgrade to fixed-profile execution. The shared mutation/libFuzzer oracle
 also covers all four new envelopes. These checks do not substitute for the
-remaining live-network activation and adversarial liveness work.
+remaining formal liveness and independent review work.

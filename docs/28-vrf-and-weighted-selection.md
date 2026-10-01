@@ -84,13 +84,13 @@ This CLI uses the genesis roster; it does not infer later membership changes.
 
 ## Activation boundary
 
-The certified daemon still uses fixed genesis membership and round-robin
-producers. Existing genesis, block, vote, certificate, archive and network bytes
-are unchanged. The [handoff and rotating execution APIs](38-authenticated-committee-handoff.md)
-now implement complete collection, parent randomness, old-quorum trust transfer,
-system execution, authenticated history replay and state/receipt verification.
-Daemon activation still needs a versioned profile, contribution gossip, an
-availability policy, standby participation and historical handoff/client serving.
+The certified daemon retains fixed membership for version-1 genesis. Explicit
+[version-2 activation](40-live-vrf-network.md) enables contribution gossip,
+complete-roster availability, standby participation, historical handoff RPC and
+client catch-up. The [handoff and rotating execution APIs](38-authenticated-committee-handoff.md)
+implement parent randomness, old-quorum trust transfer, reserved system execution
+and authenticated history replay. Existing network identities are never migrated
+implicitly; activation requires a new trusted genesis and signing namespace.
 
 The complete roster must be fixed before proof revelation. Missing proofs halt
 this sampler; dropping missing validators or changing the seed would create a

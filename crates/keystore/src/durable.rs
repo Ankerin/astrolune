@@ -74,6 +74,30 @@ impl DurableSigner {
         Self::initialize(path.as_ref(), context, Zeroizing::new(seed), true, true)
     }
 
+    /// Generates a role-bound VRF proof without exporting secret material or reserving a vote.
+    /// The caller supplies finalized randomness; namespace and target watermark are checked here.
+    ///
+    /// # Errors
+    /// Rejects unprotected journals, a foreign namespace, stale targets and invalid epoch/round context.
+    pub fn prove_vrf(&self, input: crypto::VrfInput) -> Result<crypto::VrfOutput, KeystoreError> {
+        if !self.is_protected() {
+            return Err(KeystoreError::InvalidSafety);
+        }
+        if input.chain_id != self.context.chain_id || input.genesis != self.context.genesis {
+            return Err(KeystoreError::ContextMismatch);
+        }
+        if input.round != 0 || input.height < 2 || input.epoch != input.height {
+            return Err(KeystoreError::InvalidSafety);
+        }
+        if self
+            .last_position()
+            .is_some_and(|position| position.height >= input.height)
+        {
+            return Err(KeystoreError::StalePosition);
+        }
+        crypto::prove_vrf(&self.seed, input).map_err(|_| KeystoreError::ProviderFailure)
+    }
+
     fn initialize(
         path: &Path,
         context: SigningContext,

@@ -23,16 +23,41 @@ pub(super) fn run(command: &str, args: &[OsString]) -> Result<(), CliError> {
     let key = parse_key(wallet::text(&args[2])?)?;
     let minimum = wallet::integer(&args[3])?;
     let path = Path::new(&args[4]);
-    let proof = if command == "state-proof" {
-        wallet::client(args.get(5))?
-            .state_proof(&key)
-            .map_err(error)?
+    if command == "state-proof" && path.exists() {
+        return Err(error("output already exists"));
+    }
+    let client = (command == "state-proof")
+        .then(|| wallet::client(args.get(5)))
+        .transpose()?;
+    let proof = if let Some(client) = &client {
+        client.state_proof(&key).map_err(error)?
     } else {
         CertifiedStateProof::from_bytes(&read_bounded(path, CertifiedStateProof::MAX_BYTES)?)
             .map_err(error)?
     };
-    let value = proof.verify(&genesis, &keys, &key, minimum).map_err(|_| error("state proof authentication failed for the trusted genesis, registry, key or minimum height"))?;
+    let height = proof.header.map_or(0, |header| header.height);
+    if height < minimum {
+        return Err(error("state proof precedes minimum height"));
+    }
+    let handoffs = if genesis.version == genesis::ROTATING_GENESIS_VERSION && height > 0 {
+        Some(crate::handoffs::anchor(
+            path,
+            &genesis,
+            &keys,
+            height,
+            client.as_ref(),
+        )?)
+    } else {
+        None
+    };
+    let value = match &handoffs {
+        Some(trust) => proof.verify_with_handoffs(&trust.verifier, &key, minimum),
+        None => proof.verify(&genesis, &keys, &key, minimum),
+    }.map_err(|_| error("state proof authentication failed for the trusted genesis, registry, key or minimum height"))?;
     if command == "state-proof" {
+        if let Some(trust) = &handoffs {
+            trust.publish()?;
+        }
         wallet::write_new(path, &proof.to_bytes().map_err(error)?)?;
     }
     println!(

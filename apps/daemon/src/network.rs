@@ -123,7 +123,14 @@ pub(crate) fn run(options: &Options, genesis: genesis::Genesis) -> Result<(), Da
 }
 
 fn print_identity(options: &Options, network: &StaticNetwork, transport: &PeerTransport) {
-    println!("AstroLune certified reference network (fixed committee / round-robin)");
+    println!(
+        "AstroLune certified network ({})",
+        if network.rotating() {
+            "VRF rotation / full-roster availability"
+        } else {
+            "fixed committee / round-robin"
+        }
+    );
     println!("chain_id  : {}", network.chain_id());
     println!("genesis_hash: {}", network.genesis_hash());
     println!(
@@ -375,6 +382,20 @@ impl RpcService for NetworkStatus {
         let mut node = self.node.lock().map_err(|_| RpcError::Unavailable)?;
         match request {
             RpcRequest::Receipt { id, height } => self.receipt(&node, id, height),
+            RpcRequest::CommitteeHandoff(height) => {
+                let handoff =
+                    node::handoff::read_handoff(node.storage(), height).map_err(|error| {
+                        self.storage_failed.store(true, Ordering::Release);
+                        self.metrics.add(NodeMetric::LocalFailures, 1);
+                        eprintln!("Finalized handoff read failed: {error}");
+                        RpcError::Unavailable
+                    })?;
+                let bytes = handoff
+                    .map(|handoff| handoff.to_bytes())
+                    .transpose()
+                    .map_err(|_| RpcError::Unavailable)?;
+                Ok(RpcResponse::CommitteeHandoff(bytes))
+            }
             RpcRequest::StateProof(key) => {
                 let snapshot = node
                     .storage()

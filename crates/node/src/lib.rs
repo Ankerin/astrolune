@@ -14,6 +14,7 @@ mod evidence;
 
 pub mod capacity;
 pub mod full_service;
+pub mod handoff;
 pub mod network;
 pub mod network_wire;
 pub mod observer;

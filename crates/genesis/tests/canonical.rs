@@ -177,7 +177,7 @@ fn invalid_configuration_cannot_be_decoded_hashed_or_materialized() {
             Err(DecodeError::NonCanonical)
         );
     }
-    for version in [0, 2, u16::MAX] {
+    for version in [0, 3, u16::MAX] {
         let mut genesis = fixture();
         genesis.version = version;
         assert_eq!(genesis.validate(), Err(GenesisError::UnsupportedVersion));
@@ -294,4 +294,22 @@ fn maximum_lists_fit_the_codec_and_state_bounds() {
         amount: 0,
     });
     assert_eq!(genesis.validate(), Err(GenesisError::LimitExceeded));
+}
+
+#[test]
+fn rotating_activation_is_explicit_in_genesis_bytes_and_materialized_state() {
+    let fixed = fixture();
+    let mut rotating = fixed.clone();
+    rotating.version = genesis::ROTATING_GENESIS_VERSION;
+    let mut expected = fixed.to_bytes();
+    expected[..2].copy_from_slice(&2_u16.to_le_bytes());
+    assert_eq!(rotating.to_bytes(), expected);
+    assert_eq!(Genesis::decode(&expected).unwrap(), rotating);
+    assert_ne!(fixed.commitment().unwrap(), rotating.commitment().unwrap());
+    let profile = types::StateKey(types::domain::ROTATING_PROFILE_KEY.to_vec());
+    assert!(fixed.materialize().unwrap().get(&profile).is_none());
+    assert_eq!(
+        rotating.materialize().unwrap().get(&profile),
+        Some([2].as_slice())
+    );
 }

@@ -127,9 +127,18 @@ impl RoundRobinValidator {
     /// Returns the shared reference designation for the current round.
     #[must_use]
     pub fn proposer(&self) -> ValidatorId {
-        self.local
-            .committee()
-            .round_robin_proposer(self.local.round())
+        self.producer.rotation_state().map_or_else(
+            || {
+                self.local
+                    .committee()
+                    .round_robin_proposer(self.local.round())
+            },
+            |current| current.proposer(self.local.round()),
+        )
+    }
+
+    pub(crate) fn producer_mut(&mut self) -> &mut BlockProducer {
+        &mut self.producer
     }
 
     /// Admits a transaction against committed execution state.
