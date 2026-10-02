@@ -109,7 +109,33 @@ fn pinned_rust_build_is_repeatable_and_executable() {
         String::from_utf8_lossy(&result.stderr)
     );
     assert!(String::from_utf8_lossy(&result.stdout).contains("repeated_build: identical"));
-    let second = fixture.run(&["build", "contract.rs", "two.wasm"]);
+    // Neither a shadow compiler in PATH nor the source directory's toolchain
+    // override may replace the compiler committed by the contract profile.
+    std::fs::write(
+        fixture.0.join("rust-toolchain.toml"),
+        "[toolchain]\nchannel = \"unavailable-contract-test\"\n",
+    )
+    .unwrap();
+    let shadow = fixture.0.join("shadow-bin");
+    std::fs::create_dir(&shadow).unwrap();
+    let fake = shadow.join(if cfg!(windows) { "rustc.exe" } else { "rustc" });
+    std::fs::write(&fake, b"this is not a compiler").unwrap();
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        std::fs::set_permissions(&fake, std::fs::Permissions::from_mode(0o755)).unwrap();
+    }
+    let mut paths = vec![shadow];
+    paths.extend(std::env::split_paths(
+        &std::env::var_os("PATH").unwrap_or_default(),
+    ));
+    let second = Command::new(env!("CARGO_BIN_EXE_cargo-contract"))
+        .current_dir(&fixture.0)
+        .env("PATH", std::env::join_paths(paths).unwrap())
+        .env("RUSTUP_TOOLCHAIN", "unavailable-contract-test")
+        .args(["build", "contract.rs", "two.wasm"])
+        .output()
+        .unwrap();
     assert!(
         second.status.success(),
         "{}",

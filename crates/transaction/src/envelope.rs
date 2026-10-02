@@ -220,7 +220,7 @@ mod tests {
         assert_eq!(env.nonce(), 42);
         assert_eq!(env.chain_id(), 7);
         assert_eq!(env.resource_limit().compute, 10);
-        assert!(env.access_list().is_empty());
+        assert_eq!(env.access_list(), []);
         assert_eq!(env.payload(), &[0xDE, 0xAD]);
     }
 }

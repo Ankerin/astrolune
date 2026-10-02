@@ -37,8 +37,43 @@ const SDK_FILES: &[(&str, &str)] = &[
     ),
 ];
 
-pub(crate) fn compiler() -> Command {
-    let mut compiler = Command::new("rustc");
+pub(crate) const RUST_VERSION: &str = "1.99.0";
+
+pub(crate) fn resolve_compiler() -> Result<PathBuf, String> {
+    let output = Command::new("rustup")
+        .args(["which", "--toolchain", RUST_VERSION, "rustc"])
+        .output()
+        .map_err(|error| format!("resolve pinned compiler through rustup: {error}"))?;
+    if !output.status.success() {
+        return Err(format!(
+            "install Rust {RUST_VERSION} and its wasm32 target with rustup"
+        ));
+    }
+    let path = PathBuf::from(
+        String::from_utf8(output.stdout)
+            .map_err(|error| error.to_string())?
+            .trim(),
+    );
+    if !path.is_absolute() || !path.is_file() {
+        return Err("rustup returned an invalid compiler path".into());
+    }
+    let version = Command::new(&path)
+        .arg("--version")
+        .env_remove("RUSTC_BOOTSTRAP")
+        .output()
+        .map_err(|error| error.to_string())?;
+    if !version.status.success()
+        || !version
+            .stdout
+            .starts_with(format!("rustc {RUST_VERSION} ").as_bytes())
+    {
+        return Err(format!("contract compiler must be rustc {RUST_VERSION}"));
+    }
+    Ok(path)
+}
+
+pub(crate) fn compiler(path: &Path) -> Command {
+    let mut compiler = Command::new(path);
     if let Some(sysroot) = std::env::var_os("ASTROLUNE_CONTRACT_SYSROOT") {
         compiler.arg("--sysroot").arg(sysroot);
     }
@@ -56,7 +91,7 @@ pub(crate) fn compiler() -> Command {
     compiler
 }
 
-pub(crate) fn compile(directory: &Path) -> Result<PathBuf, String> {
+pub(crate) fn compile(directory: &Path, rustc: &Path) -> Result<PathBuf, String> {
     let abi = directory.join("abi");
     let sdk = directory.join("sdk");
     std::fs::create_dir(&abi)
@@ -70,7 +105,7 @@ pub(crate) fn compile(directory: &Path) -> Result<PathBuf, String> {
     }
     let abi_library = directory.join("libcontract_abi.rlib");
     let sdk_library = directory.join("libcontract_sdk.rlib");
-    let status = compiler()
+    let status = compiler(rustc)
         .arg(remap(directory))
         .arg(abi.join("lib.rs"))
         .args([
@@ -85,7 +120,7 @@ pub(crate) fn compile(directory: &Path) -> Result<PathBuf, String> {
     if !status.success() {
         return Err("ABI binding compilation failed".into());
     }
-    let status = compiler()
+    let status = compiler(rustc)
         .arg(remap(directory))
         .arg(sdk.join("lib.rs"))
         .args([

@@ -492,7 +492,7 @@ mod tests {
     fn peer_manager_new_default() {
         let mgr = PeerManager::new();
         assert_eq!(mgr.peer_count(), 0);
-        assert!(mgr.connected_peers().is_empty());
+        assert_eq!(mgr.connected_peers().len(), 0);
     }
 
     #[test]

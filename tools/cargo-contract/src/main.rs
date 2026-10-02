@@ -16,7 +16,6 @@ use std::{
     fs::{File, OpenOptions},
     io::{Read, Write},
     path::{Path, PathBuf},
-    process::Command,
 };
 use types::{Address, Resources};
 
@@ -130,20 +129,14 @@ fn build(source: &Path, output: &Path, runtime: &WasmRuntime) -> Result<(), Stri
         return Err("output already exists".into());
     }
     read(source, runtime::MAX_MODULE_SIZE)?;
-    let compiler = Command::new("rustc")
-        .arg("--version")
-        .output()
-        .map_err(|e| e.to_string())?;
-    if !compiler.status.success() || !compiler.stdout.starts_with(b"rustc 1.99.0 ") {
-        return Err("contract compiler must be rustc 1.99.0".into());
-    }
+    let rustc = sdk::resolve_compiler()?;
     let directory = build_directory()?;
-    let sdk_library = sdk::compile(&directory.0)?;
+    let sdk_library = sdk::compile(&directory.0, &rustc)?;
     let source = source.canonicalize().map_err(|e| e.to_string())?;
     let mut builds = Vec::new();
     for index in 0..2 {
         let artifact = directory.0.join(format!("build-{index}.wasm"));
-        let mut compiler = sdk::compiler();
+        let mut compiler = sdk::compiler(&rustc);
         compiler.arg(sdk::remap(source.parent().ok_or("source parent missing")?));
         let status = compiler
             .arg(&source)

@@ -253,7 +253,7 @@ fn pruning_preserves_latest_checkpoint_snapshot_and_next_height() {
             .export_snapshot(first, &mut Chunks::default())
             .is_err()
     );
-    assert!(!export(&storage, last).is_empty());
+    assert_ne!(export(&storage, last), [] as [std::vec::Vec<u8>; 0]);
     assert_eq!(
         storage.commit(&batch(&storage, 3, 1)).unwrap().height,
         last.height + 1

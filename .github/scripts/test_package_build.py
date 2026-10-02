@@ -57,6 +57,33 @@ class PackageTests(unittest.TestCase):
                 changed = PACKAGER.package(root, binaries, root / 'changed', *identity)
                 self.assertNotEqual(first.read_bytes(), changed.read_bytes())
 
+    def test_qualification_binds_compiler_target_and_exact_binary_payloads(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            binaries = root / 'bin'
+            binaries.mkdir()
+            target = PACKAGER.TARGETS[1]
+            for name in PACKAGER.BINARIES:
+                (binaries / (name + '.exe')).write_bytes(name.encode())
+            for name in ('LICENSE', 'README.md', 'Cargo.lock', 'rust-toolchain.toml'):
+                (root / name).write_bytes(name.encode())
+            report = {
+                'target': target, 'independent_builds': 2, 'rustc': 'rustc pinned fixture',
+                'sha256': {p.name: hashlib.sha256(p.read_bytes()).hexdigest() for p in binaries.iterdir()},
+            }
+            arguments = (root, binaries, root / 'valid', target, 'a' * 40, report['rustc'])
+            archive = PACKAGER.package(*arguments, qualification=report)
+            with tarfile.open(archive) as bundle:
+                self.assertEqual(json.load(bundle.extractfile('BUILD.json'))['rustc'], report['rustc'])
+            for change in ({'target': PACKAGER.TARGETS[0]}, {'independent_builds': 1}, {'sha256': {}}, {'rustc': 'rustc shadow'}):
+                with self.subTest(change=change), self.assertRaises(ValueError):
+                    PACKAGER.package(root, binaries, root / 'rejected', target, 'a' * 40, report['rustc'], qualification=report | change)
+                self.assertFalse((root / 'rejected').exists())
+            (binaries / 'cli.exe').write_bytes(b'changed after qualification')
+            with self.assertRaises(ValueError):
+                PACKAGER.package(root, binaries, root / 'rejected', target, 'a' * 40, report['rustc'], qualification=report)
+            self.assertFalse((root / 'rejected').exists())
+
     def test_incomplete_build_or_invalid_identity_never_publishes(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

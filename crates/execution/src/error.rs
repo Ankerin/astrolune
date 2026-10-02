@@ -67,7 +67,7 @@ mod tests {
             ExecutionError::Trap,
         ];
         for e in &errors {
-            assert!(!e.to_string().is_empty());
+            assert_ne!(e.to_string().len(), 0);
         }
     }
 

@@ -55,7 +55,7 @@ fn request_and_protected_quorum_are_usable_offline_with_authenticated_history() 
     let genesis = genesis::Genesis::decode(&fs::read(base.join("genesis.bin")).unwrap()).unwrap();
     let key_bytes = fs::read(base.join("public-keys.bin")).unwrap();
     let (keys, remainder) = key_bytes.as_chunks::<32>();
-    assert!(remainder.is_empty());
+    assert_eq!(remainder, []);
     let keys = keys.to_vec();
     fs::write(directory.0.join("genesis"), genesis.to_bytes()).unwrap();
     fs::write(directory.0.join("keys"), key_bytes).unwrap();

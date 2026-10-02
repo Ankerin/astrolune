@@ -8,6 +8,10 @@ All notable changes to AstroLune will be documented in this file. The format fol
 
 ### Fixed
 
+- Qualify the Rust 1.99.0 update against strict Clippy and the renamed atomic API.
+  Resolve native/contract compilers explicitly through rustup, and bind archive
+  compiler identity and binary hashes to the independent-build report.
+
 - Refresh the 2026-10-02 stable toolchain to Rust 1.99.0 and `wat` 1.260.0,
   including an explicitly new contract source-package compiler profile.
 

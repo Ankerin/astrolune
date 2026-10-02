@@ -49,16 +49,12 @@ mod tests {
 
     #[test]
     fn error_display() {
-        assert!(!TransactionError::InvalidEnvelope.to_string().is_empty());
-        assert!(!TransactionError::WrongChain.to_string().is_empty());
-        assert!(!TransactionError::Expired.to_string().is_empty());
-        assert!(!TransactionError::InvalidNonce.to_string().is_empty());
-        assert!(
-            !TransactionError::InsufficientResources
-                .to_string()
-                .is_empty()
-        );
-        assert!(!TransactionError::InvalidSignature.to_string().is_empty());
-        assert!(!TransactionError::UnsupportedPayload.to_string().is_empty());
+        assert_ne!(TransactionError::InvalidEnvelope.to_string(), "");
+        assert_ne!(TransactionError::WrongChain.to_string(), "");
+        assert_ne!(TransactionError::Expired.to_string(), "");
+        assert_ne!(TransactionError::InvalidNonce.to_string(), "");
+        assert_ne!(TransactionError::InsufficientResources.to_string(), "");
+        assert_ne!(TransactionError::InvalidSignature.to_string(), "");
+        assert_ne!(TransactionError::UnsupportedPayload.to_string(), "");
     }
 }

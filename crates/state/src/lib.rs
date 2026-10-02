@@ -271,10 +271,10 @@ mod tests {
 
     #[test]
     fn state_error_display() {
-        assert!(!StateError::Corrupt.to_string().is_empty());
-        assert!(!StateError::LeaseViolation.to_string().is_empty());
-        assert!(!StateError::StaleSnapshot.to_string().is_empty());
-        assert!(!StateError::LimitExceeded.to_string().is_empty());
+        assert_ne!(StateError::Corrupt.to_string(), "");
+        assert_ne!(StateError::LeaseViolation.to_string(), "");
+        assert_ne!(StateError::StaleSnapshot.to_string(), "");
+        assert_ne!(StateError::LimitExceeded.to_string(), "");
     }
 
     #[test]
@@ -290,7 +290,7 @@ mod tests {
     fn state_diff_encode_empty() {
         let diff = StateDiff::new();
         let encoded = diff.to_bytes();
-        assert!(!encoded.is_empty());
+        assert_ne!(encoded, [] as [u8; 0]);
     }
 
     #[test]
@@ -298,7 +298,7 @@ mod tests {
         let mut diff = StateDiff::new();
         diff.put(key(1), val(10));
         let encoded = diff.to_bytes();
-        assert!(!encoded.is_empty());
+        assert_ne!(encoded, [] as [u8; 0]);
     }
 
     #[test]
@@ -306,7 +306,7 @@ mod tests {
         let mut diff = StateDiff::new();
         diff.delete(key(1));
         let encoded = diff.to_bytes();
-        assert!(!encoded.is_empty());
+        assert_ne!(encoded, [] as [u8; 0]);
     }
 
     #[test]
@@ -325,6 +325,6 @@ mod tests {
         diff.put(key(2), val(20));
         diff.sort_canonical();
         let encoded = diff.to_bytes();
-        assert!(!encoded.is_empty());
+        assert_ne!(encoded, [] as [u8; 0]);
     }
 }

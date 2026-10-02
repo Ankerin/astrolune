@@ -7,9 +7,11 @@ import argparse
 import hashlib
 import json
 import os
+import shutil
 from pathlib import Path
 import subprocess
 import tempfile
+import tomllib
 
 BINARIES = ("cargo-contract", "cli", "daemon", "dns")
 
@@ -20,6 +22,19 @@ def main():
     parser.add_argument("--binaries-output", type=Path)
     options = parser.parse_args()
     root = Path.cwd().resolve()
+    channel = tomllib.loads((root / "rust-toolchain.toml").read_text())["toolchain"]["channel"]
+    rustup = shutil.which("rustup")
+    if rustup is None:
+        raise SystemExit("rustup is required to resolve the pinned compiler")
+    # Resolve absolute paths: a standalone Rust earlier in PATH must not compile
+    # the binaries while a different rustup compiler supplies the reported version.
+    cargo, rustc = (
+        Path(subprocess.check_output([rustup, "which", "--toolchain", channel, tool], text=True).strip()).resolve(strict=True)
+        for tool in ("cargo", "rustc")
+    )
+    compiler_identity = subprocess.check_output([str(rustc), "-Vv"], text=True).strip()
+    if not compiler_identity.startswith(f"rustc {channel} "):
+        raise SystemExit("resolved compiler does not match rust-toolchain.toml")
     output = root / "target"
     output.mkdir(exist_ok=True)
     results = []
@@ -30,6 +45,11 @@ def main():
             env = os.environ.copy()
             # The same normalized paths and linker policy apply to both builds.
             env.pop("RUSTFLAGS", None)
+            env.pop("RUSTC_WRAPPER", None)
+            env.pop("RUSTC_WORKSPACE_WRAPPER", None)
+            env["RUSTC"] = str(rustc)
+            env["RUSTUP_TOOLCHAIN"] = channel
+            env["PATH"] = str(cargo.parent) + os.pathsep + env.get("PATH", "")
             flags = [
                 f"--remap-path-prefix={root}=/astrolune",
                 f"--remap-path-prefix={build}=/astrolune/target",
@@ -42,7 +62,7 @@ def main():
             env["CARGO_INCREMENTAL"] = "0"
             env["SOURCE_DATE_EPOCH"] = "0"
             subprocess.run(
-                ["cargo", "build", "--locked", "--workspace", "--all-features", "--release", "--target", options.target],
+                [str(cargo), "build", "--locked", "--workspace", "--all-features", "--release", "--target", options.target],
                 env=env, check=True,
             )
             suffix = ".exe" if options.target.endswith("windows-msvc") else ""
@@ -64,7 +84,7 @@ def main():
             binary.chmod(0o755)
     report = {
         "target": options.target,
-        "rustc": subprocess.check_output(["rustc", "-Vv"], text=True).strip(),
+        "rustc": compiler_identity,
         "independent_builds": 2,
         "sha256": results[0],
     }

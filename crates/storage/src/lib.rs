@@ -505,11 +505,11 @@ mod tests {
 
     #[test]
     fn storage_error_display() {
-        assert!(!StorageError::Corrupt.to_string().is_empty());
-        assert!(!StorageError::InvalidOrder.to_string().is_empty());
-        assert!(!StorageError::VerificationFailed.to_string().is_empty());
-        assert!(!StorageError::LimitExceeded.to_string().is_empty());
-        assert!(!StorageError::Io.to_string().is_empty());
+        assert_ne!(StorageError::Corrupt.to_string(), "");
+        assert_ne!(StorageError::InvalidOrder.to_string(), "");
+        assert_ne!(StorageError::VerificationFailed.to_string(), "");
+        assert_ne!(StorageError::LimitExceeded.to_string(), "");
+        assert_ne!(StorageError::Io.to_string(), "");
     }
 
     #[test]

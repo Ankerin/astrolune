@@ -970,7 +970,7 @@ mod tests {
         let key = StateKey(Vec::new());
         let encoded = key.to_bytes();
         let decoded = StateKey::decode(&encoded).unwrap();
-        assert!(decoded.0.is_empty());
+        assert_eq!(decoded.0, [] as [u8; 0]);
     }
 
     #[test]

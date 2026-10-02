@@ -335,7 +335,7 @@ mod tests {
     #[test]
     fn pending_transactions_empty_by_default() {
         let service = InMemoryRpcService::new(1);
-        assert!(service.pending_transactions().is_empty());
+        assert_eq!(service.pending_transactions(), []);
     }
 
     #[test]

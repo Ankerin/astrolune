@@ -127,7 +127,7 @@ mod tests {
         let decoder = BoundedFrameDecoder::new(MAX_FRAME_SIZE);
         let frame = decoder.decode(&encoded).unwrap();
         assert_eq!(frame.kind, MessageKind::Hello);
-        assert!(frame.payload.is_empty());
+        assert_eq!(frame.payload.len(), 0);
     }
 
     #[test]

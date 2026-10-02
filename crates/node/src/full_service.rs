@@ -367,7 +367,7 @@ mod tests {
         assert_eq!(service.advance(), Err(NodeError::CommitmentMismatch));
         assert_eq!(service.state, FullNodeState::Committing { height: 0 });
         assert!(service.pending_proposal.is_some());
-        assert!(service.observations.is_empty());
+        assert_eq!(service.observations.len(), 0);
         assert_eq!(service.height(), 0);
         assert_eq!(service.finalized_block(), None);
         service.pending_proposal = Some(proposal);

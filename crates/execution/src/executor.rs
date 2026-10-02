@@ -178,7 +178,7 @@ mod tests {
         let mut executor = SimpleExecutor::new(&mut state, validator, config());
 
         let (outputs, root1) = executor.execute_block(&[], root0).unwrap();
-        assert!(outputs.is_empty());
+        assert_eq!(outputs.len(), 0);
         assert_eq!(root0, root1);
     }
 

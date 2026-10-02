@@ -94,7 +94,7 @@ mod tests {
             domain::RECEIPT,
         ];
         for tag in tags {
-            assert!(!tag.is_empty());
+            assert_ne!(tag.len(), 0);
         }
     }
 

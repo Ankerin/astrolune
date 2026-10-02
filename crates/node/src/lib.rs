@@ -397,7 +397,7 @@ mod tests {
         for _ in 0..20 {
             svc.advance().unwrap();
         }
-        assert!(!svc.observations.is_empty());
+        assert_ne!(svc.observations.len(), 0);
         let cap = svc.current_capacity();
         assert!(cap.compute >= DEFAULT_CAPACITY.compute);
     }
@@ -423,7 +423,7 @@ mod tests {
     #[test]
     fn service_observation_recording() {
         let mut svc = BasicNodeService::new();
-        assert!(svc.observations.is_empty());
+        assert_eq!(svc.observations.len(), 0);
         for _ in 0..5 {
             svc.advance().unwrap();
         }

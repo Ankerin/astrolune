@@ -187,7 +187,7 @@ mod tests {
         let next = sampler.rotate(&current, &candidates, 1);
 
         assert_eq!(next.height, 6);
-        assert!(next.members.is_empty());
+        assert_eq!(next.members.len(), 0);
     }
 
     #[test]

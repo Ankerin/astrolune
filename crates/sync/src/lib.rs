@@ -304,7 +304,7 @@ mod tests {
     #[test]
     fn sync_error_is_std_error() {
         let err: &dyn std::error::Error = &SyncError::LimitExceeded;
-        assert!(!err.to_string().is_empty());
+        assert_ne!(err.to_string(), "");
     }
 
     #[test]

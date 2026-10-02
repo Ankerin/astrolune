@@ -605,8 +605,8 @@ fn block_producer_produces_empty_block() {
     let proposal = producer.produce_block().expect("produces block");
 
     assert_eq!(proposal.block.header.height, 0);
-    assert!(proposal.block.transactions.is_empty());
-    assert!(proposal.outputs.is_empty());
+    assert_eq!(proposal.block.transactions, [] as [types::Transaction; 0]);
+    assert_eq!(proposal.outputs, [] as [execution::TransactionOutput; 0]);
     assert_eq!(proposal.state_root, state::commitment::empty_root());
 }
 

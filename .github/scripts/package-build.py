@@ -11,7 +11,6 @@ import json
 import os
 from pathlib import Path
 import re
-import subprocess
 import tarfile
 import tempfile
 
@@ -19,7 +18,7 @@ TARGETS = ('x86_64-unknown-linux-gnu', 'x86_64-pc-windows-msvc')
 BINARIES = ('cargo-contract', 'cli', 'daemon', 'dns')
 
 
-def package(root, binaries, output, target, revision, compiler, epoch=0):
+def package(root, binaries, output, target, revision, compiler, epoch=0, qualification=None):
     """Equal file bytes and explicit build identity produce equal archive bytes."""
     if target not in TARGETS:
         raise ValueError('unsupported native target')
@@ -39,6 +38,13 @@ def package(root, binaries, output, target, revision, compiler, epoch=0):
         if path.is_symlink() or not path.is_file():
             raise ValueError(f'missing or linked input: {name}')
         payloads[name] = (path.read_bytes(), mode)
+    if qualification is not None:
+        expected = {name + suffix: hashlib.sha256(payloads[name + suffix][0]).hexdigest() for name in BINARIES}
+        if (qualification.get('target') != target
+                or qualification.get('independent_builds') != 2
+                or qualification.get('sha256') != expected
+                or qualification.get('rustc') != compiler.strip()):
+            raise ValueError('build report does not qualify these exact binaries and compiler')
     metadata = {
         'revision': revision,
         'target': target,
@@ -80,14 +86,16 @@ def main():
     parser.add_argument('--binaries', type=Path)
     parser.add_argument('--output', type=Path, default=Path('target/ci-artifacts'))
     parser.add_argument('--revision', default=os.environ.get('GITHUB_SHA'))
+    parser.add_argument('--build-report', type=Path, default=Path('target/native-reproducibility.json'))
     options = parser.parse_args()
     if options.revision is None:
         parser.error('pass --revision or set GITHUB_SHA')
+    qualification = json.loads(options.build_report.read_text(encoding='utf-8'))
     package(
         Path.cwd(), options.binaries or Path('target') / options.target / 'release',
         options.output, options.target, options.revision,
-        subprocess.check_output(['rustc', '-Vv'], text=True),
-        int(os.environ.get('SOURCE_DATE_EPOCH', '0')),
+        qualification['rustc'],
+        int(os.environ.get('SOURCE_DATE_EPOCH', '0')), qualification,
     )
 
 

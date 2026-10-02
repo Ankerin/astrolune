@@ -994,8 +994,8 @@ mod tests {
         let mut producer = BlockProducer::new(test_config());
         let proposal = producer.produce_block().unwrap();
         assert_eq!(proposal.block.header.height, 0);
-        assert!(proposal.block.transactions.is_empty());
-        assert!(proposal.outputs.is_empty());
+        assert_eq!(proposal.block.transactions.len(), 0);
+        assert_eq!(proposal.outputs.len(), 0);
         assert_eq!(proposal.state_root, producer.state().root());
     }
 
@@ -1084,7 +1084,7 @@ mod tests {
     fn producer_error_display() {
         let errors = [ProducerError::Assembly("test".into())];
         for e in &errors {
-            assert!(!e.to_string().is_empty());
+            assert_ne!(e.to_string().len(), 0);
         }
     }
 

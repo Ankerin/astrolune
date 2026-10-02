@@ -30,6 +30,9 @@ python -B .github/scripts/package-build.py x86_64-pc-windows-msvc --binaries tar
 python -B -m unittest discover -s .github/scripts -p 'test_*.py' -v
 ```
 
+The verifier resolves absolute Cargo/rustc paths for `rust-toolchain.toml` through
+rustup, sets the exact `RUSTC` for child builds and removes ambient compiler
+wrappers. A standalone compiler earlier in PATH cannot replace the pinned one.
 The verifier builds the complete release workspace twice in separate fresh
 directories, disables incremental compilation, remaps workspace/build paths,
 strips debug information and enables the MSVC deterministic-link option. It
@@ -45,7 +48,10 @@ default zero). The gzip header contains no host filename or current time.
 `BUILD.json` records build identity and every payload's SHA-256; `SHA256SUMS`
 commits the complete archive. Regression tests change filesystem timestamps and
 permissions, check exact equality, inspect all hashes and reject incomplete
-builds. These scripts perform no upload or signing.
+builds. The packager reads `target/native-reproducibility.json` (or `--build-report`),
+checks the target and all four binary hashes against the exact packaged payloads,
+and takes compiler identity from that report. A changed binary or stale/mismatched
+report fails before archive publication. These scripts perform no upload or signing.
 
 CI's Linux/Windows build matrix now runs this two-build gate and packages its
 verified output. Release-profile tests also invoke all four real Rust-to-WASM
@@ -73,3 +79,33 @@ machines remain to be observed; equal builds on one Windows host establish only
 the measured scope. [Live rotating consensus](40-live-vrf-network.md) was subsequently
 implemented. Active PoTB, governance, physical retention and alternate runtime
 qualification retain their own ROADMAP entries.
+
+## 2026-10-02 stable refresh
+
+A new check of the official stable Rust manifest and both package registries found
+Rust 1.99.0, `wat` 1.260.0, npm 12.2.0, Turbo 2.11.6, Next.js 16.3.8 and Node types
+26.6.4. Those versions are now pinned; Node itself remains 26.10.0. Both Cargo
+locks and the web lockfile were refreshed. The 132-package OSV query and npm audit
+returned no known vulnerabilities on this date.
+
+Rust 1.99 renamed the atomic `fetch_update` API to `try_update` and added strict
+Clippy diagnostics for empty-value assertions. Telemetry and test assertions now
+pass those gates. Contract builds resolve the pinned compiler once by its absolute
+rustup path and reuse it for ABI, SDK and both artifact builds. A regression test
+puts a fake rustc first in PATH and supplies an invalid ambient toolchain while
+requiring identical executable WASM output.
+
+The refreshed compiler passed the full debug/release workspace suites, strict
+Clippy/rustdoc, all four real WASM build tests, standalone fuzz-target compilation
+and the 71-seed million-input deterministic campaign. The 50 existing protocol
+fixtures remained byte-identical. Web type/lint checks, nine RPC tests and all three
+production builds passed on the refreshed dependencies.
+
+Two fresh native Rust 1.99.0 builds with explicit compiler paths produced identical
+SHA-256 hashes for all four executables. Archive regression tests also reject a
+report naming a different target, compiler, build count or binary payload.
+
+All 28 desktop/mobile browser scenarios also passed against a new four-validator
+TLS devnet, an observer and a real finalized payment. The local test build sets
+`NEXT_PUBLIC_*_URL` origins before compilation, as required by Next.js; runtime-only
+URL overrides do not rewrite prerendered cross-app links.

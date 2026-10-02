@@ -414,7 +414,7 @@ mod tests {
         genesis.allocations.clear();
         let encoded = genesis.to_bytes();
         // Verify it can be roundtripped (no decoding impl yet, but encoding should succeed)
-        assert!(!encoded.is_empty());
+        assert_ne!(encoded, [] as [u8; 0]);
     }
 
     #[test]

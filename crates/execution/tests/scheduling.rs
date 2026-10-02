@@ -37,7 +37,10 @@ fn independent_transactions_share_a_wave() {
     let plan = GreedyScheduler.plan(&transactions);
     assert_eq!(plan.waves.len(), 1);
     assert_eq!(plan.waves[0].transaction_indexes, vec![0, 1, 2]);
-    assert!(GreedyScheduler.plan(&[]).waves.is_empty());
+    assert_eq!(
+        GreedyScheduler.plan(&[]).waves,
+        [] as [execution::ExecutionWave; 0]
+    );
 }
 
 #[test]

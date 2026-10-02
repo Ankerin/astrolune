@@ -185,7 +185,7 @@ mod tests {
         assert_eq!(tel.latest("latency"), Some(30));
         assert_eq!(tel.count("latency"), 3);
 
-        assert!(tel.values("missing").is_empty());
+        assert_eq!(tel.values("missing"), [] as [u64; 0]);
         assert_eq!(tel.latest("missing"), None);
         assert_eq!(tel.count("missing"), 0);
     }
@@ -222,8 +222,8 @@ mod tests {
         tel.reset();
 
         assert_eq!(tel.total_count(), 0);
-        assert!(tel.values("a").is_empty());
-        assert!(tel.values("b").is_empty());
+        assert_eq!(tel.values("a"), [] as [u64; 0]);
+        assert_eq!(tel.values("b"), [] as [u64; 0]);
     }
 
     #[test]
@@ -327,7 +327,7 @@ mod tests {
             value: 1,
         });
         assert_eq!(disabled.total_count(), 0);
-        assert!(disabled.values("ignored").is_empty());
+        assert_eq!(disabled.values("ignored"), [] as [u64; 0]);
         let bounded = InMemoryTelemetry::new(usize::MAX);
         assert_eq!(bounded.max_history, 4096);
         for index in 0..300 {

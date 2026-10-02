@@ -41,12 +41,12 @@ mod tests {
 
     #[test]
     fn display_variants() {
-        assert!(!DecodeError::Truncated.to_string().is_empty());
-        assert!(!DecodeError::LengthOverflow.to_string().is_empty());
-        assert!(!DecodeError::LimitExceeded.to_string().is_empty());
-        assert!(!DecodeError::NonCanonical.to_string().is_empty());
-        assert!(!DecodeError::Unsupported.to_string().is_empty());
-        assert!(!DecodeError::TrailingBytes.to_string().is_empty());
+        assert_ne!(DecodeError::Truncated.to_string(), "");
+        assert_ne!(DecodeError::LengthOverflow.to_string(), "");
+        assert_ne!(DecodeError::LimitExceeded.to_string(), "");
+        assert_ne!(DecodeError::NonCanonical.to_string(), "");
+        assert_ne!(DecodeError::Unsupported.to_string(), "");
+        assert_ne!(DecodeError::TrailingBytes.to_string(), "");
     }
 
     #[test]

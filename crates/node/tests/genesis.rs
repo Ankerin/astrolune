@@ -668,13 +668,9 @@ fn conflicting_pool_payments_do_not_reserve_capacity_or_block_later_candidates()
         .commit_block(&proposal, vec![1], &mut storage)
         .unwrap();
     assert_eq!(producer.pending_count(), 1);
-    assert!(
-        producer
-            .produce_block()
-            .unwrap()
-            .block
-            .transactions
-            .is_empty()
+    assert_eq!(
+        producer.produce_block().unwrap().block.transactions,
+        [] as [types::Transaction; 0]
     );
     producer.submit_transaction(payment(4, 5, 0, 1)).unwrap();
     let proposal = producer.produce_block().unwrap();

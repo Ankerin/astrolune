@@ -74,7 +74,7 @@ fn verify_genesis_file_and_reject_invalid_arguments_and_bytes() {
     std::fs::write(&path, bytes).unwrap();
     let malformed = run().arg("genesis").arg(&path).output().unwrap();
     assert!(!malformed.status.success());
-    assert!(malformed.stdout.is_empty());
+    assert_eq!(malformed.stdout, [] as [u8; 0]);
     // Only the unique directory created by this test is removed.
     std::fs::remove_dir_all(directory).unwrap();
 }

@@ -753,13 +753,13 @@ fn observer_gossips_payments_syncs_relays_and_recovers_without_signing_authority
         validator.storage().state().root()
     );
     assert!(observer.submit_transaction(tx.clone()).is_err());
-    assert!(
+    assert_eq!(
         decode_exchange(
             fixture.network.genesis_hash(),
             &observer.respond(observer.request()).unwrap()
         )
-        .unwrap()
-        .is_empty()
+        .unwrap(),
+        [] as [node::network_wire::NetworkMessage; 0]
     );
     let checkpoint = *observer.storage().checkpoint().unwrap();
     drop(observer);
@@ -863,10 +863,9 @@ fn observer_cannot_replace_missing_quorum_or_relay_live_consensus_messages() {
                 .receive(&validator.respond(observer.request()).unwrap())
                 .unwrap();
             let bytes = observer.respond(validator.request()).unwrap();
-            assert!(
-                decode_exchange(fixture.network.genesis_hash(), &bytes)
-                    .unwrap()
-                    .is_empty()
+            assert_eq!(
+                decode_exchange(fixture.network.genesis_hash(), &bytes).unwrap(),
+                [] as [node::network_wire::NetworkMessage; 0]
             );
             validator.receive(&bytes).unwrap();
         }
