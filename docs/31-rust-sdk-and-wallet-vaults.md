@@ -7,7 +7,7 @@
 `cargo contract build` bundles and compiles the exact `contract-sdk` and
 `contract-abi` sources, then makes `contract_sdk` available to the standalone
 Rust contract. No checkout or registry access is needed by the built tool.
-The contract still needs the pinned Rust 1.98.1 wasm32 standard library.
+The contract still needs the pinned Rust 1.99.0 wasm32 standard library.
 
 `contract_sdk::Guest` exposes all ABI-v2 host operations on wasm32: input length
 and copying, return data, local get/put/delete, events, authenticated caller and

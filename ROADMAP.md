@@ -25,11 +25,12 @@ Canonical encodings, protocol domains, hashes, addresses, signatures, checked re
 - [x] Version-1 signed votes and finality certificates, checked committee commitments, and independent Ed25519 quorum verification.
 - [x] Versioned reference-network envelopes and opt-in certified daemon finality.
 - [x] Canonical RFC 9381 VRF proofs, role-bound context, RFC vectors and malformed-proof rejection.
-- [ ] Complete production protocol envelopes and compatibility qualification.
-- [x] Shared extension fuzz oracle and deterministic 100,000-input mutation campaign; [qualification details](docs/37-protocol-qualification.md).
+- [x] Freeze supported genesis-v1/v2 histories in 50 binary compatibility fixtures, with authenticated replay and independent commitment/framing checks; [details](docs/41-protocol-compatibility.md).
+- [ ] Qualify future PoTB/governance protocol envelopes and their activation compatibility.
+- [x] Shared extension fuzz oracle, 71 structured seeds and deterministic one-million-input mutation campaign; [qualification details](docs/37-protocol-qualification.md).
 - [ ] Long fuzz campaigns, dependency/security review, and cross-platform suite qualification.
 - [x] Upgrade qualification: current stable dependencies, legacy vault compatibility,
-  strict Rust 1.98.1 checks and bounded registry advisory lookup; [evidence](docs/39-toolchain-and-release-qualification.md).
+  strict Rust 1.99.0 checks and bounded registry advisory lookup; [evidence](docs/39-toolchain-and-release-qualification.md).
 
 ## M2 — transactions and state
 
@@ -42,7 +43,7 @@ Current progress: signed admission validates existing transaction fields against
 Pinned contract toolchain, canonical target selection, validator, interpreter, host ABI, metering, SDK, reproducible artifacts, source verification, and differential backends.
 
 - [x] Integer-only WebAssembly ABI v2 validator and interpreter with bounded memory, fuel, state access and staged writes/events.
-- [x] Pinned Rust 1.98.1 standalone contract builds, repeated-byte comparison, artifact validation, sandbox execution and code-hash verification CLI.
+- [x] Pinned Rust 1.99.0 standalone contract builds, repeated-byte comparison, artifact validation, sandbox execution and code-hash verification CLI.
 - [x] Signed deployment/call transactions, nonce/fee transitions, explicit genesis activation and certified restart/catch-up tests.
 - [x] Allocation-free Rust SDK bindings, bundled builds and real wasm32 host-call tests.
 - [x] Restricted Cargo package/source manifests and offline published-source verification.
@@ -60,7 +61,8 @@ Access leasing, execution waves, multiple lanes, optimistic validation, determin
 - [x] Explicit rotating-producer system lane with reserved VRF resources, mixed application execution and atomic publication.
 - [x] Explicit genesis-v2 daemon activation of the VRF system lane.
 - [ ] Consensus capacity/fee governance.
-- [ ] Measured locality/fusion/cache/prefetch/pool optimizations and signature batching with equivalence tests.
+- [x] Bounded verified VRF transition cache and single-pass evidence history verification, with equivalence tests and [local measurements](docs/40-live-vrf-network.md#repeated-verification-cost).
+- [ ] Remaining locality/fusion/prefetch/pool optimizations and signature batching with equivalence tests.
 
 ## M5 — PoTB and finality
 
@@ -70,7 +72,9 @@ PoTB state transitions and evidence, audited VRF provider, weighted sampler, par
 - [x] Complete-roster weighted sampling without modulo bias, partial-rotation computation and producer-role sampling.
 - [x] Bounded full-roster collection, parent randomness, authenticated handoff, rotating execution/history replay and proof-verifier APIs; [details](docs/38-authenticated-committee-handoff.md).
 - [x] Activate VRF in the daemon: contribution gossip, complete-roster availability policy, standby signing participation, persisted handoff serving and RPC/CLI/DNS catch-up; [profile and tests](docs/40-live-vrf-network.md).
-- [ ] Canonical evidence inclusion, active PoTB weights and admission transitions.
+- [x] Bounded historical committee commitments and portable offence bundles; [format and selected quorum-admission policy](docs/42-historical-potb-evidence.md).
+- [x] Candidate consent, protected incumbent approvals, weighted quorum certificates and offline operator CLI; [details](docs/43-quorum-admission.md).
+- [ ] Canonical evidence inclusion, active PoTB weights and quorum-authorized admission transitions.
 - [ ] Rotating-consensus adversarial simulations, formal safety/liveness and independent provider review.
 
 The [VRF and sampler specification](docs/28-vrf-and-weighted-selection.md) distinguishes implemented selection from daemon activation.
@@ -126,4 +130,5 @@ External audits, public-testnet calibration and key ceremonies are separate rele
 - [x] Add receipt queries and transaction finality waiting.
 - [x] Implement the authenticated on-chain DNS registry and operational resolver.
 - [x] Complete scoped private-network peer discovery, bounded sessions, operational telemetry and authenticated observer recovery tooling.
-- [ ] Complete protocol compatibility fixtures, fuzzing, platform and reproducible-release qualification.
+- [x] Complete fixed/rotating protocol compatibility fixtures and deterministic mutation qualification.
+- [ ] Complete coverage-guided fuzzing, remaining platform and reproducible-release qualification.

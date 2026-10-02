@@ -47,14 +47,12 @@ impl EvidenceStore {
                 .read_to_end(&mut bytes)
                 .map_err(local)?;
             let proof = DoubleVoteEvidence::decode(&bytes).map_err(local)?;
-            proof
-                .verify(&network.historical_committee(storage, proof.height())?)
-                .map_err(local)?;
             if proof.voter() != id {
                 return Err(local("equivocation proof identity mismatch"));
             }
             result.proofs.insert(id, proof);
         }
+        network.verify_evidence_history(storage, &result.proofs)?;
         Ok(result)
     }
 

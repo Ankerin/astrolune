@@ -189,3 +189,30 @@ fn invalid_limits_fail_before_connecting() {
         Err(ClientError::LimitExceeded)
     ));
 }
+
+#[test]
+fn receipt_wait_preserves_transport_failures_and_bounds_a_silent_peer() {
+    let (address, task) = peer(vec![]);
+    assert!(matches!(
+        client(address).wait_receipt(Hash256::ZERO, Duration::from_secs(2)),
+        Err(ClientError::Io(_))
+    ));
+    assert!(task.join().unwrap().contains("receipt"));
+    let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+    let address = listener.local_addr().unwrap();
+    let task = thread::spawn(move || {
+        let (mut stream, _) = listener.accept().unwrap();
+        let request = read_request(&mut stream);
+        thread::sleep(Duration::from_millis(300));
+        request
+    });
+    let start = Instant::now();
+    assert_eq!(
+        client(address)
+            .wait_receipt(Hash256::ZERO, Duration::from_millis(100))
+            .unwrap(),
+        None
+    );
+    assert!(start.elapsed() < Duration::from_secs(1));
+    assert!(task.join().unwrap().contains("receipt"));
+}

@@ -98,6 +98,46 @@ impl DurableSigner {
         crypto::prove_vrf(&self.seed, input).map_err(|_| KeystoreError::ProviderFailure)
     }
 
+    /// Explicitly approves a candidate's typed, signed admission request.
+    /// The caller must authenticate the incumbent committee and finalized parent.
+    /// Multiple candidates may be approved; this is not a BFT vote or a decision
+    /// reservation. It neither advances nor rewrites the consensus journal.
+    ///
+    /// # Errors
+    /// Rejects unprotected signers, foreign namespaces, invalid consent, stale
+    /// heights and a committee conflicting with a known same-height safety record.
+    pub fn approve_admission(
+        &self,
+        intent: &crate::admission::AdmissionIntent,
+        consent: &[u8; 64],
+    ) -> Result<[u8; 64], KeystoreError> {
+        if !self.is_protected() {
+            return Err(KeystoreError::InvalidSafety);
+        }
+        if intent.chain_id != self.context.chain_id || intent.genesis != self.context.genesis {
+            return Err(KeystoreError::ContextMismatch);
+        }
+        if !intent.verify_consent(consent) {
+            return Err(KeystoreError::InvalidSafety);
+        }
+        if let Some(position) = self.last_position() {
+            if position.height > intent.height {
+                return Err(KeystoreError::StalePosition);
+            }
+            if position.height == intent.height
+                && self
+                    .safety()
+                    .is_none_or(|safety| safety.committee_root != intent.committee_root)
+            {
+                return Err(KeystoreError::InvalidSafety);
+            }
+        }
+        Ok(ed25519_sign(
+            &self.seed,
+            &intent.approval_hash(consent, self.validator).0,
+        ))
+    }
+
     fn initialize(
         path: &Path,
         context: SigningContext,

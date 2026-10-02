@@ -98,10 +98,37 @@ exit/re-entry, payment finality, stale proofs, validator and observer restart,
 both storage backends, failed publication and exact legacy-format encoding.
 A real four-validator mutual-TLS process test verifies handoff RPC, certified state,
 observer catch-up and restart of all roles. CLI tests fetch state/receipt proofs
-and verify their sidecars offline, including truncation and anchor substitution.
+and verify their sidecars offline, including truncation and anchor substitution. Evidence commands use the same
+verified history to authenticate double votes at their actual committee height;
+[operator usage](25-potb-evidence.md#operator-commands).
 DNS tests cover initial catch-up, authority reuse and rollback rejection.
 
 The shared mutation oracle includes the new gossip message, version-2 genesis and
 version-2 receipt metadata, for 16 structured seeds. These tests establish the
 implemented closed-network profile, not a formal distributed liveness proof or
 independent cryptographic review.
+
+## Repeated verification cost
+
+Each producer retains at most one fully verified VRF batch and its computed next
+committee. Only an exact batch match in the same current committee reuses the
+result; all other batches take the complete verification path. Incoming proposals,
+valid-value restoration, finalized imports and recovery prepare this cache before
+repeated execution. Successful finalization clears it. Invalid replacements cannot
+destroy a previously verified entry. Neither cache preparation nor cache reuse
+publishes state, grants authority or bypasses execution/header/certificate checks.
+
+The equivalence test compares cached and uncached execution, rejects changed
+proofs, parent and height, checks failed replacement and prevents cross-height
+reuse. `cargo test -p node --test rotation --release measure_verified_transition_cache
+-- --ignored --nocapture` measures 20 mixed payment/contract blocks in both paths.
+On this Windows host with Rust 1.98.1, the release run took 36,816 microseconds for
+revalidation and 9,437 microseconds with reuse; the debug run took 4,531,273 and
+234,259 microseconds. These are local execution measurements for that fixture,
+not network throughput or a portable performance guarantee. All nine real mutual-TLS
+process tests then passed together in debug in 22.38 seconds.
+
+Stored double-vote proofs are sorted by height at recovery and authenticated through
+one shared historical handoff stream. At most 32 proofs are retained; the change
+avoids verifying the same prefix separately for each proof. Tests include different
+rotating committees and a corrupt signature that must prevent recovery.

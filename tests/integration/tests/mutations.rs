@@ -87,6 +87,14 @@ fn seeds() -> Vec<Vec<u8>> {
         wat::parse_str("(module (memory (export \"memory\") 1 1) (func (export \"call\") (result i32) (loop br 0) i32.const 0))").unwrap(),
     ];
     seeds.extend(rotation_seeds(&genesis, key));
+    seeds.extend(admission_seeds(&genesis, key));
+    let directory = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("fixtures/protocol-v1");
+    for line in include_str!("../fixtures/protocol-v1/MANIFEST.blake2s").lines() {
+        let name = line.split_whitespace().nth(2).unwrap();
+        if !name.ends_with("public-keys.bin") {
+            seeds.push(std::fs::read(directory.join(name)).unwrap());
+        }
+    }
     seeds
 }
 
@@ -180,9 +188,47 @@ fn rotation_seeds(genesis: &genesis::Genesis, key: [u8; 32]) -> Vec<Vec<u8>> {
         .to_bytes()
         .unwrap(),
     );
+    let context = verifier.current().context().unwrap();
     verifier.apply(&handoff).unwrap();
+    result.extend(history_seeds(&verifier, &context, &vote, key));
     result
 }
+fn history_seeds(
+    trusted: &consensus::rotation::HandoffVerifier,
+    context: &consensus::AuthenticatedCommittee,
+    vote: &consensus::Vote,
+    key: [u8; 32],
+) -> Vec<Vec<u8>> {
+    let history = trusted.history();
+    let proof = history.prove(1, 1, |_| Ok(context.root())).unwrap();
+    let mut first = vote.clone();
+    first.signature = crypto::blake2s::ed25519_sign(&[1; 32], &first.signing_hash().0);
+    let mut second = first.clone();
+    second.block = None;
+    second.signature = crypto::blake2s::ed25519_sign(&[1; 32], &second.signing_hash().0);
+    let evidence = consensus::DoubleVoteEvidence::from_votes(context, first, second).unwrap();
+    let committee = consensus::Committee {
+        height: 1,
+        members: vec![consensus::CommitteeMember {
+            id: evidence.voter(),
+            power: consensus::PotbWeight(1),
+        }],
+    };
+    let bundle = consensus::history::HistoricalEvidence::new(
+        history,
+        &committee,
+        &[key],
+        proof.clone(),
+        evidence,
+    )
+    .unwrap();
+    vec![
+        history.to_bytes(),
+        proof.to_bytes().unwrap(),
+        bundle.to_bytes().unwrap(),
+    ]
+}
+
 fn random(state: &mut u64) -> u64 {
     *state ^= *state << 13;
     *state ^= *state >> 7;
@@ -213,6 +259,10 @@ fn campaign(rounds: usize) {
         }
         accepted += extensions::check(&bytes);
     }
+    println!(
+        "{rounds} mutations; {} structured seeds; {accepted} accepted decoder paths",
+        seeds.len()
+    );
     assert!(
         accepted > 0,
         "mutations must also reach accepted-input roundtrip paths"
@@ -226,4 +276,42 @@ fn extension_mutation_smoke() {
 #[ignore = "extended deterministic mutation campaign; no coverage-guided fuzzing claim"]
 fn extended_extension_mutations() {
     campaign(100_000);
+}
+
+#[test]
+#[ignore = "million-input deterministic campaign; no coverage-guided fuzzing claim"]
+fn million_extension_mutations() {
+    campaign(1_000_000);
+}
+
+fn admission_seeds(genesis: &genesis::Genesis, key: [u8; 32]) -> Vec<Vec<u8>> {
+    use consensus::admission::{AdmissionApproval, AdmissionCertificate, AdmissionRequest};
+    let current = consensus::rotation::CommitteeState::from_genesis(genesis, &[key]).unwrap();
+    let request = AdmissionRequest::sign(&current, current.genesis(), &[99; 32]).unwrap();
+    let voter = genesis.validators[0].id;
+    let signature = crypto::blake2s::ed25519_sign(
+        &[1; 32],
+        &request.intent().approval_hash(request.consent(), voter).0,
+    );
+    let mut bytes = b"ALADAP01".to_vec();
+    bytes.extend_from_slice(&request.id().0);
+    bytes.extend_from_slice(&voter.0);
+    bytes.extend_from_slice(&signature);
+    let approval = AdmissionApproval::from_bytes(&bytes).unwrap();
+    approval
+        .verify(&request, &current, current.genesis())
+        .unwrap();
+    let certificate = AdmissionCertificate::assemble(
+        request.clone(),
+        vec![approval.clone()],
+        &current,
+        current.genesis(),
+    )
+    .unwrap();
+    vec![
+        request.intent().to_bytes().to_vec(),
+        request.to_bytes().unwrap(),
+        approval.to_bytes(),
+        certificate.to_bytes().unwrap(),
+    ]
 }

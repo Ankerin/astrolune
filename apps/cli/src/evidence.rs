@@ -1,10 +1,9 @@
 // Copyright (c) 2026 Astrolune contributors
 // SPDX-License-Identifier: MIT
 
-//! Independent verification against a supplied trusted fixed genesis registry.
+//! Independent evidence verification against genesis and authenticated committee history.
 
 use crate::CliError;
-use codec::CanonicalDecode;
 use consensus::{
     AuthenticatedCommittee, Committee, CommitteeMember, DoubleVoteEvidence, PotbWeight, Vote,
 };
@@ -30,20 +29,26 @@ fn read(path: &Path, maximum: usize) -> Result<Vec<u8>, CliError> {
     }
     Ok(bytes)
 }
-fn context(genesis: &Path, keys: &Path, height: u64) -> Result<AuthenticatedCommittee, CliError> {
-    let genesis =
-        genesis::Genesis::decode(&read(genesis, genesis::MAX_GENESIS_BYTES)?).map_err(error)?;
-    genesis.commitment().map_err(error)?;
-    if genesis.committee_size != genesis.validators.len() {
-        return Err(error(
-            "evidence CLI requires the fixed full-genesis committee profile",
+fn context(
+    genesis_path: &Path,
+    keys_path: &Path,
+    height: u64,
+    proof_path: &Path,
+    client: Option<&rpc::TcpRpcClient>,
+) -> Result<(AuthenticatedCommittee, Option<crate::handoffs::Trust>), CliError> {
+    let (genesis, keys) = crate::proofs::anchors(genesis_path, keys_path)?;
+    if genesis.version == genesis::ROTATING_GENESIS_VERSION {
+        let trusted = crate::handoffs::anchor(proof_path, &genesis, &keys, height, client)?;
+        return Ok((
+            trusted.verifier.current().context().map_err(error)?,
+            Some(trusted),
         ));
     }
-    let bytes = read(keys, consensus::MAX_COMMITTEE_MEMBERS * 32)?;
-    if bytes.len() != genesis.validators.len() * 32 {
-        return Err(error("registry length does not match genesis"));
+    if genesis.committee_size != genesis.validators.len() {
+        return Err(error(
+            "version-1 evidence requires the complete genesis committee",
+        ));
     }
-    let keys: Vec<_> = bytes.as_chunks::<32>().0.to_vec();
     let committee = Committee {
         height,
         members: genesis
@@ -55,17 +60,33 @@ fn context(genesis: &Path, keys: &Path, height: u64) -> Result<AuthenticatedComm
             })
             .collect(),
     };
-    AuthenticatedCommittee::new(genesis.chain_id, &committee, &keys).map_err(error)
+    Ok((
+        AuthenticatedCommittee::new(genesis.chain_id, &committee, &keys).map_err(error)?,
+        None,
+    ))
 }
 
 pub(super) fn run(command: &str) -> Result<(), CliError> {
     let args: Vec<OsString> = std::env::args_os().skip(2).collect();
     let proof = match (command, args.as_slice()) {
-        ("evidence-create", [genesis, keys, a, b, output]) => {
+        ("evidence-create", [genesis, keys, a, b, output, ..]) if (5..=6).contains(&args.len()) => {
+            if Path::new(output).exists() {
+                return Err(error("output already exists"));
+            }
             let a = Vote::decode(&read(Path::new(a), 186)?).map_err(error)?;
             let b = Vote::decode(&read(Path::new(b), 186)?).map_err(error)?;
-            let context = context(Path::new(genesis), Path::new(keys), a.height)?;
+            let client = crate::wallet::client(args.get(5))?;
+            let (context, handoffs) = context(
+                Path::new(genesis),
+                Path::new(keys),
+                a.height,
+                Path::new(output),
+                Some(&client),
+            )?;
             let proof = DoubleVoteEvidence::from_votes(&context, a, b).map_err(error)?;
+            if let Some(trusted) = &handoffs {
+                trusted.publish()?;
+            }
             let mut file = OpenOptions::new()
                 .create_new(true)
                 .write(true)
@@ -83,11 +104,16 @@ pub(super) fn run(command: &str) -> Result<(), CliError> {
             )?)
             .map_err(error)?;
             proof
-                .verify(&context(
-                    Path::new(genesis),
-                    Path::new(keys),
-                    proof.height(),
-                )?)
+                .verify(
+                    &context(
+                        Path::new(genesis),
+                        Path::new(keys),
+                        proof.height(),
+                        Path::new(path),
+                        None,
+                    )?
+                    .0,
+                )
                 .map_err(error)?;
             proof
         }

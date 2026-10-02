@@ -347,7 +347,9 @@ impl TcpRpcClient {
             match stream.write(bytes) {
                 Ok(0) => return Err(io::ErrorKind::WriteZero.into()),
                 Ok(count) => bytes = &bytes[count..],
-                Err(error) if error.kind() == io::ErrorKind::Interrupted => {}
+                // Socket timeouts may round down on Windows. Keep the same request and
+                // retry only the unfinished I/O against our original absolute deadline.
+                Err(error) if retryable_io(&error) => {}
                 Err(error) => return Err(error.into()),
             }
         }
@@ -373,13 +375,20 @@ fn remaining(deadline: Instant) -> io::Result<Duration> {
         .ok_or_else(|| io::ErrorKind::TimedOut.into())
 }
 
+fn retryable_io(error: &io::Error) -> bool {
+    matches!(
+        error.kind(),
+        io::ErrorKind::Interrupted | io::ErrorKind::WouldBlock | io::ErrorKind::TimedOut
+    )
+}
+
 fn read_exact(stream: &mut TcpStream, mut bytes: &mut [u8], deadline: Instant) -> io::Result<()> {
     while !bytes.is_empty() {
         stream.set_read_timeout(Some(remaining(deadline)?))?;
         match stream.read(bytes) {
             Ok(0) => return Err(io::ErrorKind::UnexpectedEof.into()),
             Ok(count) => bytes = &mut bytes[count..],
-            Err(error) if error.kind() == io::ErrorKind::Interrupted => {}
+            Err(error) if retryable_io(&error) => {}
             Err(error) => return Err(error),
         }
     }

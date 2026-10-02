@@ -194,3 +194,96 @@ fn rotating_proof_sidecars_work_offline_and_reject_truncation_or_foreign_anchors
     assert_eq!(provisioned.version, 2);
     assert_eq!(provisioned.committee_size, 3);
 }
+
+#[test]
+fn evidence_cli_uses_historical_rotating_membership_and_preserves_offline_authority() {
+    use consensus::{DoubleVoteEvidence, Vote, VotePhase};
+    use crypto::blake2s::{ed25519_public_key, ed25519_sign};
+    let directory = Fixture(std::env::temp_dir().join(format!(
+        "astrolune-cli-evidence-handoff-{}",
+        std::process::id()
+    )));
+    std::fs::create_dir(&directory.0).unwrap();
+    let (genesis, keys, handoffs, _, _) = fixtures();
+    let mut trusted = HandoffVerifier::new(&genesis, &keys).unwrap();
+    for handoff in &handoffs {
+        trusted.apply(handoff).unwrap();
+    }
+    let context = trusted.current().context().unwrap();
+    std::fs::write(directory.0.join("genesis"), genesis.to_bytes()).unwrap();
+    std::fs::write(directory.0.join("keys"), keys.concat()).unwrap();
+    let run = |args: &[&str]| {
+        Command::new(env!("CARGO_BIN_EXE_cli"))
+            .current_dir(&directory.0)
+            .args(args)
+            .output()
+            .unwrap()
+    };
+    for active in [true, false] {
+        let seed = (1..=4)
+            .find(|seed| {
+                let id =
+                    types::ValidatorId(crypto::blake2s_hash(&ed25519_public_key(&[*seed; 32])).0);
+                context.voting_power(id).is_some() == active
+            })
+            .unwrap();
+        for (file, block) in [("a", None), ("b", Some(Hash256([8; 32])))] {
+            let mut vote = Vote {
+                chain_id: genesis.chain_id,
+                committee_root: context.root(),
+                height: 3,
+                round: 0,
+                phase: VotePhase::Prevote,
+                block,
+                voter: types::ValidatorId(crypto::blake2s_hash(&ed25519_public_key(&[seed; 32])).0),
+                signature: [0; 64],
+            };
+            vote.signature = ed25519_sign(&[seed; 32], &vote.signing_hash().0);
+            std::fs::write(directory.0.join(file), vote.encode()).unwrap();
+        }
+        let (address, worker) = serve(
+            handoffs
+                .iter()
+                .map(|handoff| handoff.to_bytes().unwrap())
+                .collect(),
+        );
+        let destination = if active { "evidence" } else { "forged" };
+        let output = run(&[
+            "evidence-create",
+            "genesis",
+            "keys",
+            "a",
+            "b",
+            destination,
+            &address,
+        ]);
+        assert_eq!(
+            output.status.success(),
+            active,
+            "{}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+        worker.join().unwrap();
+        if !active {
+            assert!(!directory.0.join(destination).exists());
+            assert!(!directory.0.join("forged.handoffs").exists());
+            continue;
+        }
+        let bytes = std::fs::read(directory.0.join(destination)).unwrap();
+        DoubleVoteEvidence::decode(&bytes)
+            .unwrap()
+            .verify(&context)
+            .unwrap();
+        assert!(
+            run(&["evidence-verify", "genesis", "keys", destination])
+                .status
+                .success()
+        );
+        std::fs::remove_file(directory.0.join("evidence.handoffs")).unwrap();
+        assert!(
+            !run(&["evidence-verify", "genesis", "keys", destination])
+                .status
+                .success()
+        );
+    }
+}

@@ -12,19 +12,8 @@ use std::{
 use types::{Address, Hash256, Resources};
 
 pub fn check(bytes: &[u8]) -> usize {
-    use codec::{CanonicalDecode, CanonicalEncode};
-    let mut accepted = check_rotation(bytes);
-    if let Ok(genesis) = genesis::Genesis::decode(bytes) {
-        assert_eq!(genesis.to_bytes(), bytes);
-        accepted += 1;
-    }
-    if let Ok(messages) = node::network_wire::decode_exchange(Hash256([1; 32]), bytes) {
-        assert_eq!(
-            node::network_wire::encode_exchange(Hash256([1; 32]), &messages).unwrap(),
-            bytes
-        );
-        accepted += 1;
-    }
+    let mut accepted =
+        check_rotation(bytes) + check_base(bytes) + check_history(bytes) + check_admission(bytes);
     if let Ok(proof) = crypto::VrfOutput::decode(bytes) {
         assert_eq!(proof.encode().unwrap().as_slice(), bytes);
         let key = crypto::blake2s::ed25519_public_key(&[1; 32]);
@@ -120,6 +109,91 @@ fn check_rotation(bytes: &[u8]) -> usize {
     }
     if let Ok(handoff) = consensus::rotation::CommitteeHandoff::from_bytes(bytes) {
         assert_eq!(handoff.to_bytes().unwrap(), bytes);
+        accepted += 1;
+    }
+    accepted
+}
+
+fn check_base(bytes: &[u8]) -> usize {
+    use codec::{CanonicalDecode, CanonicalEncode};
+    let mut accepted = 0;
+    if let Ok(value) = genesis::Genesis::decode(bytes) {
+        assert_eq!(value.to_bytes(), bytes);
+        accepted += 1;
+    }
+    if let Ok(value) = types::Transaction::decode(bytes) {
+        assert_eq!(value.to_bytes(), bytes);
+        accepted += 1;
+    }
+    if let Ok(value) = types::BlockHeader::decode(bytes) {
+        assert_eq!(value.to_bytes(), bytes);
+        accepted += 1;
+    }
+    if let Ok(value) = consensus::FinalityCertificate::decode(bytes) {
+        assert_eq!(value.encode().unwrap(), bytes);
+        accepted += 1;
+    }
+    if let Ok(value) = consensus::Vote::decode(bytes) {
+        assert_eq!(value.encode().as_slice(), bytes);
+        accepted += 1;
+    }
+    if let Ok(value) = consensus::DoubleVoteEvidence::decode(bytes) {
+        assert_eq!(value.encode().as_slice(), bytes);
+        accepted += 1;
+    }
+    // Structure-only oracle: this claimed namespace is deliberately untrusted.
+    // Full authentication against independently supplied genesis is a separate test.
+    if let Some(namespace) = bytes.get(8..40) {
+        let genesis = Hash256(namespace.try_into().unwrap());
+        if let Ok(messages) = node::network_wire::decode_exchange(genesis, bytes) {
+            assert_eq!(
+                node::network_wire::encode_exchange(genesis, &messages).unwrap(),
+                bytes
+            );
+            accepted += 1;
+        }
+    }
+    accepted
+}
+
+fn check_history(bytes: &[u8]) -> usize {
+    use consensus::history::{CommitteeHistory, CommitteeHistoryProof, HistoricalEvidence};
+    let mut accepted = 0;
+    if let Ok(value) = CommitteeHistory::from_bytes(bytes) {
+        assert_eq!(value.to_bytes(), bytes);
+        accepted += 1;
+    }
+    if let Ok(value) = CommitteeHistoryProof::from_bytes(bytes) {
+        assert_eq!(value.to_bytes().unwrap(), bytes);
+        accepted += 1;
+    }
+    if let Ok(value) = HistoricalEvidence::from_bytes(bytes) {
+        assert_eq!(value.to_bytes().unwrap(), bytes);
+        accepted += 1;
+    }
+    accepted
+}
+
+fn check_admission(bytes: &[u8]) -> usize {
+    use consensus::admission::{
+        AdmissionApproval, AdmissionCertificate, AdmissionIntent, AdmissionRequest,
+    };
+    let mut accepted = 0;
+    if let Ok(value) = AdmissionIntent::from_bytes(bytes) {
+        assert_eq!(value.to_bytes().as_slice(), bytes);
+        accepted += 1;
+    }
+    if let Ok(value) = AdmissionRequest::from_bytes(bytes) {
+        assert_eq!(value.to_bytes().unwrap(), bytes);
+        let _ = value.intent().verify_consent(value.consent());
+        accepted += 1;
+    }
+    if let Ok(value) = AdmissionApproval::from_bytes(bytes) {
+        assert_eq!(value.to_bytes(), bytes);
+        accepted += 1;
+    }
+    if let Ok(value) = AdmissionCertificate::from_bytes(bytes) {
+        assert_eq!(value.to_bytes().unwrap(), bytes);
         accepted += 1;
     }
     accepted

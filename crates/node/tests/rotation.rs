@@ -234,11 +234,12 @@ fn system_payment_and_contract_commit_together_and_recover_after_rotations() {
         .unwrap();
         assert!(unbound.produce_block().is_err());
         assert!(unbound.submit_transaction(payment.clone()).is_err());
-        let (restored, recovered) =
+        let (mut restored, recovered) =
             BlockProducer::recover_rotation(config(&genesis), &genesis, &keys, &storage).unwrap();
         assert_eq!(recovered, trusted);
         assert_eq!(restored.rotation_state(), Some(trusted.current()));
         assert_eq!(restored.height(), 4);
+        verify_recovered_batch(&mut restored, &recovered, &storage);
         verify_retained_stream(&genesis, &keys, &storage, &trusted);
     }
 }
@@ -422,4 +423,115 @@ fn verify_retained_stream(
         stream.apply(&handoff).unwrap();
     }
     assert_eq!(&stream, trusted);
+}
+
+#[test]
+fn verified_transition_cache_matches_revalidation_and_cannot_cross_a_height() {
+    let (genesis, keys) = funded();
+    let (_dir, mut storage) = storage(&genesis, false);
+    let mut trusted = HandoffVerifier::new(&genesis, &keys).unwrap();
+    let mut cached = open_producer(&genesis, &storage, &trusted);
+    let reference = open_producer(&genesis, &storage, &trusted);
+    cached.submit_transaction(payment(99)).unwrap();
+    cached
+        .set_vrf_batch(support::batch(trusted.current()))
+        .unwrap();
+    let proposal = cached.produce_block().unwrap();
+    assert_eq!(
+        cached
+            .execute_received_block(proposal.block.clone())
+            .unwrap(),
+        reference
+            .execute_received_block(proposal.block.clone())
+            .unwrap()
+    );
+    let mut imported = open_producer(&genesis, &storage, &trusted);
+    imported.prepare_received_vrf(&proposal.block).unwrap();
+    assert_eq!(
+        imported
+            .execute_received_block(proposal.block.clone())
+            .unwrap(),
+        proposal
+    );
+    for mutation in 0..4 {
+        let mut changed = proposal.block.clone();
+        match mutation {
+            0 => changed.header.parent.0[0] ^= 1,
+            1 => changed.header.height += 1,
+            2 => changed.transactions[0].payload[60] ^= 1,
+            _ => {
+                changed.transactions[0].payload.pop();
+            }
+        }
+        assert!(imported.prepare_received_vrf(&changed).is_err());
+        assert!(imported.execute_received_block(changed.clone()).is_err());
+        assert!(reference.execute_received_block(changed).is_err());
+        assert_eq!(
+            imported
+                .execute_received_block(proposal.block.clone())
+                .unwrap(),
+            proposal
+        );
+    }
+    let certificate = support::sign(trusted.current(), &proposal.block.header);
+    let handoff = cached.rotation_handoff(&proposal, &certificate).unwrap();
+    cached
+        .commit_certified_block(
+            &proposal,
+            &certificate,
+            &trusted.current().context().unwrap(),
+            &mut storage,
+        )
+        .unwrap();
+    trusted.apply(&handoff).unwrap();
+    assert!(cached.produce_block().is_err());
+    assert!(cached.prepare_received_vrf(&proposal.block).is_err());
+    cached
+        .set_vrf_batch(support::batch(trusted.current()))
+        .unwrap();
+    assert_eq!(cached.produce_block().unwrap().block.header.height, 2);
+}
+
+#[test]
+#[ignore = "local comparative measurement; correctness is checked separately without timing assumptions"]
+fn measure_verified_transition_cache() {
+    let (genesis, keys) = funded();
+    let (_dir, storage) = storage(&genesis, false);
+    let trusted = HandoffVerifier::new(&genesis, &keys).unwrap();
+    let mut cached = open_producer(&genesis, &storage, &trusted);
+    let reference = open_producer(&genesis, &storage, &trusted);
+    cached.submit_transaction(payment(99)).unwrap();
+    cached.submit_transaction(deployment()).unwrap();
+    cached
+        .set_vrf_batch(support::batch(trusted.current()))
+        .unwrap();
+    let proposal = cached.produce_block().unwrap();
+    for (name, producer) in [("reference", &reference), ("cached", &cached)] {
+        let start = std::time::Instant::now();
+        for _ in 0..20 {
+            let actual = producer
+                .execute_received_block(proposal.block.clone())
+                .unwrap();
+            assert_eq!(actual, proposal);
+            std::hint::black_box(actual);
+        }
+        println!(
+            "{name}: {} microseconds for 20 identical mixed-lane blocks",
+            start.elapsed().as_micros()
+        );
+    }
+}
+
+fn verify_recovered_batch(
+    restored: &mut BlockProducer,
+    recovered: &HandoffVerifier,
+    storage: &ChainStorage,
+) {
+    assert!(restored.produce_block().is_err());
+    let last = node::handoff::read_handoff(storage, 3).unwrap().unwrap();
+    assert!(restored.set_vrf_batch(last.contributions).is_err());
+    restored
+        .set_vrf_batch(support::batch(recovered.current()))
+        .unwrap();
+    assert_eq!(restored.produce_block().unwrap().block.header.height, 4);
 }

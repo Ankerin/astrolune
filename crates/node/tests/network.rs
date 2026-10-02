@@ -1236,3 +1236,100 @@ fn reject_stale_contribution(
     .unwrap();
     assert_eq!(nodes[0].receive(&packet).unwrap(), 1);
 }
+
+#[test]
+fn recovered_evidence_authenticates_different_rotating_committees_in_one_history() {
+    let fixture = Fixture::with_profile(4, 1, 2, 3);
+    let mut nodes: Vec<_> = (1..=4).map(|index| fixture.open(index)).collect();
+    let start = Instant::now();
+    for step in 0..300 {
+        exchange(&mut nodes, start + Duration::from_millis(step * 20));
+        if nodes[0].request().height >= 5 {
+            break;
+        }
+    }
+    assert!(nodes[0].request().height >= 5);
+    let keys: Vec<_> = (1..=4)
+        .map(|seed| ed25519_public_key(&[seed; 32]))
+        .collect();
+    let mut trusted = consensus::rotation::HandoffVerifier::new(&fixture.genesis, &keys).unwrap();
+    let directory = fixture.path.join("1/equivocation");
+    std::fs::create_dir(&directory).unwrap();
+    let mut proofs = Vec::new();
+    for height in 1..=3 {
+        if height != 2 {
+            let context = trusted.current().context().unwrap();
+            let seed = (1..=4)
+                .find(|seed| {
+                    let id = ValidatorId(blake2s(&ed25519_public_key(&[*seed; 32])).0);
+                    context.voting_power(id).is_some()
+                        && proofs
+                            .iter()
+                            .all(|proof: &consensus::DoubleVoteEvidence| proof.voter() != id)
+                })
+                .unwrap();
+            let mut votes = [None, Some(Hash256([9; 32]))].map(|block| consensus::Vote {
+                chain_id: 42,
+                committee_root: context.root(),
+                height,
+                round: 0,
+                phase: consensus::VotePhase::Prevote,
+                block,
+                voter: ValidatorId(blake2s(&ed25519_public_key(&[seed; 32])).0),
+                signature: [0; 64],
+            });
+            for vote in &mut votes {
+                vote.signature = ed25519_sign(&[seed; 32], &vote.signing_hash().0);
+            }
+            let [first, second] = votes;
+            let proof = consensus::DoubleVoteEvidence::from_votes(&context, first, second).unwrap();
+            std::fs::write(
+                directory.join(format!("{}.bin", proof.voter())),
+                proof.encode(),
+            )
+            .unwrap();
+            proofs.push(proof);
+        }
+        trusted
+            .apply(
+                &node::handoff::read_handoff(nodes[0].storage(), height)
+                    .unwrap()
+                    .unwrap(),
+            )
+            .unwrap();
+    }
+    drop(nodes);
+    let recovered = fixture.open(1);
+    assert_eq!(recovered.evidence().count(), 2);
+    assert!(
+        proofs
+            .iter()
+            .all(|proof| recovered.evidence().any(|stored| stored == proof))
+    );
+    drop(recovered);
+    let mut corrupt = proofs[0].encode();
+    corrupt[379] ^= 1;
+    std::fs::write(
+        directory.join(format!("{}.bin", proofs[0].voter())),
+        corrupt,
+    )
+    .unwrap();
+    let signer = DurableSigner::open(
+        fixture.path.join("1/signing.journal"),
+        SigningContext {
+            chain_id: 42,
+            genesis: fixture.network.genesis_hash(),
+        },
+        [1; 32],
+    )
+    .unwrap();
+    assert!(
+        NetworkNode::open(
+            fixture.network.clone(),
+            &fixture.path.join("1"),
+            signer,
+            Duration::from_millis(100)
+        )
+        .is_err()
+    );
+}

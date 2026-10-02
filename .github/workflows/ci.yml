@@ -119,7 +119,7 @@ jobs:
           "$bin/daemon" --data-dir "$data_dir" --blocks 3 --p2p-listen 127.0.0.1:0 --rpc-listen 127.0.0.2:0
           "$bin/daemon" --data-dir "$data_dir" --blocks 2 --p2p-listen 127.0.0.1:0 --rpc-listen 127.0.0.2:0
           "$bin/daemon" --data-dir "$data_dir" --blocks 0
-      - name: Reproducible archive regression tests
+      - name: Archive reproducibility and independent protocol fixtures
         run: python -B -m unittest discover -s .github/scripts -p 'test_*.py' -v
       - name: Package binaries with checksums and build metadata
         run: python .github/scripts/package-build.py ${{ matrix.target }}

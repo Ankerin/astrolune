@@ -107,6 +107,8 @@ certified state/receipt queries, authenticated finality waiting and on-chain DNS
 
 Distributed calibration, interoperability suite, long fuzz campaigns, reproducible releases, dependency audit, independent cryptography/consensus/runtime/security reviews, key ceremonies, and incident/operator runbooks.
 
+Supported fixed/rotating wire histories now have 50 frozen compatibility fixtures, authenticated re-execution, independent Python commitment checks and a million-input deterministic mutation campaign (now 71 seeds, including bounded historical evidence and admission authorization); [scope](41-protocol-compatibility.md).
+
 The concise checklist is maintained in [`../ROADMAP.md`](../ROADMAP.md).
 
 ## 8.5 Required continuous gates
@@ -119,11 +121,11 @@ Unsafe Rust remains forbidden except in the dedicated wasm32 FFI module; [docume
 
 Before production implementation, resolve:
 
-1. PoTB scoring, admission, penalties, evidence, governance, and formal claims.
+1. Active PoTB scoring, admission execution, penalties, evidence inclusion, governance, and formal claims. Explicit incumbent-quorum admission authorization and its CLI are [implemented](43-quorum-admission.md).
 2. Alternative availability policies beyond the implemented complete-roster private-network profile.
 3. Rotating weighted BFT lock, unlock, timeout, and handoff rules.
-4. Canonical encoding and hash suite.
-5. Cross-platform contract artifact qualification; bounded offline source reconstruction, ABI-v2 WebAssembly, its host SDK and Rust 1.98.1 builds are implemented.
+4. Versioned activation of future protocol changes; current encoding/hash compatibility is fixed by the [literal corpus](41-protocol-compatibility.md).
+5. Cross-platform contract artifact qualification; bounded offline source reconstruction, ABI-v2 WebAssembly, its host SDK and Rust 1.99.0 builds are implemented.
 6. Production state indexing and concrete durable chain database engine; the reference Merkle commitment is specified.
 7. Fees, transaction ordering, anti-MEV policy, and lane borrowing.
 8. Adaptive-capacity observation, manipulation resistance, and activation.

@@ -17,6 +17,7 @@ use std::path::PathBuf;
 
 use config::{NetworkConfig, NodeConfig, SecretRef};
 
+mod admission;
 mod contracts;
 mod evidence;
 mod handoffs;
@@ -90,8 +91,18 @@ Commands:
            Sign a contract call; keys-file contains one hex local key per line
   inspect-transaction <file>  Verify and display a payment or contract envelope
   submit <file> [rpc-address]  Send a saved transaction once; acceptance is not finality
-  evidence-create <genesis> <validators> <vote-a> <vote-b> <output>  Verify and save a double-vote proof
+  evidence-create <genesis> <validators> <vote-a> <vote-b> <output> [rpc-address]  Verify and save a double-vote proof
   evidence-verify <genesis> <validators> <proof>  Independently verify a double-vote proof
+  admission-request <genesis> <validators> <candidate-seed-or-vault> <height> <output> [rpc-address]
+           Save candidate consent with independently authenticated committee history
+  admission-inspect <genesis> <validators> <request>
+           Inspect candidate consent and exact admission context offline
+  admission-approve <genesis> <validators> <request> <validator-seed> <journal> <output>
+           Explicitly approve using the incumbent's protected signer
+  admission-assemble <genesis> <validators> <request> <output> <approval>...
+           Require more than two thirds of incumbent voting power
+  admission-verify <genesis> <validators> <request> <certificate>
+           Verify saved authorization; existing profiles do not activate membership
   vrf-prove <genesis> <seed-file> <epoch> <height> <parent-randomness> <committee|producer> <round> <output>
            Create a registered validator's context-bound VRF proof offline
   vrf-verify <genesis> <public-key> <epoch> <height> <parent-randomness> <committee|producer> <round> <proof>
@@ -161,6 +172,10 @@ fn run() -> Result<(), CliError> {
             contracts::run(command, &std::env::args_os().skip(2).collect::<Vec<_>>())
         }
         Some(command @ ("evidence-create" | "evidence-verify")) => evidence::run(command),
+        Some(
+            command @ ("admission-request" | "admission-inspect" | "admission-approve"
+            | "admission-assemble" | "admission-verify"),
+        ) => admission::run(command, &std::env::args_os().skip(2).collect::<Vec<_>>()),
         Some(command @ ("vrf-prove" | "vrf-verify")) => {
             vrf::run(command, &std::env::args_os().skip(2).collect::<Vec<_>>())
         }

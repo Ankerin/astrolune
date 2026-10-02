@@ -104,6 +104,7 @@ impl CommitteeHandoff {
 pub struct HandoffVerifier {
     current: CommitteeState,
     parent: Hash256,
+    history: crate::history::CommitteeHistory,
 }
 
 impl HandoffVerifier {
@@ -112,6 +113,7 @@ impl HandoffVerifier {
         let current = CommitteeState::from_genesis(genesis, keys)?;
         Ok(Self {
             parent: current.genesis(),
+            history: crate::history::CommitteeHistory::new(current.chain_id(), current.genesis())?,
             current,
         })
     }
@@ -120,6 +122,13 @@ impl HandoffVerifier {
     #[must_use]
     pub const fn current(&self) -> &CommitteeState {
         &self.current
+    }
+
+    /// Independently authenticated history of committees that finalized applied handoffs.
+    /// This local verifier commitment does not activate policy in genesis-v1/v2 state.
+    #[must_use]
+    pub const fn history(&self) -> &crate::history::CommitteeHistory {
+        &self.history
     }
 
     /// Hash of the last verified finalized header, or trusted genesis at height zero.
@@ -163,6 +172,9 @@ impl HandoffVerifier {
         if value != Some(expected.as_slice()) {
             return Err(ConsensusError::InvalidTransition);
         }
+        let mut history = self.history.clone();
+        history.append(&self.current.context()?)?;
+        self.history = history;
         self.parent = handoff.header.compute_hash();
         self.current = next;
         Ok(())

@@ -5,6 +5,7 @@
 
 #![forbid(unsafe_code)]
 
+pub mod admission;
 mod durable;
 pub mod error;
 mod journal;

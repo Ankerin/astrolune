@@ -6,12 +6,14 @@
 #![forbid(unsafe_code)]
 #![allow(clippy::missing_errors_doc)]
 
+pub mod admission;
 pub mod authenticated;
 pub mod certificate;
 pub mod committee;
 pub mod error;
 pub mod evidence;
 pub mod finality;
+pub mod history;
 pub mod local;
 pub mod potb;
 pub mod prevote;

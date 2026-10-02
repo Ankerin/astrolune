@@ -164,7 +164,7 @@ pub struct BlockProducer {
     /// Genesis-backed chains use authenticated native payments.
     account_execution: bool,
     rotation: Option<consensus::rotation::CommitteeState>,
-    contributions: Option<consensus::rotation::VrfBatch>,
+    contributions: Option<rotation::VerifiedTransition>,
 }
 
 impl BlockProducer {

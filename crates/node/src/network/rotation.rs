@@ -4,9 +4,9 @@
 //! Explicit height handoff, standby participation and full-roster proof collection.
 
 use super::{
-    AuthenticatedCommittee, BlockProducer, ChainSigner, ChainStorage, ContributionPool,
-    DurableSigner, HandoffVerifier, LocalBft, NetworkNode, NetworkNodeError, RoundRobinValidator,
-    Signer, StaticNetwork, ValidatorId, VrfContribution, input, local,
+    BlockProducer, ChainSigner, ChainStorage, ContributionPool, DurableSigner, HandoffVerifier,
+    LocalBft, NetworkNode, NetworkNodeError, RoundRobinValidator, Signer, StaticNetwork,
+    ValidatorId, VrfContribution, input, local,
 };
 
 type HeightBinding = (
@@ -46,6 +46,7 @@ impl NetworkNode {
         committee
             .verify_certificate(certificate, &block.header)
             .map_err(input)?;
+        self.producer_mut().prepare_received_vrf(&block)?;
         let proposal = self.producer().execute_received_block(block)?;
         if let Some(participant) = self.participant.as_mut() {
             participant.commit_finalized(&proposal, certificate, &mut self.storage)?;
@@ -165,27 +166,42 @@ impl NetworkNode {
 }
 
 impl StaticNetwork {
-    pub(crate) fn historical_committee(
+    /// Replays authority once for the bounded evidence outbox, rather than once per offender.
+    pub(crate) fn verify_evidence_history(
         &self,
         storage: &ChainStorage,
-        height: u64,
-    ) -> Result<AuthenticatedCommittee, NetworkNodeError> {
-        if !self.rotating() {
-            return self.committee(height);
+        proofs: &std::collections::BTreeMap<ValidatorId, consensus::DoubleVoteEvidence>,
+    ) -> Result<(), NetworkNodeError> {
+        if proofs.len() > super::MAX_NETWORK_VALIDATORS {
+            return Err(local("evidence roster exceeds its bound"));
         }
+        let mut ordered: Vec<_> = proofs.values().collect();
+        ordered.sort_by_key(|proof| (proof.height(), proof.voter()));
+        let mut trusted = if self.rotating() {
+            Some(HandoffVerifier::new(&self.genesis, &self.keys).map_err(local)?)
+        } else {
+            None
+        };
         let head = storage
             .checkpoint()
             .ok_or_else(|| local("missing checkpoint"))?;
-        if height == 0 || height > head.height.saturating_add(1) {
-            return Err(local("evidence height is not authenticated"));
+        for proof in ordered {
+            let committee = if let Some(trusted) = &mut trusted {
+                if proof.height() == 0 || proof.height() > head.height.saturating_add(1) {
+                    return Err(local("evidence height is not authenticated"));
+                }
+                while trusted.current().height() < proof.height() {
+                    let handoff = crate::handoff::read_handoff(storage, trusted.current().height())
+                        .map_err(local)?
+                        .ok_or_else(|| local("missing historical committee handoff"))?;
+                    trusted.apply(&handoff).map_err(local)?;
+                }
+                trusted.current().context().map_err(local)?
+            } else {
+                self.committee(proof.height())?
+            };
+            proof.verify(&committee).map_err(local)?;
         }
-        let mut trusted = HandoffVerifier::new(&self.genesis, &self.keys).map_err(local)?;
-        for previous in 1..height {
-            let handoff = crate::handoff::read_handoff(storage, previous)
-                .map_err(local)?
-                .ok_or_else(|| local("missing historical committee handoff"))?;
-            trusted.apply(&handoff).map_err(local)?;
-        }
-        trusted.current().context().map_err(local)
+        Ok(())
     }
 }

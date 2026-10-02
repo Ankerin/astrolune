@@ -18,6 +18,13 @@ use super::{
     compute_transactions_root, hash_transaction,
 };
 
+// Only installed after complete verification against this producer's private current state.
+// Successful commit clears it; failed publication preserves it with the unchanged parent.
+pub(super) struct VerifiedTransition {
+    batch: VrfBatch,
+    next: CommitteeState,
+}
+
 impl BlockProducer {
     /// Replays complete stored rotating history from independently trusted genesis.
     /// Every old quorum, full VRF batch and application transition is rechecked;
@@ -52,6 +59,7 @@ impl BlockProducer {
                 .ok_or_else(|| invalid("missing finalized rotating block"))?;
             let certificate = FinalityCertificate::decode(&encoded).map_err(invalid)?;
             trusted.verify_header(&block.header, &certificate)?;
+            producer.prepare_received_vrf(&block)?;
             let proposal = producer.execute_received_block(block)?;
             let diffs: Vec<_> = proposal
                 .outputs
@@ -68,6 +76,7 @@ impl BlockProducer {
             producer.height = trusted.current().height();
             producer.parent_hash = trusted.parent();
             producer.rotation = Some(trusted.current().clone());
+            producer.contributions = None;
         }
         if producer.state.root() != head.state_root
             || producer.state.root() != storage.state().root()
@@ -80,8 +89,8 @@ impl BlockProducer {
 
     /// Explicitly enables rotation using independently authenticated committee state.
     /// The verifier establishes both committee authority and exact parent ancestry.
-    /// An arbitrary decoded state cannot be used as a trust anchor. Existing daemon profiles
-    /// do not call this API. Recovery checks the exact persisted next-state bytes.
+    /// An arbitrary decoded state cannot be used as a trust anchor. Genesis-v2 daemons
+    /// activate this API explicitly. Recovery checks the exact persisted next-state bytes.
     pub fn with_rotation(mut self, trusted: &HandoffVerifier) -> Result<Self, ProducerError> {
         let current = trusted.current().clone();
         let encoded = current.to_bytes().map_err(invalid)?;
@@ -115,11 +124,19 @@ impl BlockProducer {
     /// This does not change voting authority or persist the transition. Invalid
     /// replacement attempts leave any previously installed complete batch intact.
     pub fn set_vrf_batch(&mut self, batch: VrfBatch) -> Result<(), ProducerError> {
-        self.rotation
+        if self
+            .contributions
+            .as_ref()
+            .is_some_and(|verified| verified.batch == batch)
+        {
+            return Ok(());
+        }
+        let next = self
+            .rotation
             .as_ref()
             .ok_or(ConsensusError::InvalidTransition)?
             .transition(&batch)?;
-        self.contributions = Some(batch);
+        self.contributions = Some(VerifiedTransition { batch, next });
         Ok(())
     }
 
@@ -217,11 +234,11 @@ impl BlockProducer {
             .rotation
             .as_ref()
             .ok_or(ConsensusError::InvalidTransition)?;
-        let batch = self
+        let verified = self
             .contributions
             .as_ref()
             .ok_or_else(|| invalid("complete VRF batch is unavailable"))?;
-        let (transaction, output) = system_transition(current, batch)?;
+        let (transaction, output) = self.system_transition(current, &verified.batch)?;
         if transaction::estimate_encoded_len(&transaction) > self.config.max_transaction_bytes {
             return Err(invalid(
                 "VRF system envelope exceeds configured transaction limit",
@@ -270,7 +287,7 @@ impl BlockProducer {
             return Err(ConsensusError::InvalidTransition.into());
         }
         let batch = VrfBatch::from_bytes(&first.payload).map_err(invalid)?;
-        let (expected, output) = system_transition(current, &batch)?;
+        let (expected, output) = self.system_transition(current, &batch)?;
         if *first != expected {
             return Err(ConsensusError::InvalidTransition.into());
         }
@@ -282,6 +299,37 @@ impl BlockProducer {
             self.execute_application_transactions(staged, applications, capacity)?;
         outputs.insert(0, output);
         Ok((outputs, root))
+    }
+    fn system_transition(
+        &self,
+        current: &CommitteeState,
+        batch: &VrfBatch,
+    ) -> Result<(Transaction, TransactionOutput), ProducerError> {
+        if let Some(verified) = &self.contributions
+            && verified.batch == *batch
+        {
+            return system_effect(current, batch, &verified.next);
+        }
+        let next = current.transition(batch)?;
+        system_effect(current, batch, &next)
+    }
+
+    /// Prepares a bounded verified transition cache for repeated execution of an imported block.
+    /// Header/body execution and certificate validation remain mandatory. Cached authority is never
+    /// installed: only a successful finalized commit changes the current committee.
+    pub fn prepare_received_vrf(&mut self, block: &types::Block) -> Result<(), ProducerError> {
+        if self.rotation.is_none() {
+            return Ok(());
+        }
+        if block.header.height != self.height || block.header.parent != self.parent_hash {
+            return Err(ConsensusError::InvalidTransition.into());
+        }
+        let first = block
+            .transactions
+            .first()
+            .filter(|tx| tx.lane == TransactionLane::System)
+            .ok_or(ConsensusError::InvalidTransition)?;
+        self.set_vrf_batch(VrfBatch::from_bytes(&first.payload).map_err(invalid)?)
     }
 }
 
@@ -308,11 +356,11 @@ fn handoff_for(
     })
 }
 
-fn system_transition(
+fn system_effect(
     current: &CommitteeState,
     batch: &VrfBatch,
+    next: &CommitteeState,
 ) -> Result<(Transaction, TransactionOutput), ProducerError> {
-    let next = current.transition(batch)?;
     let encoded = next.to_bytes().map_err(invalid)?;
     let resources = system_resources(current);
     let transaction = Transaction {

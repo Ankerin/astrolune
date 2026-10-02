@@ -48,6 +48,11 @@ For a concise source-tree map, read [`../ARCHITECTURE.md`](../ARCHITECTURE.md).
 | [36-private-network-operations.md](36-private-network-operations.md) | scoped peer discovery, bounded sessions, local metrics and authenticated observer recovery |
 | [37-protocol-qualification.md](37-protocol-qualification.md) | shared decoder/WASM mutation oracle, fuzz entry points and qualification limits |
 | [38-authenticated-committee-handoff.md](38-authenticated-committee-handoff.md) | complete VRF batches, old-quorum handoff, rotating system execution and authenticated recovery |
+| [39-toolchain-and-release-qualification.md](39-toolchain-and-release-qualification.md) | compiler/dependency upgrades, deterministic native artifacts and verification evidence |
+| [40-live-vrf-network.md](40-live-vrf-network.md) | live rotation, standby participation, historical proof catch-up and measured transition reuse |
+| [41-protocol-compatibility.md](41-protocol-compatibility.md) | frozen fixed/rotating histories, independent framing checks and compatibility policy |
+| [42-historical-potb-evidence.md](42-historical-potb-evidence.md) | bounded historical committee commitments, portable offence bundles and admission policy |
+- [Quorum admission authorization](43-quorum-admission.md)
 
 Legacy-shaped filenames such as `03-vm-and-gas.md`, `05-contract-languages.md`, and `06-deferred-services.md` are retained temporarily to preserve links. Their contents describe the current Rust architecture.
 

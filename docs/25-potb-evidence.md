@@ -25,8 +25,10 @@ also synced. The fixed reference profile has at most 32 members, so stored proof
 payloads total at most 12,160 bytes. Repeated accusations cannot grow this store.
 Observers currently do not collect gossip votes for evidence.
 
-Restart reauthenticates recognized proof files against the trusted genesis
-registry at their recorded heights. Corrupt/truncated files, identity mismatches
+Restart reauthenticates recognized proof files against their historical committee.
+For genesis-v2 networks it sorts the bounded proof set by height and verifies one
+shared handoff stream from trusted genesis; it does not replay the entire stream
+separately for every proof. Corrupt/truncated files, identity mismatches
 and symlinked proof paths fail closed; they are not silently repaired. A write
 failure propagates as a local error and stops the normal daemon driving path.
 An interrupted first write may therefore require operator investigation. This
@@ -36,13 +38,22 @@ independently verifiable.
 
 ## Operator commands
 
-`cli evidence-create <genesis> <validators> <vote-a> <vote-b> <output>` authenticates
-two binary votes and writes a canonical proof without overwriting an existing
-file. `cli evidence-verify <genesis> <validators> <proof>` verifies a saved proof,
-including a node's persisted outbox file, without modifying it. Inputs are
-bounded. Supply independently trusted genesis and the complete public-key
-registry; these commands support the fixed full-genesis committee profile.
-No private key is needed. Proof output is not an automatic on-chain penalty.
+`cli evidence-create <genesis> <validators> <vote-a> <vote-b> <output> [rpc-address]`
+authenticates two binary votes and writes a canonical proof without overwriting
+an existing file. Version-1 full-genesis committees need no RPC access. For a
+version-2 rotating committee, the optional address selects the node serving the
+historical handoffs (the usual local RPC address is the default). The command
+verifies at most 10,000 transitions under a shared 60-second deadline and saves
+`<output>.handoffs` only after both votes authenticate against that height's committee.
+An identity that has left the committee cannot create evidence for that height.
+
+`cli evidence-verify <genesis> <validators> <proof>` verifies a saved proof without
+modifying it. Rotating proofs require the matching `<proof>.handoffs` sidecar;
+keep both files together. A bare rotating-node outbox proof needs the same verified
+history before it can be used offline. Missing, truncated or foreign history is
+rejected. Inputs are bounded. Supply independently trusted genesis and the complete
+public-key registry. No private key is needed. Proof output is not an automatic
+on-chain penalty.
 
 Vote signatures in the existing protocol bind chain ID and committee root, not
 the genesis hash directly. Do not reuse chain IDs and identical voting contexts
@@ -84,6 +95,14 @@ transition protocol, finalized parameter activation, a vetted VRF/sampler,
 safe weighted committee handoff, admission policy and independent review. Locally
 observing an offence must never unilaterally change a node's quorum threshold.
 No stake is deducted by this change. Proposal-equivocation evidence remains work.
+
+## Historical inclusion foundation
+
+[Document 42](42-historical-potb-evidence.md) specifies a bounded historical committee
+accumulator and portable offence bundle. Handoff verification authenticates this
+local history incrementally. Canonical on-chain inclusion and active penalties are
+still separate versioned activation work. Admission policy for the closed network
+requires authorization by strictly more than two thirds of incumbent voting power.
 
 ## Validation and claims
 

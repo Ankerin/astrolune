@@ -165,6 +165,7 @@ impl ObserverNode {
                 committee
                     .verify_certificate(&certificate, &block.header)
                     .map_err(input)?;
+                self.chain.producer.prepare_received_vrf(&block)?;
                 let proposal = self.chain.producer.execute_received_block(block)?;
                 self.chain.producer.commit_certified_block(
                     &proposal,

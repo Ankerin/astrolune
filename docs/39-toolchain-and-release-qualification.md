@@ -2,7 +2,7 @@
 
 # 39. Toolchain and release qualification
 
-The native workspace and restricted Rust contract profile pin Rust 1.98.1.
+The native workspace and restricted Rust contract profile pin Rust 1.99.0.
 `rust-toolchain.toml` installs Clippy, rustfmt, rust-analyzer and the
 `wasm32-unknown-unknown` target. On Windows, `tools/enter-dev.ps1` puts the
 rustup proxies ahead of older standalone Rust installations in the current shell.

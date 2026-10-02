@@ -53,3 +53,16 @@ Clippy with warnings denied, rustdoc and standalone fuzz-target compilation.
 The subsequent Rust 1.98.1 upgrade repeated those checks and adds reproducible
 native builds, deterministic archives and the legacy vault fixture; see
 [toolchain and release qualification](39-toolchain-and-release-qualification.md).
+
+On 2026-10-02 the shared oracle expanded to 64 seeds by adding 48 frozen protocol
+objects. The one-million-input deterministic campaign passed with 299,431 accepted
+decoder paths. [Document 41](41-protocol-compatibility.md) describes the corpus,
+independent Python checks and exact qualification scope.
+
+The historical-evidence extension adds three seeds, for 67 total. Its repeated
+one-million-input campaign passed with 295,800 accepted decoder paths; see
+[historical PoTB evidence](42-historical-potb-evidence.md).
+
+Admission intent, request, approval and certificate add four seeds, for 71 total.
+The repeated one-million-input campaign passed with 299,954 accepted decoder paths;
+see [quorum admission authorization](43-quorum-admission.md).

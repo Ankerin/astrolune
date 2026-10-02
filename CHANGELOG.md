@@ -8,6 +8,23 @@ All notable changes to AstroLune will be documented in this file. The format fol
 
 ### Fixed
 
+- Refresh the 2026-10-02 stable toolchain to Rust 1.99.0 and `wat` 1.260.0,
+  including an explicitly new contract source-package compiler profile.
+
+- Add candidate consent, typed protected admission approvals, incumbent weighted
+  quorum certificates and an offline CLI using authenticated committee sidecars.
+  Keep activation separate from existing genesis-v1/v2 execution and expand the
+  deterministic million-input campaign to 71 structured seeds.
+
+- Reuse one fully verified VRF transition across repeated execution without changing
+  canonical results or committee authority; verify recovered evidence through one
+  shared historical stream. Add cache equivalence and mixed execution measurements.
+- Authenticate CLI double-vote proofs against historical rotating committees and
+  retain bounded offline handoff sidecars; reject votes from former members.
+- Keep partial TCP reads/writes on their original absolute deadline when Windows
+  reports an early socket timeout. No transaction or whole RPC call is resubmitted;
+  real connection failures still propagate.
+
 - Activate explicit genesis-v2 VRF networking with complete-roster proof gossip,
   protected standby participation, verified restart, persisted handoff RPC,
   bounded client catch-up, offline CLI proof sidecars and rotating DNS verification.
@@ -73,6 +90,14 @@ All notable changes to AstroLune will be documented in this file. The format fol
 - Make the codec fuzz package independently resolvable and add exact-byte re-encoding checks for transactions, state keys, and execution receipts.
 
 ### Added
+
+- Add bounded committee-history frontiers and portable historical double-vote bundles.
+  Verified handoffs build this local history atomically; active PoTB inclusion remains
+  an explicit future profile. Record quorum-authorized admission as the chosen policy.
+
+- Freeze 50 fixed/rotating protocol fixtures with authenticated replay and independent
+  Python framing/commitment checks; expand the shared oracle to 64 seeds and qualify
+  a one-million-input deterministic mutation campaign.
 
 - Scoped private-network peer discovery over mutual TLS, bounded reusable sessions,
   reconnect backoff, fixed-cardinality Prometheus metrics and authenticated history

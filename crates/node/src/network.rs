@@ -477,6 +477,7 @@ impl NetworkNode {
                 {
                     return Ok(());
                 }
+                self.producer_mut().prepare_received_vrf(&block)?;
                 self.participant()
                     .producer()
                     .execute_received_block(block.clone())?;
@@ -515,6 +516,7 @@ impl NetworkNode {
                         proof.as_ref(),
                     )
                     .map_err(input)?;
+                self.producer_mut().prepare_received_vrf(&block)?;
                 let proposal = SignedBlockProposal {
                     envelope,
                     proposal: self
@@ -815,6 +817,7 @@ impl NetworkNode {
                             proof.as_ref(),
                         )
                         .map_err(local)?;
+                    self.producer_mut().prepare_received_vrf(&block)?;
                     let proposal = SignedBlockProposal {
                         envelope,
                         proposal: self
@@ -840,6 +843,7 @@ impl NetworkNode {
                     if proof.block() != block.header.compute_hash() {
                         return Err(local("cached proof body mismatch"));
                     }
+                    self.producer_mut().prepare_received_vrf(&block)?;
                     self.participant()
                         .producer()
                         .execute_received_block(block.clone())?;

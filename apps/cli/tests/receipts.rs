@@ -246,7 +246,11 @@ fn wait_saves_only_authenticated_finality_and_timeout_never_resubmits() {
         &address,
     ]);
     assert!(!output.status.success());
-    assert!(String::from_utf8_lossy(&output.stderr).contains("timed out"));
+    assert!(
+        String::from_utf8_lossy(&output.stderr).contains("timed out"),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
     assert!(!fixture.0.join("timed-out").exists());
     worker.join().unwrap();
 }
