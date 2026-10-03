@@ -211,6 +211,73 @@ impl VerifiedVrfSampler {
         }
         Ok(selected)
     }
+
+    /// Only the `PoTB` transition may reweight a subset of a fully verified roster.
+    /// Keeping the original randomness prevents evidence/admission inclusion from
+    /// offering a choice of VRF entropy transcripts to the proposer.
+    pub(crate) fn with_policy_weights(
+        mut self,
+        roster: &[VrfValidator],
+    ) -> Result<Self, ConsensusError> {
+        let known: BTreeSet<_> = self.members.iter().map(|m| m.id).collect();
+        let mut members = BTreeMap::new();
+        let mut total = 0u128;
+        for validator in roster {
+            let id = ValidatorId(crypto::blake2s_hash(&validator.public_key).0);
+            if !known.contains(&id)
+                || validator.weight.0 == 0
+                || members.insert(id, validator.weight).is_some()
+            {
+                return Err(ConsensusError::InvalidCommittee);
+            }
+            total = total
+                .checked_add(validator.weight.0)
+                .ok_or(ConsensusError::InvalidCommittee)?;
+        }
+        if members.is_empty() {
+            return Err(ConsensusError::InvalidCommittee);
+        }
+        self.members = members
+            .into_iter()
+            .map(|(id, power)| CommitteeMember { id, power })
+            .collect();
+        Ok(self)
+    }
+
+    pub(crate) fn rotate_eligible(
+        &self,
+        current: &Committee,
+        target: usize,
+        count: usize,
+    ) -> Result<Committee, ConsensusError> {
+        current.total_power()?;
+        if self.input.role != VrfRole::Committee
+            || current.height.checked_add(1) != Some(self.input.height)
+            || target == 0
+            || target > self.members.len()
+            || count > target
+        {
+            return Err(ConsensusError::InvalidTransition);
+        }
+        if current.members.len() != target {
+            return self.select(target);
+        }
+        let mut retained: Vec<_> = current.members[count..]
+            .iter()
+            .filter_map(|old| self.members.iter().find(|m| m.id == old.id).copied())
+            .collect();
+        let pool = self
+            .members
+            .iter()
+            .filter(|m| !retained.iter().any(|r| r.id == m.id))
+            .copied()
+            .collect();
+        retained.extend(self.draw(pool, target - retained.len())?);
+        Ok(Committee {
+            height: self.input.height,
+            members: retained,
+        })
+    }
 }
 
 fn draw_ticket(seed: Hash256, seat: u64, total: u128) -> Result<u128, ConsensusError> {

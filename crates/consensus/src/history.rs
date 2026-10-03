@@ -46,6 +46,18 @@ impl CommitteeHistory {
         self.entries
     }
 
+    /// Chain identifier committed by every historical leaf.
+    #[must_use]
+    pub const fn chain_id(&self) -> u32 {
+        self.chain_id
+    }
+
+    /// Independently authenticated genesis namespace of this history.
+    #[must_use]
+    pub const fn genesis(&self) -> Hash256 {
+        self.genesis
+    }
+
     /// Commits the namespace, exact count and ordered tree root.
     #[must_use]
     pub fn commitment(&self) -> Hash256 {

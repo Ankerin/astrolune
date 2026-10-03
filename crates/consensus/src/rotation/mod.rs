@@ -10,6 +10,7 @@
 mod contribution;
 mod encoding;
 mod handoff;
+mod potb;
 
 pub use contribution::{ContributionPool, VrfBatch, VrfContribution};
 pub use handoff::{CommitteeHandoff, HandoffVerifier};

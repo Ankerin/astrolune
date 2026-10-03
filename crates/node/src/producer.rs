@@ -13,6 +13,7 @@
 //!              -> atomic finalized storage
 //! ```
 
+mod potb;
 mod rotation;
 
 use std::collections::BTreeMap;
@@ -165,6 +166,11 @@ pub struct BlockProducer {
     account_execution: bool,
     rotation: Option<consensus::rotation::CommitteeState>,
     contributions: Option<rotation::VerifiedTransition>,
+    potb: Option<consensus::potb_transition::PotbVerifier>,
+    potb_batch: Option<(
+        consensus::potb_transition::PotbBatch,
+        consensus::potb_transition::PotbState,
+    )>,
 }
 
 impl BlockProducer {
@@ -224,6 +230,8 @@ impl BlockProducer {
             account_execution: false,
             rotation: None,
             contributions: None,
+            potb: None,
+            potb_batch: None,
         }
     }
 
@@ -257,6 +265,8 @@ impl BlockProducer {
             account_execution: false,
             rotation: None,
             contributions: None,
+            potb: None,
+            potb_batch: None,
         }
     }
 
@@ -347,7 +357,9 @@ impl BlockProducer {
     /// state root cannot be computed.
     pub fn produce_block(&mut self) -> Result<BlockProposal, ProducerError> {
         self.ensure_rotation_profile()?;
-        if self.rotation.is_some() {
+        if self.potb.is_some() {
+            self.produce_potb_block()
+        } else if self.rotation.is_some() {
             self.produce_rotating_block()
         } else {
             self.produce_application_block(
@@ -505,6 +517,7 @@ impl BlockProducer {
         let (staged, diffs) = self.prepare_verified(proposal)?;
 
         let next_rotation = self.next_rotation(&staged)?;
+        let next_potb = self.next_potb(proposal, &certificate, &staged)?;
 
         let effects = if self.account_execution {
             let snapshot = staged.snapshot().map_err(ExecutionError::from)?;
@@ -544,6 +557,8 @@ impl BlockProducer {
         self.state = staged;
         self.rotation = next_rotation;
         self.contributions = None;
+        self.potb = next_potb;
+        self.potb_batch = None;
         let selected_keys: Vec<_> = proposal
             .block
             .transactions

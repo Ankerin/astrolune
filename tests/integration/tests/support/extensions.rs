@@ -12,8 +12,11 @@ use std::{
 use types::{Address, Hash256, Resources};
 
 pub fn check(bytes: &[u8]) -> usize {
-    let mut accepted =
-        check_rotation(bytes) + check_base(bytes) + check_history(bytes) + check_admission(bytes);
+    let mut accepted = check_rotation(bytes)
+        + check_base(bytes)
+        + check_history(bytes)
+        + check_admission(bytes)
+        + check_potb(bytes);
     if let Ok(proof) = crypto::VrfOutput::decode(bytes) {
         assert_eq!(proof.encode().unwrap().as_slice(), bytes);
         let key = crypto::blake2s::ed25519_public_key(&[1; 32]);
@@ -193,6 +196,28 @@ fn check_admission(bytes: &[u8]) -> usize {
         accepted += 1;
     }
     if let Ok(value) = AdmissionCertificate::from_bytes(bytes) {
+        assert_eq!(value.to_bytes().unwrap(), bytes);
+        accepted += 1;
+    }
+    accepted
+}
+
+fn check_potb(bytes: &[u8]) -> usize {
+    use consensus::potb_transition::{PotbBatch, PotbConfiguration, PotbHandoff, PotbState};
+    let mut accepted = 0;
+    if let Ok(value) = PotbConfiguration::from_bytes(bytes) {
+        assert_eq!(value.to_bytes(), bytes);
+        accepted += 1;
+    }
+    if let Ok(value) = PotbState::from_bytes(bytes) {
+        assert_eq!(value.to_bytes().unwrap(), bytes);
+        accepted += 1;
+    }
+    if let Ok(value) = PotbBatch::from_bytes(bytes) {
+        assert_eq!(value.to_bytes().unwrap(), bytes);
+        accepted += 1;
+    }
+    if let Ok(value) = PotbHandoff::from_bytes(bytes) {
         assert_eq!(value.to_bytes().unwrap(), bytes);
         accepted += 1;
     }

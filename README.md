@@ -12,14 +12,14 @@ AstroLune explores **Proof of Trusted Behavior (PoTB)**, weighted VRF committees
 gradual committee rotation, and prevote/precommit BFT finality in a modular Rust workspace.
 
 <p>
-  <a href="https://github.com/Ankerin/astrolune/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/Ankerin/astrolune/ci.yml?branch=master&style=for-the-badge&logo=githubactions&logoColor=white&label=CI" alt="CI status"></a>
-  <a href="https://github.com/Ankerin/astrolune/actions/workflows/security.yml"><img src="https://img.shields.io/github/actions/workflow/status/Ankerin/astrolune/security.yml?branch=master&style=for-the-badge&logo=github&logoColor=white&label=Security" alt="Security workflow status"></a>
-  <a href="https://github.com/Ankerin/astrolune/actions/workflows/markdown-links.yml"><img src="https://img.shields.io/github/actions/workflow/status/Ankerin/astrolune/markdown-links.yml?branch=master&style=for-the-badge&logo=markdown&logoColor=white&label=Links" alt="Markdown links workflow status"></a>
+  <a href="https://github.com/astrolune/astrolune/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/astrolune/astrolune/ci.yml?branch=master&style=for-the-badge&logo=githubactions&logoColor=white&label=CI" alt="CI status"></a>
+  <a href="https://github.com/astrolune/astrolune/actions/workflows/security.yml"><img src="https://img.shields.io/github/actions/workflow/status/astrolune/astrolune/security.yml?branch=master&style=for-the-badge&logo=github&logoColor=white&label=Security" alt="Security workflow status"></a>
+  <a href="https://github.com/astrolune/astrolune/actions/workflows/markdown-links.yml"><img src="https://img.shields.io/github/actions/workflow/status/astrolune/astrolune/markdown-links.yml?branch=master&style=for-the-badge&logo=markdown&logoColor=white&label=Links" alt="Markdown links workflow status"></a>
 </p>
 <p>
   <img src="https://img.shields.io/badge/Rust-1.99.0%20%7C%20Edition%202024-dea584?style=for-the-badge&logo=rust&logoColor=white" alt="Rust 1.99.0 and Edition 2024">
-  <a href="LICENSE"><img src="https://img.shields.io/github/license/Ankerin/astrolune?style=for-the-badge&logo=opensourceinitiative&logoColor=white" alt="MIT License"></a>
-  <a href="https://github.com/Ankerin/astrolune"><img src="https://img.shields.io/github/repo-size/Ankerin/astrolune?style=for-the-badge&logo=github&logoColor=white" alt="Repository size"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/github/license/astrolune/astrolune?style=for-the-badge&logo=opensourceinitiative&logoColor=white" alt="MIT License"></a>
+  <a href="https://github.com/astrolune/astrolune"><img src="https://img.shields.io/github/repo-size/astrolune/astrolune?style=for-the-badge&logo=github&logoColor=white" alt="Repository size"></a>
 </p>
 
 <p>
@@ -133,7 +133,7 @@ Cryptographic foundations use pinned BLAKE2s and Ed25519 backends; dependency ve
 Clone the repository and verify the complete workspace:
 
 ```sh
-git clone https://github.com/Ankerin/astrolune.git
+git clone https://github.com/astrolune/astrolune.git
 cd astrolune
 
 cargo metadata --no-deps --format-version 1

@@ -66,3 +66,11 @@ one-million-input campaign passed with 295,800 accepted decoder paths; see
 Admission intent, request, approval and certificate add four seeds, for 71 total.
 The repeated one-million-input campaign passed with 299,954 accepted decoder paths;
 see [quorum admission authorization](43-quorum-admission.md).
+
+On 2026-10-03 the explicit PoTB configuration/state/batch/handoff formats added
+seven structured seeds, for 78 total. The repeated one-million-input campaign
+passed with 292,867 accepted decoder paths. Eight separately frozen PoTB objects
+also passed authenticated Rust replay and independent Python framing, namespace,
+history and weight checks; [profile and remaining activation work](44-potb-state-transitions.md).
+The old 50 protocol fixtures remained unchanged. These counts are deterministic
+mutation results, not coverage-guided fuzz coverage.

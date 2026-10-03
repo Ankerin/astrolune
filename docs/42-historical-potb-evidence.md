@@ -65,9 +65,10 @@ For this closed network, admission is to require explicit authorization from the
 incumbent committee with voting power **strictly greater than two thirds**. This
 is the selected governance policy; a single administrator cannot substitute its
 signature for the quorum. The [request, protected approval, certificate and operator CLI](43-quorum-admission.md)
-are implemented. The activation sequence, canonical system-lane inclusion, active
-age weights and admission execution still need their versioned integration. Local observations and these new portable bundles alone
-must not change consensus power.
+are implemented. The [explicit PoTB producer profile](44-potb-state-transitions.md)
+now commits this history and implements canonical inclusion, active age weights
+and admission execution. Daemon activation remains open. Local observations and
+portable bundles outside finalized inclusion must not change consensus power.
 
 ## Checks
 

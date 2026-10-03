@@ -5,6 +5,8 @@
 
 #[path = "support/extensions.rs"]
 mod extensions;
+#[path = "../../../crates/consensus/tests/support/potb.rs"]
+mod potb_support;
 use contract_sdk::registry::{MAX_CALL, RegistryAction, RegistryCall, RegistryRecord};
 use crypto::{VrfInput, VrfRole};
 use state::StateDatabase;
@@ -88,6 +90,7 @@ fn seeds() -> Vec<Vec<u8>> {
     ];
     seeds.extend(rotation_seeds(&genesis, key));
     seeds.extend(admission_seeds(&genesis, key));
+    seeds.extend(potb_seeds());
     let directory = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("fixtures/protocol-v1");
     for line in include_str!("../fixtures/protocol-v1/MANIFEST.blake2s").lines() {
         let name = line.split_whitespace().nth(2).unwrap();
@@ -234,6 +237,38 @@ fn random(state: &mut u64) -> u64 {
     *state ^= *state >> 7;
     *state ^= *state << 17;
     *state
+}
+
+fn potb_seeds() -> Vec<Vec<u8>> {
+    use consensus::potb_transition::{PotbBatch, PotbVerifier};
+    let (config, keys) = potb_support::fixture();
+    let mut trusted = PotbVerifier::new(&config, &keys).unwrap();
+    let first = trusted.current().committee().clone();
+    let roots = vec![first.context().unwrap().root()];
+    let handoff = potb_support::handoff(&trusted, potb_support::batch(trusted.current()));
+    let mut seeds = vec![
+        config.to_bytes(),
+        trusted.current().to_bytes().unwrap(),
+        handoff.batch.to_bytes().unwrap(),
+        handoff.to_bytes().unwrap(),
+    ];
+    trusted.apply(&handoff).unwrap();
+    let evidence = potb_support::evidence(trusted.current(), &first, &roots, 1);
+    let admission = potb_support::admission(trusted.current(), trusted.parent(), 99);
+    let batch = PotbBatch::new(
+        potb_support::contributions(trusted.current()),
+        vec![evidence],
+        vec![admission],
+    )
+    .unwrap();
+    let handoff = potb_support::handoff(&trusted, batch);
+    trusted.apply(&handoff).unwrap();
+    seeds.extend([
+        trusted.current().to_bytes().unwrap(),
+        handoff.batch.to_bytes().unwrap(),
+        handoff.to_bytes().unwrap(),
+    ]);
+    seeds
 }
 fn campaign(rounds: usize) {
     let seeds = seeds();

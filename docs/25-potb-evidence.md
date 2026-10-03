@@ -100,9 +100,11 @@ No stake is deducted by this change. Proposal-equivocation evidence remains work
 
 [Document 42](42-historical-potb-evidence.md) specifies a bounded historical committee
 accumulator and portable offence bundle. Handoff verification authenticates this
-local history incrementally. Canonical on-chain inclusion and active penalties are
-still separate versioned activation work. Admission policy for the closed network
-requires authorization by strictly more than two thirds of incumbent voting power.
+local history incrementally. The [separate PoTB producer profile](44-potb-state-transitions.md)
+commits this frontier and implements canonical inclusion, active age weights,
+permanent exclusion and admission execution. Daemon activation remains open.
+Admission policy for the closed network requires authorization by strictly more
+than two thirds of incumbent voting power.
 
 ## Validation and claims
 

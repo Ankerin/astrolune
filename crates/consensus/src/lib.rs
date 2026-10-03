@@ -16,6 +16,7 @@ pub mod finality;
 pub mod history;
 pub mod local;
 pub mod potb;
+pub mod potb_transition;
 pub mod prevote;
 pub mod proposal;
 pub mod rotation;

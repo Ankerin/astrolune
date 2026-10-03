@@ -9,9 +9,10 @@ registered standby validators do not contribute power. A block precommit, a
 candidate signature or one administrator's permission cannot replace this quorum.
 
 The request, protected approval, certificate and operator CLI are implemented and
-tested. Genesis versions 1 and 2 do not execute admission certificates. Canonical
-system-lane inclusion, active PoTB weights, candidate provisioning and live roster
-changes remain activation work. No existing profile is silently reinterpreted.
+tested. Genesis versions 1 and 2 do not execute admission certificates. The
+[separate PoTB producer profile](44-potb-state-transitions.md) implements canonical
+system-lane inclusion and active weight/roster transitions. Daemon candidate
+provisioning and live networking remain activation work. No existing profile is silently reinterpreted.
 
 ## Signed context
 

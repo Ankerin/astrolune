@@ -53,6 +53,7 @@ For a concise source-tree map, read [`../ARCHITECTURE.md`](../ARCHITECTURE.md).
 | [41-protocol-compatibility.md](41-protocol-compatibility.md) | frozen fixed/rotating histories, independent framing checks and compatibility policy |
 | [42-historical-potb-evidence.md](42-historical-potb-evidence.md) | bounded historical committee commitments, portable offence bundles and admission policy |
 - [Quorum admission authorization](43-quorum-admission.md)
+- [Explicit PoTB state transitions](44-potb-state-transitions.md)
 
 Legacy-shaped filenames such as `03-vm-and-gas.md`, `05-contract-languages.md`, and `06-deferred-services.md` are retained temporarily to preserve links. Their contents describe the current Rust architecture.
 

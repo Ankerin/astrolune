@@ -98,6 +98,11 @@ impl BlockProducer {
         if self.parent_hash != trusted.parent()
             || !self.account_execution
             || self.rotation.is_some()
+            || self.potb.is_some()
+            || self
+                .state
+                .get(&consensus::potb_transition::potb_state_key())
+                .is_some()
             || current.height() != self.height
             || current.chain_id() != self.chain_id()
             || current.capacity() != self.config.block_capacity
@@ -164,6 +169,10 @@ impl BlockProducer {
         proposal: &BlockProposal,
         encoded: &[u8],
     ) -> Result<(), ProducerError> {
+        if let Some(trusted) = &self.potb {
+            let certificate = FinalityCertificate::decode(encoded).map_err(invalid)?;
+            trusted.verify_header(&proposal.block.header, &certificate)?;
+        }
         if let Some(current) = &self.rotation {
             let certificate = FinalityCertificate::decode(encoded).map_err(invalid)?;
             current
@@ -174,6 +183,11 @@ impl BlockProducer {
     }
     pub(super) fn check_rotation_committee(&self, root: Hash256) -> Result<(), ProducerError> {
         self.ensure_rotation_profile()?;
+        if let Some(trusted) = &self.potb
+            && trusted.current().committee().context()?.root() != root
+        {
+            return Err(ConsensusError::InvalidCommittee.into());
+        }
         if let Some(current) = &self.rotation
             && current.context()?.root() != root
         {
@@ -183,6 +197,16 @@ impl BlockProducer {
     }
 
     pub(super) fn ensure_rotation_profile(&self) -> Result<(), ProducerError> {
+        if self.potb.is_none()
+            && self
+                .state
+                .get(&consensus::potb_transition::potb_state_key())
+                .is_some()
+        {
+            return Err(invalid(
+                "persisted PoTB state requires authenticated PoTB recovery",
+            ));
+        }
         if self.rotation.is_none()
             && (self.state.get(&committee_state_key()).is_some()
                 || self
@@ -200,6 +224,9 @@ impl BlockProducer {
     }
 
     pub(super) fn admission_capacity(&self) -> Result<Resources, ProducerError> {
+        if self.potb.is_some() {
+            return self.potb_admission_capacity();
+        }
         if let Some(current) = &self.rotation {
             if self.config.max_block_transactions <= 1 {
                 return Err(ExecutionError::ResourceLimit.into());
@@ -275,6 +302,9 @@ impl BlockProducer {
         transactions: &[Transaction],
     ) -> Result<(Vec<TransactionOutput>, Hash256), ProducerError> {
         self.ensure_rotation_profile()?;
+        if self.potb.is_some() {
+            return self.execute_potb_transactions(staged, transactions);
+        }
         let Some(current) = &self.rotation else {
             return self
                 .execute_application_transactions(staged, transactions, self.config.block_capacity)
@@ -407,7 +437,7 @@ fn system_resources(current: &CommitteeState) -> Resources {
     }
 }
 
-fn remaining(capacity: Resources, used: Resources) -> Result<Resources, ProducerError> {
+pub(super) fn remaining(capacity: Resources, used: Resources) -> Result<Resources, ProducerError> {
     if !used.fits_in(capacity) {
         return Err(ExecutionError::ResourceLimit.into());
     }

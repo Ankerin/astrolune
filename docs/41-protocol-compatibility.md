@@ -61,3 +61,8 @@ existing supported profiles. API type names alone do not provide wire compatibil
 Both CI test profiles execute the Rust suite. The native Linux/Windows build jobs
 run the Python tests through the existing script-test gate. This change configures
 those checks locally and does not claim that hosted runs have completed.
+
+The [explicit PoTB producer profile](44-potb-state-transitions.md) now has eight
+additional literal fixtures in `tests/integration/fixtures/potb-v1`, with its own
+manifest, authenticated replay and independent Python framing/commitment checks.
+Those objects do not replace or reinterpret this document's 50 legacy fixtures.

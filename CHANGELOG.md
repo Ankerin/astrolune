@@ -95,6 +95,13 @@ All notable changes to AstroLune will be documented in this file. The format fol
 
 ### Added
 
+- Add a separately committed PoTB configuration, canonical evidence/admission
+  batches, active age weights, permanent exclusion records and old-quorum state
+  handoffs. Integrate the profile with explicit block production, reserved system
+  resources, atomic payment execution and authenticated replay on both storage
+  backends. Existing genesis-v1/v2 networks retain their rules; daemon activation
+  remains separate. Expand the shared mutation corpus to 78 structured seeds.
+
 - Add bounded committee-history frontiers and portable historical double-vote bundles.
   Verified handoffs build this local history atomically; active PoTB inclusion remains
   an explicit future profile. Record quorum-authorized admission as the chosen policy.
@@ -184,10 +191,4 @@ All notable changes to AstroLune will be documented in this file. The format fol
 - Validator-local persistence, finalized sync, configuration, keystore, telemetry, RPC, mempool, genesis, and canonical codec crates.
 - Workspace integration tests, CI, dependency checks, contribution templates, and project documentation.
 
-### Removed
-
-- C/C++ implementation architecture and primary C ABI.
-- ALVM, Trocto, Regol, and Kreep language architecture.
-- General-purpose user storage/share service scope.
-
-[Unreleased]: https://github.com/Ankerin/astrolune
+[Unreleased]: https://github.com/astrolune/astrolune
