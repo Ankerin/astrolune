@@ -4,8 +4,6 @@
 //! Offline authenticated history recovery and exclusive observer export without signing keys.
 
 use crate::{CliError, proofs::anchors, wallet};
-use codec::CanonicalEncode;
-use node::network::StaticNetwork;
 use std::{
     ffi::OsString,
     fs::{File, OpenOptions},
@@ -24,7 +22,7 @@ pub(super) fn run(command: &str, args: &[OsString]) -> Result<(), CliError> {
         return Err(error("invalid history arguments; run cli help"));
     }
     let (genesis, keys) = anchors(Path::new(&args[0]), Path::new(&args[1]))?;
-    let network = StaticNetwork::new(genesis.clone(), keys.clone()).map_err(error)?;
+    let network = genesis.network(keys.clone())?;
     let directory = Path::new(&args[2]);
     let minimum = wallet::integer(&args[3])?;
     let path = directory.join("chain.bin");

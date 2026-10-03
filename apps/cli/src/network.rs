@@ -58,6 +58,7 @@ pub(crate) fn devnet() -> Result<(), CliError> {
         with_observer,
         with_contracts,
         with_vrf,
+        with_potb,
     } = devnet_options()?;
     std::fs::create_dir(&directory).map_err(error)?;
     let authority = TransportAuthority::generate().map_err(error)?;
@@ -74,7 +75,7 @@ pub(crate) fn devnet() -> Result<(), CliError> {
     validators.sort_by_key(|validator| validator.id);
     let wallet = transaction::address_from_public_key(&ed25519_public_key(&[240; 32]));
     let genesis = Genesis {
-        version: if with_vrf {
+        version: if with_vrf || with_potb {
             genesis::ROTATING_GENESIS_VERSION
         } else {
             genesis::GENESIS_VERSION
@@ -86,7 +87,7 @@ pub(crate) fn devnet() -> Result<(), CliError> {
             io: 1_000_000,
             bandwidth: 1_000_000,
         },
-        committee_size: usize::from(if with_vrf {
+        committee_size: usize::from(if with_vrf || with_potb {
             count.saturating_sub(1).max(1)
         } else {
             count
@@ -99,11 +100,36 @@ pub(crate) fn devnet() -> Result<(), CliError> {
             amount: 1_000_000_000,
         }],
     };
+    let profile = if with_potb {
+        Some(
+            consensus::potb_transition::PotbConfiguration::new(
+                genesis.clone(),
+                consensus::potb::PotbPolicy {
+                    epoch_blocks: 100,
+                    initial_weight: 1,
+                    age_increment: 1,
+                    maximum_weight: 100,
+                },
+            )
+            .map_err(error)?,
+        )
+    } else {
+        None
+    };
     let context = SigningContext {
         chain_id: genesis.chain_id,
-        genesis: genesis.commitment().map_err(error)?,
+        genesis: profile.as_ref().map_or_else(
+            || genesis.commitment().map_err(error),
+            |profile| Ok(profile.commitment()),
+        )?,
     };
-    write_new(&directory.join("genesis.bin"), &genesis.to_bytes())?;
+    write_new(
+        &directory.join("genesis.bin"),
+        &profile.as_ref().map_or_else(
+            || genesis.to_bytes(),
+            consensus::potb_transition::PotbConfiguration::to_bytes,
+        ),
+    )?;
     write_new(&directory.join("validators.bin"), &keys.concat())?;
     write_new(&directory.join("wallet.seed"), &[240; 32])?;
     let mut instructions = String::from(
@@ -111,6 +137,9 @@ pub(crate) fn devnet() -> Result<(), CliError> {
     );
     if with_vrf {
         instructions.push_str("Genesis v2 activates VRF rotation. Keep every registered validator online, including standby identities; a missing contribution pauses block production.\n\n");
+    }
+    if with_potb {
+        instructions.push_str("Explicit PoTB configuration: one age increment per 100 active blocks, weight capped at 100. Keep every eligible identity online, including standby validators. Submit consent/quorum certificates and historical evidence to validator RPC endpoints. Pending submissions expire at the next finalized height.\n\n");
     }
     for index in 1..=count {
         let data = directory.join(format!("node-{index}"));
@@ -216,10 +245,18 @@ pub(crate) fn init_validator() -> Result<(), CliError> {
     let mut bytes = Vec::new();
     std::fs::File::open(&args[0])
         .map_err(error)?
-        .take(genesis::MAX_GENESIS_BYTES as u64 + 1)
+        .take(consensus::potb_transition::PotbConfiguration::MAX_BYTES as u64 + 1)
         .read_to_end(&mut bytes)
         .map_err(error)?;
-    let genesis = Genesis::decode(&bytes).map_err(error)?;
+    let profile = if bytes.starts_with(b"ALPTCF01") {
+        Some(consensus::potb_transition::PotbConfiguration::from_bytes(&bytes).map_err(error)?)
+    } else {
+        None
+    };
+    let genesis = profile.as_ref().map_or_else(
+        || Genesis::decode(&bytes).map_err(error),
+        |profile| Ok(profile.genesis().clone()),
+    )?;
     let mut seed = zeroize::Zeroizing::new(Vec::new());
     std::fs::File::open(&args[1])
         .map_err(error)?
@@ -231,10 +268,11 @@ pub(crate) fn init_validator() -> Result<(), CliError> {
             .map_err(|_| error("seed must be exactly 32 bytes"))?,
     );
     let id = ValidatorId(blake2s(&ed25519_public_key(&seed)).0);
-    if !genesis
-        .validators
-        .iter()
-        .any(|validator| validator.id == id)
+    if profile.is_none()
+        && !genesis
+            .validators
+            .iter()
+            .any(|validator| validator.id == id)
     {
         return Err(error("key is absent from genesis"));
     }
@@ -249,7 +287,10 @@ pub(crate) fn init_validator() -> Result<(), CliError> {
         directory.join("signing.journal"),
         SigningContext {
             chain_id: genesis.chain_id,
-            genesis: genesis.commitment().map_err(error)?,
+            genesis: profile.as_ref().map_or_else(
+                || genesis.commitment().map_err(error),
+                |profile| Ok(profile.commitment()),
+            )?,
         },
         *seed,
     )?);
@@ -266,6 +307,7 @@ struct DevnetOptions {
     with_observer: bool,
     with_contracts: bool,
     with_vrf: bool,
+    with_potb: bool,
 }
 fn devnet_options() -> Result<DevnetOptions, CliError> {
     let mut args = std::env::args_os().skip(2).peekable();
@@ -273,10 +315,9 @@ fn devnet_options() -> Result<DevnetOptions, CliError> {
         args.next()
             .ok_or_else(|| error("usage: cli devnet <new-directory> [validators] [--observer]"))?,
     );
-    let count: u8 = if args
-        .peek()
-        .is_some_and(|value| value == "--observer" || value == "--contracts" || value == "--vrf")
-    {
+    let count: u8 = if args.peek().is_some_and(|value| {
+        value == "--observer" || value == "--contracts" || value == "--vrf" || value == "--potb"
+    }) {
         4
     } else {
         args.next().map_or(Ok(4), |value| {
@@ -290,6 +331,7 @@ fn devnet_options() -> Result<DevnetOptions, CliError> {
     let mut with_observer = false;
     let mut with_contracts = false;
     let mut with_vrf = false;
+    let mut with_potb = false;
     for value in args {
         if value == "--observer" && !with_observer {
             with_observer = true;
@@ -297,14 +339,19 @@ fn devnet_options() -> Result<DevnetOptions, CliError> {
             with_contracts = true;
         } else if value == "--vrf" && !with_vrf {
             with_vrf = true;
+        } else if value == "--potb" && !with_potb {
+            with_potb = true;
         } else {
             return Err(error(
-                "expected unique --observer, --contracts or --vrf flags",
+                "expected unique --observer, --contracts, --vrf or --potb flags",
             ));
         }
     }
     if !(1..=32).contains(&count) {
         return Err(error("validator count must be 1..32"));
+    }
+    if with_vrf && with_potb {
+        return Err(error("choose --vrf or --potb"));
     }
     Ok(DevnetOptions {
         directory,
@@ -312,5 +359,6 @@ fn devnet_options() -> Result<DevnetOptions, CliError> {
         with_observer,
         with_contracts,
         with_vrf,
+        with_potb,
     })
 }

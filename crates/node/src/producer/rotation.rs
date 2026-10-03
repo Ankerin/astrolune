@@ -125,6 +125,14 @@ impl BlockProducer {
         self.rotation.as_ref()
     }
 
+    /// Current committee for either explicitly activated rotating profile.
+    #[must_use]
+    pub fn active_committee_state(&self) -> Option<&CommitteeState> {
+        self.potb_state()
+            .map(consensus::potb_transition::PotbState::committee)
+            .or(self.rotation.as_ref())
+    }
+
     /// Installs a complete verified batch for local proposal assembly at this height.
     /// This does not change voting authority or persist the transition. Invalid
     /// replacement attempts leave any previously installed complete batch intact.
@@ -348,7 +356,7 @@ impl BlockProducer {
     /// Header/body execution and certificate validation remain mandatory. Cached authority is never
     /// installed: only a successful finalized commit changes the current committee.
     pub fn prepare_received_vrf(&mut self, block: &types::Block) -> Result<(), ProducerError> {
-        if self.rotation.is_none() {
+        if self.rotation.is_none() && self.potb.is_none() {
             return Ok(());
         }
         if block.header.height != self.height || block.header.parent != self.parent_hash {
@@ -359,7 +367,14 @@ impl BlockProducer {
             .first()
             .filter(|tx| tx.lane == TransactionLane::System)
             .ok_or(ConsensusError::InvalidTransition)?;
-        self.set_vrf_batch(VrfBatch::from_bytes(&first.payload).map_err(invalid)?)
+        if self.potb.is_some() {
+            self.set_potb_batch(
+                consensus::potb_transition::PotbBatch::from_bytes(&first.payload)
+                    .map_err(invalid)?,
+            )
+        } else {
+            self.set_vrf_batch(VrfBatch::from_bytes(&first.payload).map_err(invalid)?)
+        }
     }
 }
 

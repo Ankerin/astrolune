@@ -144,6 +144,68 @@ impl CertifiedStateProof {
         self.value.verify(self.root, key).map_err(|_| invalid())
     }
 
+    /// Verifies the exact finalized header using independently advanced `PoTB` authority.
+    pub fn verify_with_potb<'a>(
+        &'a self,
+        trusted: &consensus::potb_transition::PotbVerifier,
+        key: &StateKey,
+        minimum_height: u64,
+    ) -> Result<Option<&'a [u8]>, RpcError> {
+        let header = self.header.as_ref().ok_or(RpcError::InvalidRequest)?;
+        if self.certificate.len() > 92 + 96 * consensus::rotation::MAX_ROTATION_VALIDATORS
+            || header.height < minimum_height
+            || header.state_root != self.root
+            || self
+                .genesis
+                .verify(self.root, &genesis::genesis_key())
+                .map_err(|_| RpcError::InvalidRequest)?
+                != Some(
+                    trusted
+                        .current()
+                        .committee()
+                        .genesis()
+                        .as_bytes()
+                        .as_slice(),
+                )
+        {
+            return Err(RpcError::InvalidRequest);
+        }
+        let certificate =
+            FinalityCertificate::decode(&self.certificate).map_err(|_| RpcError::InvalidRequest)?;
+        trusted
+            .verify_header(header, &certificate)
+            .map_err(|_| RpcError::InvalidRequest)?;
+        self.value
+            .verify(self.root, key)
+            .map_err(|_| RpcError::InvalidRequest)
+    }
+
+    /// Authenticates a genesis-only `PoTB` proof using independent configuration and public keys.
+    pub fn verify_potb_genesis<'a>(
+        &'a self,
+        configuration: &consensus::potb_transition::PotbConfiguration,
+        keys: &[[u8; 32]],
+        key: &StateKey,
+    ) -> Result<Option<&'a [u8]>, RpcError> {
+        let initial = configuration
+            .materialize(keys)
+            .map_err(|_| RpcError::InvalidRequest)?;
+        if self.header.is_some()
+            || !self.certificate.is_empty()
+            || self.root != initial.root()
+            || self
+                .genesis
+                .verify(self.root, &genesis::genesis_key())
+                .map_err(|_| RpcError::InvalidRequest)?
+                != Some(configuration.commitment().as_bytes().as_slice())
+        {
+            return Err(RpcError::InvalidRequest);
+        }
+        self.value
+            .verify(self.root, key)
+            .map_err(|_| RpcError::InvalidRequest)
+    }
+
     /// Encodes explicit versioned framing and bounded subproofs.
     pub fn to_bytes(&self) -> Result<Vec<u8>, RpcError> {
         if self.certificate.len() > 256 * 1024 {

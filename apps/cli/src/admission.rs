@@ -117,7 +117,9 @@ pub(super) fn run(command: &str, args: &[OsString]) -> Result<(), CliError> {
             print_request(certificate.request());
             println!("authorization: valid incumbent weighted quorum");
         }
-        ("admission-verify", [genesis, keys, path, certificate]) => {
+        ("admission-verify" | "admission-submit", [genesis, keys, path, certificate, ..])
+            if args.len() == 4 || command == "admission-submit" && args.len() == 5 =>
+        {
             let (request, trust) = load(Path::new(genesis), Path::new(keys), Path::new(path))?;
             let certificate = AdmissionCertificate::from_bytes(&read(
                 Path::new(certificate),
@@ -132,10 +134,19 @@ pub(super) fn run(command: &str, args: &[OsString]) -> Result<(), CliError> {
                 .map_err(error)?;
             print_request(&request);
             println!("authorization: valid incumbent weighted quorum");
+            if command == "admission-submit" {
+                if !matches!(trust.verifier, crate::handoffs::Authority::Potb(_)) {
+                    return Err(error("submission requires the explicit PoTB profile"));
+                }
+                let id = crate::wallet::client(args.get(4))?
+                    .submit_potb_admission(&certificate)
+                    .map_err(error)?;
+                println!("pending_request: {id}");
+            }
         }
         _ => return Err(error("invalid admission arguments; run cli help")),
     }
-    println!("activation: not included; genesis-v1/v2 do not execute admission");
+    println!("membership changes only after inclusion in a finalized PoTB block");
     Ok(())
 }
 

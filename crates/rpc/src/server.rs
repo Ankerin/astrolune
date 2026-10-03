@@ -163,7 +163,7 @@ impl TcpRpcServer {
                     Err(error) => return rpc_error(rpc_req.id, -32602, error),
                 }
             }
-            "block" | "committee_handoff" => {
+            "block" | "committee_handoff" | "potb_handoff" => {
                 let height = rpc_req.params.get("height").and_then(|value| match value {
                     JsonValue::String(text)
                         if !text.is_empty() && text.bytes().all(|b| b.is_ascii_digit()) =>
@@ -176,7 +176,9 @@ impl TcpRpcServer {
                 let Some(height) = height else {
                     return rpc_error(rpc_req.id, -32602, "invalid or missing block height");
                 };
-                if rpc_req.method == "committee_handoff" {
+                if rpc_req.method == "potb_handoff" {
+                    RpcRequest::PotbHandoff(height)
+                } else if rpc_req.method == "committee_handoff" {
                     RpcRequest::CommitteeHandoff(height)
                 } else {
                     RpcRequest::Block(height)
@@ -208,6 +210,12 @@ impl TcpRpcServer {
                     }
                 }
             }
+            "submit_potb_admission" | "submit_potb_evidence" => {
+                match potb_request(rpc_req) {
+                    Ok(request) => request,
+                    Err(error) => return rpc_error(rpc_req.id, -32602, error),
+                }
+            }
             _ => {
                 return rpc_error(rpc_req.id, -32601, "method not found");
             }
@@ -237,10 +245,12 @@ impl TcpRpcServer {
         match response {
             RpcResponse::Receipt(None)
             | RpcResponse::Block(None)
-            | RpcResponse::CommitteeHandoff(None) => rpc_success(id, JsonValue::Null),
+            | RpcResponse::CommitteeHandoff(None)
+            | RpcResponse::PotbHandoff(None) => rpc_success(id, JsonValue::Null),
             RpcResponse::Receipt(Some(bytes))
             | RpcResponse::StateProof(bytes)
-            | RpcResponse::CommitteeHandoff(Some(bytes)) => {
+            | RpcResponse::CommitteeHandoff(Some(bytes))
+            | RpcResponse::PotbHandoff(Some(bytes)) => {
                 rpc_success(id, JsonValue::String(crate::proof::hex(&bytes)))
             }
             RpcResponse::Block(Some(block)) => match crate::block::to_json(&block) {
@@ -274,7 +284,7 @@ impl TcpRpcServer {
                 }
                 None => rpc_success(id, JsonValue::Null),
             },
-            RpcResponse::TransactionAccepted(hash) => {
+            RpcResponse::TransactionAccepted(hash) | RpcResponse::PotbAccepted(hash) => {
                 rpc_success(id, JsonValue::String(crate::json::hash_to_hex(hash)))
             }
         }
@@ -306,6 +316,15 @@ impl TcpRpcServer {
         let json = serialize_rpc_response(&response);
         Self::write_response(stream, &json)
     }
+}
+
+fn potb_request(request: &crate::json::JsonRpcRequest) -> Result<RpcRequest, &'static str> {
+    let hex = request.params.get("data").and_then(JsonValue::as_str).ok_or("missing 'data' parameter")?;
+    let admission = request.method == "submit_potb_admission";
+    let limit = if admission { consensus::admission::AdmissionCertificate::MAX_BYTES } else { consensus::history::HistoricalEvidence::MAX_BYTES };
+    if hex.strip_prefix("0x").unwrap_or(hex).len() > limit * 2 { return Err("PoTB submission exceeds limit"); }
+    let bytes = parse_hex_bytes(hex).map_err(|_| "invalid submission hex")?;
+    Ok(if admission { RpcRequest::SubmitPotbAdmission(bytes) } else { RpcRequest::SubmitPotbEvidence(bytes) })
 }
 
 /// Parses a hex-encoded address string into an `Address`.

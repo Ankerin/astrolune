@@ -23,6 +23,7 @@ impl EvidenceStore {
         directory: &Path,
         network: &StaticNetwork,
         storage: &storage::ChainStorage,
+        identities: &[ValidatorId],
     ) -> Result<Self, NetworkNodeError> {
         let directory = directory.join("equivocation");
         let mut result = Self {
@@ -32,7 +33,7 @@ impl EvidenceStore {
         if !plain_directory(&result.directory)? {
             return Ok(result);
         }
-        for id in network.committee(1)?.members() {
+        for &id in identities {
             let path = result.directory.join(format!("{id}.bin"));
             match std::fs::symlink_metadata(&path) {
                 Ok(meta) if meta.file_type().is_file() && !meta.file_type().is_symlink() => {}

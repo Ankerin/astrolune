@@ -73,6 +73,7 @@ fn rotated_state_and_receipts_require_exact_independent_handoff_position() {
         certificate,
         effects: BlockEffects {
             committee: None,
+            potb: None,
             receipts: vec![receipt.clone()],
             genesis: StateValueProof::create(snapshot.as_ref(), &genesis::genesis_key()).unwrap(),
         },

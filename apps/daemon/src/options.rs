@@ -19,7 +19,7 @@ Options:
   --dry-run          Validate configuration/genesis without writing or listening
   --blocks N         Advance N block heights, then exit (0: recovery only)
   --data-dir PATH    Durable chain directory (default: node-data)
-  --genesis PATH     Trusted binary genesis (required on each genesis-chain start)
+  --genesis PATH     Trusted binary genesis or explicit PoTB configuration
   --validators PATH  Public keys file; enables certified fixed-committee networking
   --validator-key PATH  Raw 32-byte seed; requires an existing signing.journal
   --observer        Verify and relay finalized blocks without a consensus key

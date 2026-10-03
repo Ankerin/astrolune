@@ -53,6 +53,10 @@ pub enum NetworkMessage {
     },
     /// Signed native transaction; admission remains state-aware.
     Transaction(Transaction),
+    /// Candidate consent and a strict incumbent quorum, scoped to the exact current parent.
+    PotbAdmission(consensus::admission::AdmissionCertificate),
+    /// Double-vote evidence authenticated against the current finalized history frontier.
+    PotbEvidence(consensus::history::HistoricalEvidence),
 }
 
 /// Request for one finalized height or the live consensus messages at that height.
@@ -173,6 +177,14 @@ pub fn encode_exchange(
     );
     for message in messages {
         match message {
+            NetworkMessage::PotbAdmission(certificate) => {
+                bytes.push(6);
+                put_blob(&mut bytes, &certificate.to_bytes()?)?;
+            }
+            NetworkMessage::PotbEvidence(evidence) => {
+                bytes.push(7);
+                put_blob(&mut bytes, &evidence.to_bytes()?)?;
+            }
             NetworkMessage::Proposal {
                 envelope,
                 block,
@@ -234,6 +246,18 @@ pub fn decode_exchange(genesis: Hash256, bytes: &[u8]) -> Result<Vec<NetworkMess
     let mut messages = Vec::new();
     for _ in 0..count {
         messages.push(match reader.read_u8()? {
+            6 => NetworkMessage::PotbAdmission(
+                consensus::admission::AdmissionCertificate::from_bytes(blob(
+                    &mut reader,
+                    consensus::admission::AdmissionCertificate::MAX_BYTES,
+                )?)?,
+            ),
+            7 => NetworkMessage::PotbEvidence(consensus::history::HistoricalEvidence::from_bytes(
+                blob(
+                    &mut reader,
+                    consensus::history::HistoricalEvidence::MAX_BYTES,
+                )?,
+            )?),
             0 => NetworkMessage::Proposal {
                 envelope: Proposal::decode(blob(&mut reader, 221)?)?,
                 block: decode_block(blob(&mut reader, MAX_BLOCK_BYTES)?)?,

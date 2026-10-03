@@ -19,6 +19,25 @@ pub(super) enum PeerNode {
 }
 
 impl PeerNode {
+    pub(super) fn submit_potb(
+        &mut self,
+        message: node::network_wire::NetworkMessage,
+    ) -> Result<Hash256, NetworkNodeError> {
+        let Self::Validator(node) = self else {
+            return Err(NetworkNodeError::Input(
+                "PoTB submissions require a validator endpoint".into(),
+            ));
+        };
+        match message {
+            node::network_wire::NetworkMessage::PotbAdmission(value) => {
+                node.submit_potb_admission(value)
+            }
+            node::network_wire::NetworkMessage::PotbEvidence(value) => {
+                node.submit_potb_evidence(value)
+            }
+            _ => Err(NetworkNodeError::Input("invalid PoTB submission".into())),
+        }
+    }
     pub(super) fn open(
         options: &Options,
         network: StaticNetwork,

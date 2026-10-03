@@ -127,7 +127,7 @@ impl RoundRobinValidator {
     /// Returns the shared reference designation for the current round.
     #[must_use]
     pub fn proposer(&self) -> ValidatorId {
-        self.producer.rotation_state().map_or_else(
+        self.producer.active_committee_state().map_or_else(
             || {
                 self.local
                     .committee()

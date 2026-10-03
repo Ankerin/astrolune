@@ -66,6 +66,21 @@ impl CertifiedReceiptProof {
         })
     }
 
+    /// Authenticates this exact header with independently advanced `PoTB` authority.
+    pub fn verify_with_potb(
+        &self,
+        trusted: &consensus::potb_transition::PotbVerifier,
+        id: Hash256,
+        minimum_height: u64,
+    ) -> Result<&ExecutionReceipt, RpcError> {
+        self.certified_state()?.verify_with_potb(
+            trusted,
+            &genesis::genesis_key(),
+            minimum_height,
+        )?;
+        self.matching_receipt(id)
+    }
+
     fn matching_receipt(&self, id: Hash256) -> Result<&ExecutionReceipt, RpcError> {
         let mut matching = self
             .0

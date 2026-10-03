@@ -39,6 +39,7 @@ fn seeds() -> Vec<Vec<u8>> {
         rpc::CertifiedStateProof::create(snapshot.as_ref(), &genesis::genesis_key(), None).unwrap();
     let effects = storage::BlockEffects {
         committee: None,
+        potb: None,
         receipts: vec![],
         genesis: value.clone(),
     };
@@ -187,6 +188,7 @@ fn rotation_seeds(genesis: &genesis::Genesis, key: [u8; 32]) -> Vec<Vec<u8>> {
             )
             .unwrap(),
             committee: Some(handoff.next_state.clone()),
+            potb: None,
         }
         .to_bytes()
         .unwrap(),

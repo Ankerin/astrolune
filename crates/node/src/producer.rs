@@ -522,6 +522,17 @@ impl BlockProducer {
         let effects = if self.account_execution {
             let snapshot = staged.snapshot().map_err(ExecutionError::from)?;
             Some(storage::BlockEffects {
+                potb: self
+                    .potb
+                    .as_ref()
+                    .map(|_| {
+                        state::StateValueProof::create(
+                            snapshot.as_ref(),
+                            &consensus::potb_transition::potb_state_key(),
+                        )
+                        .map_err(ExecutionError::from)
+                    })
+                    .transpose()?,
                 committee: self
                     .rotation
                     .as_ref()

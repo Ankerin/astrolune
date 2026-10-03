@@ -33,8 +33,8 @@ struct NetworkIdentity {
     seed: Option<zeroize::Zeroizing<[u8; 32]>>,
 }
 
-pub(crate) fn run(options: &Options, genesis: genesis::Genesis) -> Result<(), DaemonError> {
-    let NetworkIdentity { network, seed } = load_identity(options, genesis)?;
+pub(crate) fn run(options: &Options) -> Result<(), DaemonError> {
+    let NetworkIdentity { network, seed } = load_identity(options)?;
     let transport = PeerTransport(
         options
             .tls_dir
@@ -151,10 +151,7 @@ fn print_identity(options: &Options, network: &StaticNetwork, transport: &PeerTr
     );
 }
 
-fn load_identity(
-    options: &Options,
-    genesis: genesis::Genesis,
-) -> Result<NetworkIdentity, DaemonError> {
+fn load_identity(options: &Options) -> Result<NetworkIdentity, DaemonError> {
     let registry = read_bounded(
         options
             .validators
@@ -168,7 +165,14 @@ fn load_identity(
         ));
     }
     let keys = registry.as_chunks::<32>().0.to_vec();
-    let network = StaticNetwork::new(genesis, keys).map_err(io_error)?;
+    let configuration = read_bounded(
+        options
+            .genesis
+            .as_deref()
+            .ok_or_else(|| io_error("missing genesis"))?,
+        consensus::potb_transition::PotbConfiguration::MAX_BYTES,
+    )?;
+    let network = StaticNetwork::decode(&configuration, keys).map_err(io_error)?;
     if options.observer {
         return Ok(NetworkIdentity {
             network,
@@ -188,11 +192,12 @@ fn load_identity(
     );
     let id =
         types::ValidatorId(crypto::blake2s_hash(&crypto::blake2s::ed25519_public_key(&seed)).0);
-    if network
-        .committee(1)
-        .map_err(io_error)?
-        .voting_power(id)
-        .is_none()
+    if !network.potb()
+        && network
+            .committee(1)
+            .map_err(io_error)?
+            .voting_power(id)
+            .is_none()
     {
         return Err(DaemonError::Config(
             "validator key is not registered in genesis".into(),
@@ -381,6 +386,46 @@ impl RpcService for NetworkStatus {
     fn handle(&self, request: RpcRequest) -> Result<RpcResponse, RpcError> {
         let mut node = self.node.lock().map_err(|_| RpcError::Unavailable)?;
         match request {
+            request @ (RpcRequest::SubmitPotbAdmission(_) | RpcRequest::SubmitPotbEvidence(_)) => {
+                let message = match request {
+                    RpcRequest::SubmitPotbAdmission(bytes) => {
+                        node::network_wire::NetworkMessage::PotbAdmission(
+                            consensus::admission::AdmissionCertificate::from_bytes(&bytes)
+                                .map_err(|_| RpcError::InvalidRequest)?,
+                        )
+                    }
+                    RpcRequest::SubmitPotbEvidence(bytes) => {
+                        node::network_wire::NetworkMessage::PotbEvidence(
+                            consensus::history::HistoricalEvidence::from_bytes(&bytes)
+                                .map_err(|_| RpcError::InvalidRequest)?,
+                        )
+                    }
+                    _ => unreachable!(),
+                };
+                node.submit_potb(message)
+                    .map(RpcResponse::PotbAccepted)
+                    .map_err(|error| match error {
+                        NetworkNodeError::Input(_) => RpcError::InvalidRequest,
+                        NetworkNodeError::Local(_) => {
+                            self.storage_failed.store(true, Ordering::Release);
+                            RpcError::Unavailable
+                        }
+                    })
+            }
+            RpcRequest::PotbHandoff(height) => {
+                let handoff =
+                    node::handoff::read_potb_handoff(node.storage(), height).map_err(|_| {
+                        self.storage_failed.store(true, Ordering::Release);
+                        self.metrics.add(NodeMetric::LocalFailures, 1);
+                        RpcError::Unavailable
+                    })?;
+                Ok(RpcResponse::PotbHandoff(
+                    handoff
+                        .map(|value| value.to_bytes())
+                        .transpose()
+                        .map_err(|_| RpcError::Unavailable)?,
+                ))
+            }
             RpcRequest::Receipt { id, height } => self.receipt(&node, id, height),
             RpcRequest::CommitteeHandoff(height) => {
                 let handoff =

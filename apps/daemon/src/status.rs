@@ -72,6 +72,10 @@ impl RpcService for ChainStatus {
                 Ok(RpcResponse::StateProof(proof.to_bytes()?))
             }
             RpcRequest::CommitteeHandoff(_) => Ok(RpcResponse::CommitteeHandoff(None)),
+            RpcRequest::PotbHandoff(_) => Ok(RpcResponse::PotbHandoff(None)),
+            RpcRequest::SubmitPotbAdmission(_) | RpcRequest::SubmitPotbEvidence(_) => {
+                Err(RpcError::Unavailable)
+            }
             RpcRequest::Block(height) => {
                 let block = node
                     .storage()

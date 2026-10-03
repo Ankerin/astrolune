@@ -21,6 +21,8 @@ use crate::json::{JsonValue, parse_json, to_json};
 pub const MAX_TRANSACTION_BYTES: usize = 64 * 1024;
 const MAX_RESPONSE_BYTES: usize = 4096;
 
+mod potb;
+
 /// Finalized head reported by the contacted node; not a cryptographic proof.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct ChainStatus {

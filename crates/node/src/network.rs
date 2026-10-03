@@ -3,6 +3,7 @@
 
 //! Fixed-membership reference network with durable voting and certified catch-up.
 
+mod potb;
 mod rotation;
 
 use crate::network_wire::{
@@ -13,6 +14,7 @@ use crate::{
     BlockProducer, ProducerConfig, ProducerError, RoundRobinValidator, SignedBlockProposal,
     TimeoutEvent, ValidatorError,
 };
+use consensus::potb_transition::{PotbConfiguration, PotbVerifier};
 use consensus::rotation::{ContributionPool, HandoffVerifier, VrfContribution};
 use consensus::{
     AuthenticatedCommittee, Committee, CommitteeMember, LocalBft, LocalBftError, PotbWeight,
@@ -88,6 +90,7 @@ pub struct StaticNetwork {
     genesis: genesis::Genesis,
     hash: Hash256,
     keys: Vec<[u8; 32]>,
+    potb: Option<PotbConfiguration>,
 }
 impl StaticNetwork {
     /// Explicitly selects all genesis validators for the fixed round-robin profile.
@@ -105,12 +108,43 @@ impl StaticNetwork {
             genesis,
             hash,
             keys,
+            potb: None,
         };
         result.committee(1)?;
         if result.rotating() {
             HandoffVerifier::new(&result.genesis, &result.keys).map_err(input)?;
         }
         Ok(result)
+    }
+
+    /// Explicit `PoTB` configuration supplies a distinct namespace and immutable policy.
+    pub fn with_potb(
+        configuration: PotbConfiguration,
+        keys: Vec<[u8; 32]>,
+    ) -> Result<Self, NetworkNodeError> {
+        PotbVerifier::new(&configuration, &keys).map_err(input)?;
+        Ok(Self {
+            genesis: configuration.genesis().clone(),
+            hash: configuration.commitment(),
+            keys,
+            potb: Some(configuration),
+        })
+    }
+
+    /// Decodes an independently supplied genesis or explicitly tagged `PoTB` configuration.
+    pub fn decode(bytes: &[u8], keys: Vec<[u8; 32]>) -> Result<Self, NetworkNodeError> {
+        use codec::CanonicalDecode;
+        if bytes.starts_with(b"ALPTCF01") {
+            Self::with_potb(PotbConfiguration::from_bytes(bytes).map_err(input)?, keys)
+        } else {
+            Self::new(genesis::Genesis::decode(bytes).map_err(input)?, keys)
+        }
+    }
+
+    /// Whether the independently supplied configuration activates `PoTB`.
+    #[must_use]
+    pub const fn potb(&self) -> bool {
+        self.potb.is_some()
     }
     /// Trusted genesis namespace.
     #[must_use]
@@ -131,7 +165,12 @@ impl StaticNetwork {
         &self,
         producer: &BlockProducer,
     ) -> Result<AuthenticatedCommittee, NetworkNodeError> {
-        match producer.rotation_state() {
+        if producer.potb_state().is_some() != self.potb() {
+            return Err(input(
+                "execution profile disagrees with trusted configuration",
+            ));
+        }
+        match producer.active_committee_state() {
             Some(current) if self.rotating() => current.context().map_err(input),
             None if !self.rotating() => self.committee(producer.height()),
             _ => Err(input("execution profile disagrees with trusted genesis")),
@@ -162,12 +201,21 @@ impl StaticNetwork {
     }
     pub(crate) fn recover(&self, directory: &Path) -> Result<RecoveredNetwork, NetworkNodeError> {
         let network = self;
-        let initial = network.genesis.materialize().map_err(input)?;
+        let initial = if let Some(profile) = &self.potb {
+            profile.materialize(&self.keys).map_err(input)?
+        } else {
+            network.genesis.materialize().map_err(input)?
+        };
         let mut storage = ChainStorage::open(directory.join("chain.bin")).map_err(local)?;
         if storage.checkpoint().is_none() {
             storage
                 .initialize_genesis(network.hash, initial.clone())
                 .map_err(local)?;
+        }
+        if let Some(profile) = &self.potb {
+            let (producer, _) =
+                BlockProducer::recover_potb(self.producer_config(), profile, &self.keys, &storage)?;
+            return Ok(RecoveredNetwork { storage, producer });
         }
         if self.rotating() {
             let (producer, _) = BlockProducer::recover_rotation(
@@ -194,6 +242,13 @@ impl StaticNetwork {
         &self,
         storage: &ChainStorage,
     ) -> Result<storage::Checkpoint, NetworkNodeError> {
+        if let Some(profile) = &self.potb {
+            BlockProducer::recover_potb(self.producer_config(), profile, &self.keys, storage)?;
+            return storage
+                .checkpoint()
+                .copied()
+                .ok_or_else(|| local("missing checkpoint"));
+        }
         if self.rotating() {
             BlockProducer::recover_rotation(
                 self.producer_config(),
@@ -266,6 +321,8 @@ impl StaticNetwork {
 
 /// Network-driven participant. Only durable certificates advance its public checkpoint.
 pub struct NetworkNode {
+    admissions: BTreeMap<ValidatorId, consensus::admission::AdmissionCertificate>,
+    inclusions: BTreeMap<ValidatorId, consensus::history::HistoricalEvidence>,
     network: StaticNetwork,
     participant: Option<RoundRobinValidator>,
     standby: Option<(BlockProducer, DurableSigner)>,
@@ -296,10 +353,22 @@ impl NetworkNode {
             ));
         }
         let RecoveredNetwork { storage, producer } = network.recover(directory)?;
+        let identities: Vec<_> = if let Some(current) = producer.potb_state() {
+            current.records().map(|(id, _)| id).collect()
+        } else {
+            network.committee(1)?.members().collect()
+        };
         let voter = signer.validator_id(&signer.key_handle()).map_err(local)?;
         let (participant, standby) = Self::bind_height(&network, producer, signer)?;
         let mut result = Self {
-            evidence: crate::evidence::EvidenceStore::open(directory, &network, &storage)?,
+            admissions: BTreeMap::new(),
+            inclusions: BTreeMap::new(),
+            evidence: crate::evidence::EvidenceStore::open(
+                directory,
+                &network,
+                &storage,
+                &identities,
+            )?,
             network,
             participant,
             standby,
@@ -314,9 +383,7 @@ impl NetworkNode {
             base_timeout,
         };
         result.start_contributions()?;
-        if result.participant.is_some() {
-            result.restore_cache()?;
-        }
+        result.restore_cache()?;
         Ok(result)
     }
 
@@ -393,6 +460,18 @@ impl NetworkNode {
 
     fn consensus_messages(&self) -> Vec<NetworkMessage> {
         let mut messages = Vec::new();
+        messages.extend(
+            self.admissions
+                .values()
+                .cloned()
+                .map(NetworkMessage::PotbAdmission),
+        );
+        messages.extend(
+            self.inclusions
+                .values()
+                .cloned()
+                .map(NetworkMessage::PotbEvidence),
+        );
         if let Some(pool) = &self.contributions {
             messages.extend(pool.entries().cloned().map(|contribution| {
                 NetworkMessage::VrfContribution {
@@ -448,6 +527,12 @@ impl NetworkNode {
             return Ok(());
         }
         match message {
+            NetworkMessage::PotbAdmission(certificate) => {
+                self.submit_potb_admission(certificate)?;
+            }
+            NetworkMessage::PotbEvidence(evidence) => {
+                self.submit_potb_evidence(evidence)?;
+            }
             NetworkMessage::VrfContribution {
                 height,
                 contribution,
@@ -727,6 +812,8 @@ impl NetworkNode {
                 .ok_or_else(|| local("missing standby state"))?
         };
         (self.participant, self.standby) = Self::bind_height(&self.network, producer, signer)?;
+        self.admissions.clear();
+        self.inclusions.clear();
         self.start_contributions()?;
         self.proposal = None;
         self.valid = None;
@@ -773,6 +860,11 @@ impl NetworkNode {
             .read_to_end(&mut bytes)
             .map_err(local)?;
         let messages = decode_exchange(self.network.hash, &bytes).map_err(local)?;
+        // Pending submissions are scoped to one parent/frontier. Expired entries are discarded.
+        self.restore_potb_inclusions(&messages);
+        if self.participant.is_none() {
+            return Ok(());
+        }
         // Cache data is reauthenticated; it cannot relax the journal's signed watermark.
         for message in &messages {
             if let NetworkMessage::Vote(vote) = message

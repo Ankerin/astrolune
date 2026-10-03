@@ -178,6 +178,8 @@ impl ObserverNode {
                 self.submit_transaction(transaction)?;
             }
             NetworkMessage::VrfContribution { .. }
+            | NetworkMessage::PotbAdmission(_)
+            | NetworkMessage::PotbEvidence(_)
             | NetworkMessage::Proposal { .. }
             | NetworkMessage::Vote(_)
             | NetworkMessage::ValidValue { .. } => {}

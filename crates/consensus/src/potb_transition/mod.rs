@@ -28,7 +28,7 @@ use types::{Hash256, StateKey, ValidatorId};
 /// Reserved location of the complete next `PoTB` authority and history frontier.
 #[must_use]
 pub fn potb_state_key() -> StateKey {
-    StateKey(b"astrolune.potb.state.v1".to_vec())
+    StateKey(types::domain::POTB_STATE_KEY.to_vec())
 }
 
 /// A permanent bounded identity record; excluded keys cannot reset their age or ban.

@@ -105,6 +105,7 @@ fn fixtures() -> (
             receipts: vec![receipt],
             genesis: StateValueProof::create(snapshot.as_ref(), &genesis::genesis_key()).unwrap(),
             committee: None,
+            potb: None,
         },
     });
     (genesis, keys, handoffs, proof, receipt)

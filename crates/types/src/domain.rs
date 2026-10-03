@@ -31,6 +31,9 @@ pub const ROTATING_PROFILE_KEY: &[u8] = b"astrolune/consensus/profile/v2";
 /// Reserved finalized state key for the next rotating committee.
 pub const COMMITTEE_STATE_KEY: &[u8] = b"astrolune/consensus/committee/v1";
 
+/// Reserved finalized authority for the explicit `PoTB` configuration namespace.
+pub const POTB_STATE_KEY: &[u8] = b"astrolune.potb.state.v1";
+
 /// Finality certificate domain.
 pub const FINALITY: &[u8] = b"astrolune.finality.v1";
 

@@ -30,7 +30,7 @@ impl NetworkNode {
         if pool.insert(contribution).map_err(input)?
             && let Ok(batch) = pool.complete()
         {
-            self.producer_mut().set_vrf_batch(batch)?;
+            self.install_contributions(batch)?;
         }
         Ok(())
     }
@@ -70,7 +70,7 @@ impl NetworkNode {
         if !signer.is_protected()
             || signer.signing_context().chain_id != network.chain_id()
             || signer.signing_context().genesis != network.hash
-            || network.committee(1)?.voting_power(id).is_none()
+            || (!network.potb() && network.committee(1)?.voting_power(id).is_none())
             || signer
                 .last_position()
                 .is_some_and(|position| position.height > producer.height())
@@ -119,10 +119,18 @@ impl NetworkNode {
     }
 
     pub(super) fn start_contributions(&mut self) -> Result<(), NetworkNodeError> {
-        let Some(current) = self.producer().rotation_state().cloned() else {
+        let Some(current) = self.producer().active_committee_state().cloned() else {
             self.contributions = None;
             return Ok(());
         };
+        if !current
+            .roster()
+            .iter()
+            .any(|entry| ValidatorId(crypto::blake2s_hash(&entry.public_key).0) == self.voter)
+        {
+            self.contributions = Some(ContributionPool::new(current));
+            return Ok(());
+        }
         let prove = |role| {
             let input = current.input(role).map_err(local)?;
             match &self.participant {
@@ -144,9 +152,21 @@ impl NetworkNode {
         let mut pool = ContributionPool::new(current);
         pool.insert(contribution).map_err(local)?;
         if let Ok(batch) = pool.complete() {
-            self.producer_mut().set_vrf_batch(batch)?;
+            self.install_contributions(batch)?;
         }
         self.contributions = Some(pool);
+        Ok(())
+    }
+
+    pub(super) fn install_contributions(
+        &mut self,
+        batch: consensus::rotation::VrfBatch,
+    ) -> Result<(), NetworkNodeError> {
+        if self.network.potb() {
+            self.install_potb_inclusions(&batch)?;
+        } else {
+            self.producer_mut().set_vrf_batch(batch)?;
+        }
         Ok(())
     }
 
@@ -177,7 +197,13 @@ impl StaticNetwork {
         }
         let mut ordered: Vec<_> = proofs.values().collect();
         ordered.sort_by_key(|proof| (proof.height(), proof.voter()));
-        let mut trusted = if self.rotating() {
+        let mut potb = self
+            .potb
+            .as_ref()
+            .map(|profile| consensus::potb_transition::PotbVerifier::new(profile, &self.keys))
+            .transpose()
+            .map_err(local)?;
+        let mut trusted = if self.rotating() && !self.potb() {
             Some(HandoffVerifier::new(&self.genesis, &self.keys).map_err(local)?)
         } else {
             None
@@ -186,7 +212,21 @@ impl StaticNetwork {
             .checkpoint()
             .ok_or_else(|| local("missing checkpoint"))?;
         for proof in ordered {
-            let committee = if let Some(trusted) = &mut trusted {
+            if proof.height() == 0 || proof.height() > head.height.saturating_add(1) {
+                return Err(local("evidence height is not authenticated"));
+            }
+            let committee = if let Some(trusted) = &mut potb {
+                while trusted.current().committee().height() < proof.height() {
+                    let handoff = crate::handoff::read_potb_handoff(
+                        storage,
+                        trusted.current().committee().height(),
+                    )
+                    .map_err(local)?
+                    .ok_or_else(|| local("missing historical PoTB handoff"))?;
+                    trusted.apply(&handoff).map_err(local)?;
+                }
+                trusted.current().committee().context().map_err(local)?
+            } else if let Some(trusted) = &mut trusted {
                 if proof.height() == 0 || proof.height() > head.height.saturating_add(1) {
                     return Err(local("evidence height is not authenticated"));
                 }

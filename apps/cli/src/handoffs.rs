@@ -4,6 +4,8 @@
 //! Streaming sidecars let saved rotating state/receipt proofs be verified offline.
 
 use crate::CliError;
+use crate::proofs::Anchor;
+use consensus::potb_transition::{PotbHandoff, PotbVerifier};
 use consensus::rotation::{CommitteeHandoff, HandoffVerifier};
 use std::{
     fs::{File, OpenOptions},
@@ -19,7 +21,7 @@ fn error(value: impl std::fmt::Display) -> CliError {
 }
 
 pub(super) struct Trust {
-    pub(super) verifier: HandoffVerifier,
+    pub(super) verifier: Authority,
     pending: Option<Pending>,
 }
 struct Pending {
@@ -45,7 +47,7 @@ impl Trust {
 
 pub(super) fn anchor(
     path: &Path,
-    genesis: &genesis::Genesis,
+    genesis: &Anchor,
     keys: &[[u8; 32]],
     height: u64,
     client: Option<&rpc::TcpRpcClient>,
@@ -55,11 +57,21 @@ pub(super) fn anchor(
             "handoff history exceeds the 10,000-transition CLI bound",
         ));
     }
-    let mut verifier = HandoffVerifier::new(genesis, keys).map_err(error)?;
+    let mut verifier = match genesis {
+        Anchor::Genesis(value) => {
+            Authority::Rotation(HandoffVerifier::new(value, keys).map_err(error)?)
+        }
+        Anchor::Potb(value) => Authority::Potb(PotbVerifier::new(value, keys).map_err(error)?),
+    };
     let mut suffix = path.as_os_str().to_owned();
     suffix.push(".handoffs");
     let destination = PathBuf::from(suffix);
-    let mut header = b"ALHIST01".to_vec();
+    let mut header = if matches!(genesis, Anchor::Potb(_)) {
+        b"ALPTHIS1"
+    } else {
+        b"ALHIST01"
+    }
+    .to_vec();
     header.extend_from_slice(&height.to_le_bytes());
     header.extend_from_slice(genesis.commitment().map_err(error)?.as_bytes());
     let pending = if let Some(client) = client {
@@ -80,26 +92,44 @@ pub(super) fn anchor(
             destination,
         };
         pending.file.write_all(&header).map_err(error)?;
-        client
-            .advance_handoffs_with(
-                &mut verifier,
+        let mut write = |bytes: Vec<u8>| {
+            pending.file.write_all(
+                &u32::try_from(bytes.len())
+                    .map_err(|_| rpc::ClientError::LimitExceeded)?
+                    .to_le_bytes(),
+            )?;
+            pending.file.write_all(&bytes)?;
+            Ok(())
+        };
+        match &mut verifier {
+            Authority::Rotation(trusted) => client.advance_handoffs_with(
+                trusted,
                 height,
                 MAX_STEPS,
                 Duration::from_secs(60),
                 |handoff| {
-                    let bytes = handoff
-                        .to_bytes()
-                        .map_err(|_| rpc::ClientError::Protocol("invalid verified handoff"))?;
-                    pending.file.write_all(
-                        &u32::try_from(bytes.len())
-                            .map_err(|_| rpc::ClientError::LimitExceeded)?
-                            .to_le_bytes(),
-                    )?;
-                    pending.file.write_all(&bytes)?;
-                    Ok(())
+                    write(
+                        handoff
+                            .to_bytes()
+                            .map_err(|_| rpc::ClientError::Protocol("invalid handoff"))?,
+                    )
                 },
-            )
-            .map_err(error)?;
+            ),
+            Authority::Potb(trusted) => client.advance_potb_handoffs_with(
+                trusted,
+                height,
+                MAX_STEPS,
+                Duration::from_secs(60),
+                |handoff| {
+                    write(
+                        handoff
+                            .to_bytes()
+                            .map_err(|_| rpc::ClientError::Protocol("invalid PoTB handoff"))?,
+                    )
+                },
+            ),
+        }
+        .map_err(error)?;
         Some(pending)
     } else {
         let mut file = File::open(&destination).map_err(error)?;
@@ -112,14 +142,25 @@ pub(super) fn anchor(
             let mut length = [0; 4];
             file.read_exact(&mut length).map_err(error)?;
             let length = u32::from_le_bytes(length) as usize;
-            if length > CommitteeHandoff::MAX_BYTES {
+            if length
+                > match verifier {
+                    Authority::Rotation(_) => CommitteeHandoff::MAX_BYTES,
+                    Authority::Potb(_) => PotbHandoff::MAX_BYTES,
+                }
+            {
                 return Err(error("handoff frame exceeds limit"));
             }
             let mut bytes = vec![0; length];
             file.read_exact(&mut bytes).map_err(error)?;
-            verifier
-                .apply(&CommitteeHandoff::from_bytes(&bytes).map_err(error)?)
-                .map_err(error)?;
+            match &mut verifier {
+                Authority::Rotation(trusted) => {
+                    trusted.apply(&CommitteeHandoff::from_bytes(&bytes).map_err(error)?)
+                }
+                Authority::Potb(trusted) => {
+                    trusted.apply(&PotbHandoff::from_bytes(&bytes).map_err(error)?)
+                }
+            }
+            .map_err(error)?;
         }
         if file.read(&mut [0]).map_err(error)? != 0 {
             return Err(error("trailing handoff data"));
@@ -127,4 +168,45 @@ pub(super) fn anchor(
         None
     };
     Ok(Trust { verifier, pending })
+}
+
+pub(super) enum Authority {
+    Rotation(HandoffVerifier),
+    Potb(PotbVerifier),
+}
+impl Authority {
+    pub(super) fn current(&self) -> &consensus::rotation::CommitteeState {
+        match self {
+            Self::Rotation(value) => value.current(),
+            Self::Potb(value) => value.current().committee(),
+        }
+    }
+    pub(super) fn parent(&self) -> types::Hash256 {
+        match self {
+            Self::Rotation(value) => value.parent(),
+            Self::Potb(value) => value.parent(),
+        }
+    }
+    pub(super) fn verify_state<'a>(
+        &self,
+        proof: &'a rpc::CertifiedStateProof,
+        key: &types::StateKey,
+        minimum: u64,
+    ) -> Result<Option<&'a [u8]>, rpc::RpcError> {
+        match self {
+            Self::Rotation(value) => proof.verify_with_handoffs(value, key, minimum),
+            Self::Potb(value) => proof.verify_with_potb(value, key, minimum),
+        }
+    }
+    pub(super) fn verify_receipt<'a>(
+        &self,
+        proof: &'a rpc::CertifiedReceiptProof,
+        id: types::Hash256,
+        minimum: u64,
+    ) -> Result<&'a types::ExecutionReceipt, rpc::RpcError> {
+        match self {
+            Self::Rotation(value) => proof.verify_with_handoffs(value, id, minimum),
+            Self::Potb(value) => proof.verify_with_potb(value, id, minimum),
+        }
+    }
 }

@@ -14,7 +14,7 @@ pub const MAX_BLOCK_RECEIPTS: usize = 16_384;
 /// Maximum recent transaction IDs retained in the optional lookup index.
 pub const MAX_INDEXED_TRANSACTIONS: usize = 100_000;
 /// Bound on encoded receipts plus the small genesis membership witness.
-pub const MAX_RECEIPTS_BYTES: usize = MAX_BLOCK_RECEIPTS * 97 + 8192;
+pub const MAX_RECEIPTS_BYTES: usize = MAX_BLOCK_RECEIPTS * 97 + 16384;
 
 /// Execution data published atomically alongside the finalized block and state delta.
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -25,6 +25,8 @@ pub struct BlockEffects {
     pub genesis: StateValueProof,
     /// Optional authenticated next-committee witness, retained for streaming handoffs.
     pub committee: Option<StateValueProof>,
+    /// Optional `PoTB` authority witness; mutually exclusive with the legacy committee.
+    pub potb: Option<StateValueProof>,
 }
 impl BlockEffects {
     /// Checks all receipt IDs, their commitment, resource totals and genesis membership.
@@ -44,6 +46,9 @@ impl BlockEffects {
 
     /// Checks the complete receipt commitment and genesis proof without block bodies.
     pub fn validate_header(&self, header: &BlockHeader) -> Result<(), StorageError> {
+        if self.committee.is_some() && self.potb.is_some() {
+            return Err(StorageError::VerificationFailed);
+        }
         if self.receipts.len() > MAX_BLOCK_RECEIPTS {
             return Err(StorageError::LimitExceeded);
         }
@@ -79,11 +84,25 @@ impl BlockEffects {
                 return Err(StorageError::VerificationFailed);
             }
         }
+        if let Some(proof) = &self.potb {
+            let value = proof
+                .verify(
+                    header.state_root,
+                    &types::StateKey(types::domain::POTB_STATE_KEY.to_vec()),
+                )
+                .map_err(|_| StorageError::VerificationFailed)?;
+            if value.is_none_or(|bytes| bytes.is_empty() || bytes.len() > 7509) {
+                return Err(StorageError::VerificationFailed);
+            }
+        }
         Ok(())
     }
 
     /// Encodes bounded canonical receipts and a bounded membership proof.
     pub fn to_bytes(&self) -> Result<Vec<u8>, StorageError> {
+        if self.committee.is_some() && self.potb.is_some() {
+            return Err(StorageError::VerificationFailed);
+        }
         if self.receipts.len() > MAX_BLOCK_RECEIPTS {
             return Err(StorageError::LimitExceeded);
         }
@@ -94,7 +113,9 @@ impl BlockEffects {
         if proof.len() > 2048 {
             return Err(StorageError::LimitExceeded);
         }
-        let mut bytes = if self.committee.is_some() {
+        let mut bytes = if self.potb.is_some() {
+            b"ALEFF003"
+        } else if self.committee.is_some() {
             b"ALEFF002"
         } else {
             b"ALEFFECT"
@@ -114,11 +135,11 @@ impl BlockEffects {
                 .to_le_bytes(),
         );
         bytes.extend_from_slice(&proof);
-        if let Some(committee) = &self.committee {
+        if let Some(committee) = self.committee.as_ref().or(self.potb.as_ref()) {
             let proof = committee
                 .to_bytes()
                 .map_err(|_| StorageError::LimitExceeded)?;
-            if proof.len() > 4096 {
+            if proof.len() > if self.potb.is_some() { 12_288 } else { 4096 } {
                 return Err(StorageError::LimitExceeded);
             }
             bytes.extend_from_slice(
@@ -135,9 +156,10 @@ impl BlockEffects {
     pub fn from_bytes(bytes: &[u8]) -> Result<Self, StorageError> {
         fn decode(bytes: &[u8]) -> Result<BlockEffects, codec::DecodeError> {
             let mut decoder = Decoder::new(bytes);
-            let rotation = match decoder.read_exact(8)? {
-                b"ALEFFECT" => false,
-                b"ALEFF002" => true,
+            let profile = match decoder.read_exact(8)? {
+                b"ALEFFECT" => 0,
+                b"ALEFF002" => 2,
+                b"ALEFF003" => 3,
                 _ => return Err(codec::DecodeError::Unsupported),
             };
             let count = decoder.read_u32()? as usize;
@@ -157,9 +179,9 @@ impl BlockEffects {
             }
             let genesis = StateValueProof::from_bytes(decoder.read_exact(length)?)
                 .map_err(|_| codec::DecodeError::NonCanonical)?;
-            let committee = if rotation {
+            let authority = if profile != 0 {
                 let length = decoder.read_u32()? as usize;
-                if length > 4096 {
+                if length > if profile == 3 { 12_288 } else { 4096 } {
                     return Err(codec::DecodeError::LimitExceeded);
                 }
                 Some(
@@ -170,10 +192,16 @@ impl BlockEffects {
                 None
             };
             decoder.finish()?;
+            let (committee, potb) = if profile == 3 {
+                (None, authority)
+            } else {
+                (authority, None)
+            };
             Ok(BlockEffects {
                 receipts,
                 genesis,
                 committee,
+                potb,
             })
         }
         if bytes.len() > MAX_RECEIPTS_BYTES {
@@ -241,6 +269,7 @@ mod tests {
             receipts: vec![],
             genesis: StateValueProof::create(snapshot.as_ref(), &genesis::genesis_key()).unwrap(),
             committee: None,
+            potb: None,
         };
         let header = BlockHeader {
             height: 1,

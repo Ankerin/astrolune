@@ -126,6 +126,7 @@ pub struct CertifiedResolver {
     client: TcpRpcClient,
     minimum: u64,
     handoffs: Option<consensus::rotation::HandoffVerifier>,
+    potb: Option<consensus::potb_transition::PotbVerifier>,
 }
 impl CertifiedResolver {
     /// Creates a resolver with operator-supplied freshness floor and trust anchors.
@@ -136,7 +137,16 @@ impl CertifiedResolver {
             client,
             minimum,
             handoffs: None,
+            potb: None,
         }
+    }
+
+    /// Creates a resolver anchored to an explicitly supplied `PoTB` configuration.
+    /// The base deployment/runtime settings must agree with the supplied registry trust.
+    pub fn with_potb(trust: RegistryTrust, client: TcpRpcClient, minimum: u64, profile: &consensus::potb_transition::PotbConfiguration) -> Result<Self, String> {
+        if &trust.genesis != profile.genesis() { return Err("registry and PoTB configuration disagree".into()); }
+        let potb = consensus::potb_transition::PotbVerifier::new(profile, &trust.validators).map_err(|error| error.to_string())?;
+        Ok(Self { trust, client, minimum, handoffs: None, potb: Some(potb) })
     }
 
     /// Fetches and verifies proofs without using public DNS or unauthenticated fallback.
@@ -150,7 +160,9 @@ impl CertifiedResolver {
             .client
             .state_proof(&key)
             .map_err(|error| error.to_string())?;
-        let result = if self.trust.genesis.version == genesis::ROTATING_GENESIS_VERSION {
+        let result = if self.potb.is_some() {
+            self.resolve_potb(name, &code, &value)?
+        } else if self.trust.genesis.version == genesis::ROTATING_GENESIS_VERSION {
             let mut trusted = match &self.handoffs {
                 Some(trusted) => trusted.clone(),
                 None => consensus::rotation::HandoffVerifier::new(
@@ -190,6 +202,20 @@ impl CertifiedResolver {
             self.trust.verify(name, self.minimum, &code, &value)?
         };
         self.minimum = self.minimum.max(result.height);
+        Ok(result)
+    }
+
+    fn resolve_potb(&mut self, name: &str, code: &CertifiedStateProof, value: &CertifiedStateProof) -> Result<Resolution, String> {
+        let mut trusted = self.potb.clone().ok_or("PoTB is not configured")?;
+        let deadline = std::time::Instant::now() + std::time::Duration::from_secs(30);
+        let result = self.trust.verify_using(name, self.minimum, code, value, |proof, key, minimum| {
+            let height = proof.header.ok_or("registry requires finalized deployment")?.height;
+            if height < minimum { return Err("registry proof precedes freshness floor".into()); }
+            let remaining = deadline.checked_duration_since(std::time::Instant::now()).ok_or("handoff deadline exceeded")?;
+            self.client.advance_potb_handoffs(&mut trusted, height, 10_000, remaining).map_err(|error| error.to_string())?;
+            proof.verify_with_potb(&trusted, key, minimum).map_err(|_| "registry proof failed authentication".into())
+        })?;
+        self.potb = Some(trusted);
         Ok(result)
     }
 }

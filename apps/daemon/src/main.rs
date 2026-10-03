@@ -54,13 +54,10 @@ fn run() -> Result<(), DaemonError> {
         }
         options::Command::Run(options) => options,
     };
-    let genesis = options.genesis.as_deref().map(read_genesis).transpose()?;
     if options.validators.is_some() {
-        return network::run(
-            &options,
-            genesis.ok_or_else(|| DaemonError::Config("network genesis required".into()))?,
-        );
+        return network::run(&options);
     }
+    let genesis = options.genesis.as_deref().map(read_genesis).transpose()?;
     run_demonstration(*options, genesis.as_ref())
 }
 

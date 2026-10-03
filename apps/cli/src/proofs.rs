@@ -4,7 +4,7 @@
 //! Fetch and independently authenticate bounded finalized-state witnesses.
 
 use crate::{CliError, contracts::read_bounded, wallet};
-use codec::CanonicalDecode;
+use codec::{CanonicalDecode, CanonicalEncode};
 use rpc::CertifiedStateProof;
 use std::{ffi::OsString, path::Path};
 use types::StateKey;
@@ -51,8 +51,11 @@ pub(super) fn run(command: &str, args: &[OsString]) -> Result<(), CliError> {
         None
     };
     let value = match &handoffs {
-        Some(trust) => proof.verify_with_handoffs(&trust.verifier, &key, minimum),
-        None => proof.verify(&genesis, &keys, &key, minimum),
+        Some(trust) => trust.verifier.verify_state(&proof, &key, minimum),
+        None => match &genesis {
+            Anchor::Potb(profile) => proof.verify_potb_genesis(profile, &keys, &key),
+            Anchor::Genesis(genesis) => proof.verify(genesis, &keys, &key, minimum),
+        },
     }.map_err(|_| error("state proof authentication failed for the trusted genesis, registry, key or minimum height"))?;
     if command == "state-proof" {
         if let Some(trust) = &handoffs {
@@ -104,10 +107,18 @@ fn parse_key(text: &str) -> Result<StateKey, CliError> {
 pub(super) fn anchors(
     genesis_path: &Path,
     registry_path: &Path,
-) -> Result<(genesis::Genesis, Vec<[u8; 32]>), CliError> {
-    let genesis =
-        genesis::Genesis::decode(&read_bounded(genesis_path, genesis::MAX_GENESIS_BYTES)?)
-            .map_err(error)?;
+) -> Result<(Anchor, Vec<[u8; 32]>), CliError> {
+    let bytes = read_bounded(
+        genesis_path,
+        consensus::potb_transition::PotbConfiguration::MAX_BYTES,
+    )?;
+    let genesis = if bytes.starts_with(b"ALPTCF01") {
+        Anchor::Potb(
+            consensus::potb_transition::PotbConfiguration::from_bytes(&bytes).map_err(error)?,
+        )
+    } else {
+        Anchor::Genesis(genesis::Genesis::decode(&bytes).map_err(error)?)
+    };
     let registry = read_bounded(registry_path, genesis::MAX_GENESIS_VALIDATORS * 32)?;
     if registry.is_empty() || !registry.len().is_multiple_of(32) {
         return Err(error(
@@ -116,4 +127,43 @@ pub(super) fn anchors(
     }
     let keys: Vec<[u8; 32]> = registry.as_chunks::<32>().0.to_vec();
     Ok((genesis, keys))
+}
+
+#[derive(Clone)]
+pub(super) enum Anchor {
+    Genesis(genesis::Genesis),
+    Potb(consensus::potb_transition::PotbConfiguration),
+}
+impl std::ops::Deref for Anchor {
+    type Target = genesis::Genesis;
+    fn deref(&self) -> &Self::Target {
+        match self {
+            Self::Genesis(value) => value,
+            Self::Potb(value) => value.genesis(),
+        }
+    }
+}
+impl Anchor {
+    pub(super) fn commitment(&self) -> Result<types::Hash256, CliError> {
+        match self {
+            Self::Genesis(value) => value.commitment().map_err(error),
+            Self::Potb(value) => Ok(value.commitment()),
+        }
+    }
+    pub(super) fn to_bytes(&self) -> Vec<u8> {
+        match self {
+            Self::Genesis(value) => value.to_bytes(),
+            Self::Potb(value) => value.to_bytes(),
+        }
+    }
+    pub(super) fn network(
+        &self,
+        keys: Vec<[u8; 32]>,
+    ) -> Result<node::network::StaticNetwork, CliError> {
+        match self {
+            Self::Genesis(value) => node::network::StaticNetwork::new(value.clone(), keys),
+            Self::Potb(value) => node::network::StaticNetwork::with_potb(value.clone(), keys),
+        }
+        .map_err(error)
+    }
 }

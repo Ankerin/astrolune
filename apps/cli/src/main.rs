@@ -22,6 +22,7 @@ mod contracts;
 mod evidence;
 mod handoffs;
 mod network;
+mod potb;
 mod proofs;
 mod receipts;
 mod recovery;
@@ -102,7 +103,15 @@ Commands:
   admission-assemble <genesis> <validators> <request> <output> <approval>...
            Require more than two thirds of incumbent voting power
   admission-verify <genesis> <validators> <request> <certificate>
-           Verify saved authorization; existing profiles do not activate membership
+           Verify saved authorization against the independently trusted profile
+  admission-submit <genesis> <validators> <request> <certificate> [rpc-address]
+           Submit quorum authorization for inclusion in the current PoTB height
+  potb-config <genesis-v2> <epoch-blocks> <initial-weight> <age-increment> <maximum-weight> <output>
+           Create an explicit PoTB configuration with a separate network identity
+  potb-evidence <configuration> <validators> <double-vote> <inclusion-height> <output> [rpc-address]
+           Authenticate history and prepare evidence for the specified PoTB frontier
+  potb-submit-evidence <configuration> <validators> <evidence> [rpc-address]
+           Authenticate and submit historical evidence to a validator endpoint
   vrf-prove <genesis> <seed-file> <epoch> <height> <parent-randomness> <committee|producer> <round> <output>
            Create a registered validator's context-bound VRF proof offline
   vrf-verify <genesis> <public-key> <epoch> <height> <parent-randomness> <committee|producer> <round> <proof>
@@ -113,13 +122,14 @@ Commands:
            Export verified history for an observer, without copying signing authority
   verify   Validate a node configuration
   genesis <file>  Verify binary genesis and derive its initial state root
-  devnet <directory> [validators] [--observer] [--contracts] [--vrf]  Create a local test network (default: 4)
+  devnet <directory> [validators] [--observer] [--contracts] [--vrf|--potb]  Create a local test network (default: 4)
   init-validator <genesis> <seed> <directory>  Provision a protected signing journal
   init-network-tls <directory> [peers]  Create independent TLS identities (default: 4)
   help     Show this message
   version  Show version
 
 RPC defaults to ASTROLUNE_RPC_ADDR or 127.0.0.1:17331 (numeric IP:port).
+Proof, receipt, admission and history commands accept explicit PoTB configurations as genesis.
 Amounts are integer smallest units; expires-at is the last valid block height.
 Seed files contain exactly 32 raw bytes. Never pass seed bytes on the command line.
 ";
@@ -174,8 +184,11 @@ fn run() -> Result<(), CliError> {
         Some(command @ ("evidence-create" | "evidence-verify")) => evidence::run(command),
         Some(
             command @ ("admission-request" | "admission-inspect" | "admission-approve"
-            | "admission-assemble" | "admission-verify"),
+            | "admission-assemble" | "admission-verify" | "admission-submit"),
         ) => admission::run(command, &std::env::args_os().skip(2).collect::<Vec<_>>()),
+        Some(command @ ("potb-config" | "potb-evidence" | "potb-submit-evidence")) => {
+            potb::run(command, &std::env::args_os().skip(2).collect::<Vec<_>>())
+        }
         Some(command @ ("vrf-prove" | "vrf-verify")) => {
             vrf::run(command, &std::env::args_os().skip(2).collect::<Vec<_>>())
         }

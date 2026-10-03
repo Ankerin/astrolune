@@ -61,7 +61,7 @@ pub(super) fn run(command: &str, args: &[OsString]) -> Result<(), CliError> {
         None
     };
     let receipt = match &handoffs {
-        Some(trust) => proof.verify_with_handoffs(&trust.verifier, id, minimum),
+        Some(trust) => trust.verifier.verify_receipt(&proof, id, minimum),
         None => proof.verify(&genesis, &keys, id, minimum),
     }
     .map_err(|_| error("receipt proof failed independent authentication"))?;
