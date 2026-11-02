@@ -369,7 +369,7 @@ fn push_count(buffer: &mut Vec<u8>, value: usize) {
 /// encoded here. What is encoded is the compile-time target: architecture,
 /// operating system, target family, pointer width and endianness. A toolchain
 /// change that leaves all five equal is not distinguished; see
-/// `docs/58-ahead-of-time-contract-backend.md` for that limit.
+/// `docs/contracts/58-ahead-of-time-contract-backend.md` for that limit.
 #[must_use]
 pub fn target_identity() -> Hash256 {
     let mut bytes = Vec::new();

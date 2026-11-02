@@ -20,7 +20,7 @@
 //! This is not a mechanized proof. No proof assistant, model checker or solver is
 //! used and none is a dependency, so the composition of these lemmas into the
 //! safety and liveness theorems is a hand-written argument recorded in
-//! `docs/59-unbounded-consensus-argument.md`; only the individual finite
+//! `docs/consensus/59-unbounded-consensus-argument.md`; only the individual finite
 //! obligations are discharged here. The transition rules are transcribed by hand
 //! from `consensus::LocalBft` and are conformance-tested against it only at
 //! sampled points, so divergence outside those samples is possible. The symbolic

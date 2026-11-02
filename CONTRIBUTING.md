@@ -80,7 +80,7 @@ benchmark still executes and that none has silently stopped running; it is not a
 performance gate, and the figures from a shared runner are not comparable. Note
 that `--all-targets` also compiles and lints benchmarks, so a stale benchmark
 breaks clippy. A measurement is not a correctness check: see
-[local performance measurement](docs/56-performance-measurement.md) for the
+[local performance measurement](docs/performance/56-performance-measurement.md) for the
 method and its limits.
 
 ## Documentation

@@ -63,7 +63,7 @@ its own.
 two distinct machine identities to the comparator even when the hosted runner is
 the same image. That makes the comparison stronger than a single run and weaker
 than two independently administered hosts; the limit is recorded in
-[docs/39](../docs/39-toolchain-and-release-qualification.md). No workflow signs,
+[docs/39](../docs/development/39-toolchain-and-release-qualification.md). No workflow signs,
 publishes, or holds any key material, and no workflow performs the release
 authority key ceremony described in
 [`RELEASING.md`](../RELEASING.md).

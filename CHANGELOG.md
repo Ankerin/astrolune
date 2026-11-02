@@ -272,11 +272,11 @@ All notable changes to AstroLune will be documented in this file. The format fol
 - Daemon RPC status follows recovered and newly committed checkpoints; genesis-free account and transaction operations return unavailable.
 - Process restart/failure tests and differential state/block checks across repeated node service restarts.
 - Bounded file-backed whole-chain archives with atomic commit/import/pruning, retained historical snapshots, writer locks, corruption checks, and process-recovery tests.
-- Independent block/receipt hash fixtures and archive format/compatibility documentation in `docs/11-chain-archives.md`.
+- Independent block/receipt hash fixtures and archive format/compatibility documentation in `docs/state/11-chain-archives.md`.
 - Immutable shared state snapshots, bounded transitions, and strict Merkle membership proofs.
 - Versioned state files with synchronized atomic replacement, process-held writer locks, corruption detection, and recovery tests.
 - Bounded historical snapshot export and staged import against an independently authenticated checkpoint, plus a snapshot decoder fuzz target.
-- State-format compatibility specification in `docs/10-state-and-recovery.md`; old flat files and XOR roots require explicit migration.
+- State-format compatibility specification in `docs/state/10-state-and-recovery.md`; old flat files and XOR roots require explicit migration.
 - State-aware signed transaction admission with explicit resource prices, address/public-key binding, and ordered validation stages.
 - Normalized access leases and deterministic greedy execution waves that preserve conflict and sender order, with serial-equivalence tests.
 - Standard cryptographic vectors and signed admission-to-mempool integration tests.

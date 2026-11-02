@@ -13,7 +13,7 @@ all-features = true
 # the 160 packages in Cargo.lock. The omitted 37 are enumerated, licence-checked
 # and bounded by .github/scripts/check-license-coverage.py against
 # .github/scripts/deny-coverage-baseline.json; see
-# docs/51-dependency-and-security-review.md.
+# docs/security/51-dependency-and-security-review.md.
 
 [advisories]
 version = 2

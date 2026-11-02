@@ -38,7 +38,7 @@ AstroLune is a modular blockchain node implemented as a Rust workspace. It is bu
 
 | Area | Direction | Current shape |
 | --- | --- | --- |
-| Consensus | PoTB weight, weighted VRF committees, partial rotation | [Live VRF rotation, standby participation and verified catch-up](docs/40-live-vrf-network.md) |
+| Consensus | PoTB weight, weighted VRF committees, partial rotation | [Live VRF rotation, standby participation and verified catch-up](docs/consensus/40-live-vrf-network.md) |
 | Finality | Proposal, prevote, and precommit with > ⅔ voting power | Certified fixed or genesis-v2 rotating daemon network |
 | Execution | Deterministic state transitions with parallel scheduling | Readiness DAG for signed payments and contracts, with canonical atomic commit |
 | Persistence | Snapshots, archives, genesis, accounts, and recovery | Append-only chain log, atomic publication, verified replay recovery |
@@ -119,14 +119,14 @@ Validator hardware requirements depend on the deployment profile:
 | Mainnet recommended | 24 cores at 2.8 GHz or higher | 256–512 GB | 2 TB NVMe SSD |
 | Testnet / local development minimum | 8 cores | 16 GB | 50 GB free disk space |
 
-Mainnet participation targets operators able to meet this hardware profile. These are design requirements rather than measured figures, and the daemon does not enforce them. See [validator hardware and operational requirements](docs/07-validator-requirements.md).
+Mainnet participation targets operators able to meet this hardware profile. These are design requirements rather than measured figures, and the daemon does not enforce them. See [validator hardware and operational requirements](docs/operations/07-validator-requirements.md).
 
 The repository pins Rust `1.99.0` with rustfmt and Clippy through [`rust-toolchain.toml`](rust-toolchain.toml). Install Rust with [rustup](https://rustup.rs/); entering the repository selects the pinned toolchain.
 
 On Windows with an older standalone Rust installation in `PATH`, run
 `. ./tools/enter-dev.ps1` to select the rustup proxies in the current shell.
 
-Cryptographic foundations use pinned BLAKE2s and Ed25519 backends; dependency versions are recorded in `Cargo.lock`. Reference state and [whole-chain archive persistence](docs/11-chain-archives.md) use standard-library file I/O and locks.
+Cryptographic foundations use pinned BLAKE2s and Ed25519 backends; dependency versions are recorded in `Cargo.lock`. Reference state and [whole-chain archive persistence](docs/state/11-chain-archives.md) use standard-library file I/O and locks.
 
 ## Quick start
 
@@ -166,21 +166,21 @@ cargo run -p cli -- devnet target/local-network 4
 cargo run -p cli -- devnet target/rotating-network 4 --vrf --contracts --observer
 ```
 
-Add `--observer` to provision an additional non-voting full node with its own TLS identity and RPC endpoint. [Observer setup and recovery](docs/21-observer-nodes.md) describe independent verification and operation without consensus keys.
+Add `--observer` to provision an additional non-voting full node with its own TLS identity and RPC endpoint. [Observer setup and recovery](docs/network/21-observer-nodes.md) describe independent verification and operation without consensus keys.
 
-Run the four commands in `target/local-network/START.txt` in separate terminals. Validators exchange signed proposals and votes over mutual TLS 1.3, gossip native payments, publish certified blocks, and catch up after reconnecting. Consensus and wallet keys are public test fixtures; separate random TLS identities are provisioned automatically. See [network setup, recovery, protocol bounds, and limitations](docs/19-reference-network.md).
+Run the four commands in `target/local-network/START.txt` in separate terminals. Validators exchange signed proposals and votes over mutual TLS 1.3, gossip native payments, publish certified blocks, and catch up after reconnecting. Consensus and wallet keys are public test fixtures; separate random TLS identities are provisioned automatically. See [network setup, recovery, protocol bounds, and limitations](docs/network/19-reference-network.md).
 
-New network directories use an [append-only chain log](docs/22-append-only-chain-storage.md). Existing archives remain readable with their original limits; startup identifies the storage format. [Protected signing journals](docs/23-signing-journal-rollover.md) continue beyond 100,000 decisions through bounded watermark rollover.
+New network directories use an [append-only chain log](docs/state/22-append-only-chain-storage.md). Existing archives remain readable with their original limits; startup identifies the storage format. [Protected signing journals](docs/security/23-signing-journal-rollover.md) continue beyond 100,000 decisions through bounded watermark rollover.
 
-The [native-payment CLI wallet](docs/24-wallet-and-rpc-client.md) can query real
+The [native-payment CLI wallet](docs/ecosystem/24-wallet-and-rpc-client.md) can query real
 status/balances, derive wallet addresses, sign payments offline, inspect saved
 transactions and submit them through validator or observer RPC. Submission
 reports admission separately from finalization and preserves the signed file
 when the network outcome is uncertain.
 
-[Certified receipt queries](docs/35-certified-receipts.md) and `wait-finality` independently verify execution against trusted genesis membership. [State proofs](docs/32-certified-state-proofs.md), the [DNS resolver](docs/33-authenticated-name-registry.md) and [contract source packages](docs/34-contract-source-packages.md) have dedicated operator instructions.
+[Certified receipt queries](docs/state/35-certified-receipts.md) and `wait-finality` independently verify execution against trusted genesis membership. [State proofs](docs/state/32-certified-state-proofs.md), the [DNS resolver](docs/ecosystem/33-authenticated-name-registry.md) and [contract source packages](docs/contracts/34-contract-source-packages.md) have dedicated operator instructions.
 
-[Private-network operations](docs/36-private-network-operations.md) cover scoped peer discovery, reusable TLS sessions, local Prometheus metrics and authenticated history export for observer recovery.
+[Private-network operations](docs/operations/36-private-network-operations.md) cover scoped peer discovery, reusable TLS sessions, local Prometheus metrics and authenticated history export for observer recovery.
 
 ### Local demonstration chain
 
@@ -208,16 +208,16 @@ Start or resume a local chain with the same trusted genesis on every invocation:
 cargo run -p daemon -- --genesis genesis.bin --data-dir node-data --blocks 3
 ```
 
-Genesis initializes a durable height-zero anchor with account balances and validator weights; produced blocks start at height one. A different or missing genesis is rejected on restart. Native signed payments update balances and nonces; without `--validators` this local mode publishes placeholder finality rather than certificates. See [genesis verification and materialization](docs/12-genesis-and-accounts.md), [payment rules and RPC](docs/13-native-payments.md), and the [versioned transaction format](docs/14-versioned-transactions.md).
+Genesis initializes a durable height-zero anchor with account balances and validator weights; produced blocks start at height one. A different or missing genesis is rejected on restart. Native signed payments update balances and nonces; without `--validators` this local mode publishes placeholder finality rather than certificates. See [genesis verification and materialization](docs/state/12-genesis-and-accounts.md), [payment rules and RPC](docs/state/13-native-payments.md), and the [versioned transaction format](docs/state/14-versioned-transactions.md).
 
 <details>
 <summary>Operational notes</summary>
 
 Without genesis, the daemon uses chain ID 7 and keeps account/submission RPC unavailable. Genesis-backed nodes accept signed native payments and serve committed account bytes through RPC. The mode without `--validators` still uses placeholder certificates; certified networking requires an exact public-key registry and a previously provisioned protected signing journal.
 
-Archive versions 2 and 3 are readable; receipt-producing commits write version 3. Old version-1 archives are rejected without migration or rewriting. The consensus library authenticates votes and certificates; see [authenticated finality](docs/15-authenticated-finality.md). `BlockProducer` provides an explicit certified commit path. The [local BFT guard](docs/17-local-bft-voting.md) verifies prevote proofs and preserves vote locks across timeouts and restarts using a [protected durable journal](docs/16-durable-signing.md).
+Archive versions 2 and 3 are readable; receipt-producing commits write version 3. Old version-1 archives are rejected without migration or rewriting. The consensus library authenticates votes and certificates; see [authenticated finality](docs/consensus/15-authenticated-finality.md). `BlockProducer` provides an explicit certified commit path. The [local BFT guard](docs/consensus/17-local-bft-voting.md) verifies prevote proofs and preserves vote locks across timeouts and restarts using a [protected durable journal](docs/security/16-durable-signing.md).
 
-The [reference round-robin participant](docs/18-signed-proposals-and-participants.md) authenticates signed proposals and coordinates execution, voting, round changes, and atomic publication. The [network driver](docs/19-reference-network.md) connects it to the daemon, mutually authenticated TLS exchange, timers, durable proposal recovery, and certified catch-up. [Transport identity validation and provisioning](docs/20-authenticated-transport.md) are implemented. Verified weighted VRF selection and [live committee rotation](docs/40-live-vrf-network.md) are implemented; distributed calibration and independent review remain open. [Contract profile 2](docs/30-signed-contracts.md) adds explicit genesis activation of signed deployments, calls and parallel mixed execution.
+The [reference round-robin participant](docs/consensus/18-signed-proposals-and-participants.md) authenticates signed proposals and coordinates execution, voting, round changes, and atomic publication. The [network driver](docs/network/19-reference-network.md) connects it to the daemon, mutually authenticated TLS exchange, timers, durable proposal recovery, and certified catch-up. [Transport identity validation and provisioning](docs/network/20-authenticated-transport.md) are implemented. Verified weighted VRF selection and [live committee rotation](docs/consensus/40-live-vrf-network.md) are implemented; distributed calibration and independent review remain open. [Contract profile 2](docs/contracts/30-signed-contracts.md) adds explicit genesis activation of signed deployments, calls and parallel mixed execution.
 
 </details>
 
@@ -235,6 +235,9 @@ The [reference round-robin participant](docs/18-signed-proposals-and-participant
 | --- | --- |
 | [Architecture](ARCHITECTURE.md) | Concise source-tree and subsystem map |
 | [Engineering documentation](docs/README.md) | Detailed protocol and implementation documents |
+| [Trocto language](docs/languages/trocto/README.md) | Syntax, profiles, LLVM compilation, native execution and examples |
+| [Smart contracts](docs/contracts/README.md) | SDK, metering, deployment, calls and source packages |
+| [Node operations](docs/operations/README.md) | Setup, validator requirements, monitoring and recovery |
 | [Contributing](CONTRIBUTING.md) | Contribution workflow and expectations |
 | [Security policy](SECURITY.md) | Vulnerability reporting and security scope |
 | [Support](SUPPORT.md) | Help and issue routing |

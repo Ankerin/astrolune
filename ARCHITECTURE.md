@@ -50,6 +50,6 @@ carried:
 
 The repository implements a certified reference network, deterministic execution,
 durable storage and ecosystem services. Its daemon integrates
-[compact propagation and bounded execution-stage overlap](docs/54-compact-blocks-and-execution-pipeline.md).
-The [implementation status](docs/08-implementation-status.md) carries the current
+[compact propagation and bounded execution-stage overlap](docs/network/54-compact-blocks-and-execution-pipeline.md).
+The [implementation status](docs/overview/08-implementation-status.md) carries the current
 grade for every area and the release gates that remain.

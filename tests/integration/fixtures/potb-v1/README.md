@@ -3,7 +3,7 @@
 # PoTB profile compatibility fixtures
 
 Eight literal binary objects freeze the explicit library/producer profile in
-[document 44](../../../../docs/44-potb-state-transitions.md). They are separate
+[document 44](../../../../docs/consensus/44-potb-state-transitions.md). They are separate
 from the 50 genesis-v1/v2 fixtures. All keys are deterministic public test material.
 
 The configuration uses chain 71, four initial keys, three target seats, one

@@ -23,4 +23,4 @@ Do not use public support channels for vulnerabilities, private keys, credential
 
 ## Unsupported requests
 
-The project does not provide financial guarantees, token support, data recovery, anonymity assurances, or compatibility promises for interfaces that have not shipped in a release. Operational procedures that do exist are written down in [routine network operations](docs/52-network-operations.md) and [private-network operations](docs/36-private-network-operations.md) rather than answered case by case.
+The project does not provide financial guarantees, token support, data recovery, anonymity assurances, or compatibility promises for interfaces that have not shipped in a release. Operational procedures that do exist are written down in [routine network operations](docs/operations/52-network-operations.md) and [private-network operations](docs/operations/36-private-network-operations.md) rather than answered case by case.

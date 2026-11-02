@@ -24,4 +24,4 @@ The output directory must not already exist. Compare candidate bytes and semanti
 changes before adding a separately versioned corpus; do not refresh expected files
 just to make a compatibility failure pass. Preserve this corpus for old-profile
 read/replay tests when adding a new protocol profile. Detailed scope is in
-[document 41](../../../../docs/41-protocol-compatibility.md).
+[document 41](../../../../docs/development/41-protocol-compatibility.md).

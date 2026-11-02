@@ -13,4 +13,4 @@ an explicit compatibility decision; never automatically regenerate these files
 to make a failing test pass.
 
 The `export_governance` example writes candidates into a new directory only.
-See [parameter governance](../../../../docs/48-parameter-governance.md).
+See [parameter governance](../../../../docs/consensus/48-parameter-governance.md).

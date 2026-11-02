@@ -10,7 +10,7 @@
 //! modelled transition relation is conformance-tested against the real
 //! `consensus::LocalBft` with protected `keystore::DurableSigner` journals. This
 //! is bounded exploration, never a proof; the stated bounds and the open items are
-//! recorded in `docs/55-formal-consensus-model.md`.
+//! recorded in `docs/consensus/55-formal-consensus-model.md`.
 
 use consensus::{
     AuthenticatedCommittee, BftFinalityEngine, Committee, CommitteeMember, FinalityCertificate,
