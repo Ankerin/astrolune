@@ -29,6 +29,19 @@ pub struct ObserverNode {
 }
 
 impl ObserverNode {
+    /// Admits a bounded ordered batch against the observer's finalized state.
+    pub fn submit_transactions(
+        &mut self,
+        transactions: Vec<types::Transaction>,
+    ) -> Result<Vec<Result<types::Hash256, NetworkNodeError>>, NetworkNodeError> {
+        Ok(self
+            .chain
+            .producer
+            .submit_transactions(transactions)?
+            .into_iter()
+            .map(|result| result.map_err(NetworkNodeError::from))
+            .collect())
+    }
     /// Checks role compatibility without creating files or opening the archive.
     pub fn validate_directory(
         network: &StaticNetwork,
@@ -200,6 +213,10 @@ impl ObserverNode {
                 .producer
                 .pending_transactions()
                 .into_iter()
+                .scan(0usize, |bytes, tx| {
+                    *bytes = bytes.saturating_add(transaction::estimate_encoded_len(&tx));
+                    (*bytes <= 2 * 1024 * 1024).then_some(tx)
+                })
                 .map(NetworkMessage::Transaction)
                 .collect()
         } else {

@@ -1,0 +1,36 @@
+   Compiling libc v0.2.189
+   Compiling find-msvc-tools v0.1.14
+   Compiling shlex v2.0.1
+   Compiling inout v0.2.2
+   Compiling universal-hash v0.6.1
+   Compiling getrandom v0.4.3
+   Compiling untrusted v0.9.0
+   Compiling rustls-pki-types v1.15.1
+   Compiling cipher v0.5.2
+   Compiling poly1305 v0.9.1
+   Compiling aead v0.6.1
+   Compiling rustls v0.23.46
+   Compiling cc v1.5.1
+   Compiling base64ct v1.8.3
+   Compiling chacha20 v0.10.2
+   Compiling argon2 v0.6.0
+   Compiling chacha20poly1305 v0.11.0
+   Compiling once_cell v1.21.4
+   Compiling storage v0.1.0 (/mnt/d/actual/astrolune-network/astrolune/crates/storage)
+   Compiling mempool v0.1.0 (/mnt/d/actual/astrolune-network/astrolune/crates/mempool)
+   Compiling ring v0.17.14
+   Compiling getrandom v0.2.17
+   Compiling keystore v0.1.0 (/mnt/d/actual/astrolune-network/astrolune/crates/keystore)
+   Compiling consensus v0.1.0 (/mnt/d/actual/astrolune-network/astrolune/crates/consensus)
+   Compiling rustls-webpki v0.103.16
+   Compiling p2p v0.1.0 (/mnt/d/actual/astrolune-network/astrolune/crates/p2p)
+   Compiling node v0.1.0 (/mnt/d/actual/astrolune-network/astrolune/crates/node)
+    Finished `release` profile [optimized] target(s) in 13.11s
+     Running tests/trocto.rs (/tmp/astrolune-tps-qualification/release/deps/trocto-4099cfb4e0d8fff5)
+
+running 2 tests
+test native_contract_state_receipts_survive_restart_and_exact_replay ... ok
+test certified_nodes_and_restarted_observer_replay_native_state ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 1 filtered out; finished in 0.18s
+

@@ -1,0 +1,2492 @@
+   Compiling typenum v1.20.1
+   Compiling rand_core v0.10.1
+   Compiling cmov v0.5.4
+   Compiling const-oid v0.10.2
+   Compiling proc-macro2 v1.0.107
+   Compiling unicode-ident v1.0.26
+   Compiling quote v1.0.47
+   Compiling cfg-if v1.0.5
+   Compiling subtle v2.6.1
+   Compiling cpufeatures v0.3.1
+   Compiling semver v1.0.28
+   Compiling ff v0.14.0
+   Compiling signature v3.0.0
+   Compiling ctutils v0.4.4
+   Compiling group v0.14.0
+   Compiling thiserror v2.0.21
+   Compiling ed25519 v3.0.0
+   Compiling libc v0.2.189
+   Compiling rustc_version v0.4.1
+   Compiling getrandom v0.4.3
+   Compiling base64ct v1.8.3
+   Compiling hybrid-array v0.4.15
+   Compiling curve25519-dalek v5.0.0
+   Compiling libm v0.2.16
+   Compiling wasmparser v0.228.0
+   Compiling wasmi_ir v2.0.0
+   Compiling wasmi v2.0.0
+   Compiling crypto-common v0.2.2
+   Compiling block-buffer v0.12.1
+   Compiling inout v0.2.2
+   Compiling bitflags v2.13.2
+   Compiling syn v2.0.119
+   Compiling syn v3.0.6
+   Compiling spin v0.9.9
+   Compiling wasmi_collections v2.0.0
+   Compiling digest v0.11.3
+   Compiling universal-hash v0.6.1
+   Compiling cipher v0.5.2
+   Compiling blake2 v0.11.0
+   Compiling sha2 v0.11.0
+   Compiling poly1305 v0.9.1
+   Compiling types v0.1.0 (/mnt/d/actual/astrolune-network/astrolune/crates/types)
+   Compiling chacha20 v0.10.2
+   Compiling codec v0.1.0 (/mnt/d/actual/astrolune-network/astrolune/crates/codec)
+   Compiling aead v0.6.1
+   Compiling chacha20poly1305 v0.11.0
+   Compiling testkit v0.1.0 (/mnt/d/actual/astrolune-network/astrolune/crates/testkit)
+   Compiling wasmi_core v2.0.0
+   Compiling trocto-compiler v0.1.0 (/mnt/d/actual/astrolune-network/astrolune/crates/trocto-compiler)
+   Compiling trocto-runtime v0.1.0 (/mnt/d/actual/astrolune-network/astrolune/crates/trocto-runtime)
+   Compiling thiserror-impl v2.0.21
+   Compiling leb128fmt v0.1.0
+   Compiling wasm-encoder v0.262.0
+   Compiling memchr v2.8.3
+   Compiling unicode-width v0.2.2
+   Compiling bumpalo v3.20.3
+   Compiling find-msvc-tools v0.1.14
+   Compiling wast v262.0.0
+   Compiling shlex v2.0.1
+   Compiling cc v1.5.1
+   Compiling zeroize_derive v1.5.0
+   Compiling curve25519-dalek-derive v0.1.1
+   Compiling zeroize v1.9.1
+   Compiling argon2 v0.6.0
+   Compiling ring v0.17.14
+   Compiling getrandom v0.2.17
+   Compiling untrusted v0.9.0
+   Compiling rustls-pki-types v1.15.1
+   Compiling time-core v0.1.9
+   Compiling num-conv v0.2.2
+   Compiling powerfmt v0.2.0
+   Compiling vrf-rfc9381 v0.0.7
+   Compiling ed25519-dalek v3.0.0
+   Compiling crypto v0.1.0 (/mnt/d/actual/astrolune-network/astrolune/crates/crypto)
+   Compiling deranged v0.5.8
+   Compiling rustls v0.23.46
+   Compiling state v0.1.0 (/mnt/d/actual/astrolune-network/astrolune/crates/state)
+   Compiling keystore v0.1.0 (/mnt/d/actual/astrolune-network/astrolune/crates/keystore)
+   Compiling transaction v0.1.0 (/mnt/d/actual/astrolune-network/astrolune/crates/transaction)
+   Compiling genesis v0.1.0 (/mnt/d/actual/astrolune-network/astrolune/crates/genesis)
+   Compiling time v0.3.55
+   Compiling consensus v0.1.0 (/mnt/d/actual/astrolune-network/astrolune/crates/consensus)
+   Compiling storage v0.1.0 (/mnt/d/actual/astrolune-network/astrolune/crates/storage)
+   Compiling wat v1.262.0
+   Compiling yasna v0.6.0
+   Compiling once_cell v1.21.4
+   Compiling mempool v0.1.0 (/mnt/d/actual/astrolune-network/astrolune/crates/mempool)
+   Compiling rpc v0.1.0 (/mnt/d/actual/astrolune-network/astrolune/crates/rpc)
+   Compiling config v0.1.0 (/mnt/d/actual/astrolune-network/astrolune/crates/config)
+   Compiling contract-abi v0.1.0 (/mnt/d/actual/astrolune-network/astrolune/crates/contract-abi)
+   Compiling contract-sdk v0.1.0 (/mnt/d/actual/astrolune-network/astrolune/crates/contract-sdk)
+   Compiling telemetry v0.1.0 (/mnt/d/actual/astrolune-network/astrolune/crates/telemetry)
+   Compiling runtime v0.1.0 (/mnt/d/actual/astrolune-network/astrolune/crates/runtime)
+   Compiling sync v0.1.0 (/mnt/d/actual/astrolune-network/astrolune/crates/sync)
+   Compiling serde_core v1.0.229
+   Compiling execution v0.1.0 (/mnt/d/actual/astrolune-network/astrolune/crates/execution)
+   Compiling dns v0.1.0 (/mnt/d/actual/astrolune-network/astrolune/services/dns)
+   Compiling winnow v1.0.4
+   Compiling toml_parser v1.1.5+spec-1.1.0
+   Compiling rustls-webpki v0.103.16
+   Compiling rcgen v0.14.10
+   Compiling toml_datetime v1.1.2+spec-1.1.0
+   Compiling serde_spanned v1.1.2
+   Compiling toml v1.1.8+spec-1.1.0
+   Compiling p2p v0.1.0 (/mnt/d/actual/astrolune-network/astrolune/crates/p2p)
+   Compiling node v0.1.0 (/mnt/d/actual/astrolune-network/astrolune/crates/node)
+   Compiling integration v0.1.0 (/mnt/d/actual/astrolune-network/astrolune/tests/integration)
+   Compiling cargo-contract v0.1.0 (/mnt/d/actual/astrolune-network/astrolune/tools/cargo-contract)
+   Compiling cli v0.1.0 (/mnt/d/actual/astrolune-network/astrolune/apps/cli)
+   Compiling daemon v0.1.0 (/mnt/d/actual/astrolune-network/astrolune/apps/daemon)
+    Finished `release` profile [optimized] target(s) in 51.87s
+     Running unittests src/main.rs (/tmp/astrolune-tps-qualification/release/deps/cargo_contract-e82fc69d83778a70)
+
+running 2 tests
+test package_policy::tests::package_profile_rejects_ambient_inputs_scripts_and_unpinned_dependencies ... ok
+test package::tests::package_decoder_rejects_truncation_traversal_and_incompatible_build_profiles ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests/commands.rs (/tmp/astrolune-tps-qualification/release/deps/commands-626f6ed8254d8797)
+
+running 5 tests
+test multi_file_source_package_rebuilds_independently_and_detects_wrong_artifacts ... ignored, requires Rust 1.99.0 wasm32 libraries; optional ASTROLUNE_CONTRACT_SYSROOT
+test pinned_rust_build_is_repeatable_and_executable ... ignored, requires Rust 1.99.0 wasm32-unknown-unknown libraries; optional ASTROLUNE_CONTRACT_SYSROOT
+test registry_wasm_enforces_ownership_expiry_and_matches_the_native_transition ... ignored, requires Rust 1.99.0 wasm32 libraries; optional ASTROLUNE_CONTRACT_SYSROOT
+test sdk_bindings_execute_all_host_calls_in_the_reference_interpreter ... ignored, requires Rust 1.99.0 wasm32 libraries; optional ASTROLUNE_CONTRACT_SYSROOT
+test validates_executes_and_rejects_wrong_commitment_or_unsupported_commands ... ok
+
+test result: ok. 1 passed; 0 failed; 4 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests/trocto.rs (/tmp/astrolune-tps-qualification/release/deps/trocto-a6fafb3994dd91b7)
+
+running 5 tests
+test native_stateful_cli_build_and_run ... ignored, requires pinned LLVM 22.1.8 and native OS isolation
+test initializes_stateful_source_and_exposes_declared_keys ... ok
+test validates_source_exports_identical_llvm_and_refuses_overwrite ... ok
+test source_packages_preserve_exact_source_and_reject_tampering ... ok
+test rejects_malformed_source_extensions_and_native_call_arguments ... ok
+
+test result: ok. 4 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running unittests src/main.rs (/tmp/astrolune-tps-qualification/release/deps/cli-159508f19c7f306e)
+
+running 1 test
+test recovery::tests::configuration_and_storage_retention_bounds_state_the_same_numbers ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/admission.rs (/tmp/astrolune-tps-qualification/release/deps/admission-ad8c61c1339ef7c1)
+
+running 1 test
+test request_and_protected_quorum_are_usable_offline_with_authenticated_history ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.07s
+
+     Running tests/custody.rs (/tmp/astrolune-tps-qualification/release/deps/custody-d4e7f336d3a69fce)
+
+running 2 tests
+test anchor_provisioning_refuses_overwrites_and_rejects_a_restored_older_journal ... ok
+test consensus_vaults_provision_validators_and_never_substitute_for_wallet_vaults ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.68s
+
+     Running tests/evidence.rs (/tmp/astrolune-tps-qualification/release/deps/evidence-884705505c812169)
+
+running 1 test
+test cli_creates_verifies_and_rejects_tampered_evidence ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests/genesis.rs (/tmp/astrolune-tps-qualification/release/deps/genesis-d8c349347f68911b)
+
+running 1 test
+test verify_genesis_file_and_reject_invalid_arguments_and_bytes ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests/handoffs.rs (/tmp/astrolune-tps-qualification/release/deps/handoffs-392a84e713cd621b)
+
+running 2 tests
+test evidence_cli_uses_historical_rotating_membership_and_preserves_offline_authority ... ok
+test rotating_proof_sidecars_work_offline_and_reject_truncation_or_foreign_anchors ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.04s
+
+     Running tests/network.rs (/tmp/astrolune-tps-qualification/release/deps/network-7c4e6cfbe9d78348)
+
+running 4 tests
+test devnet_observer_has_transport_identity_but_no_consensus_seed_or_journal ... ok
+test standalone_tls_bundle_has_unique_secrets_and_refuses_overwrite ... ok
+test generated_network_has_matching_keys_and_non_overwritable_journals ... ok
+test supplied_key_provisioning_refuses_existing_chain_or_journal ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests/potb_admission.rs (/tmp/astrolune-tps-qualification/release/deps/potb_admission-b8e4e98c0dfdc147)
+
+running 1 test
+test request_and_protected_quorum_are_usable_offline_with_authenticated_history ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.07s
+
+     Running tests/potb_handoffs.rs (/tmp/astrolune-tps-qualification/release/deps/potb_handoffs-8a49530fd3324fbc)
+
+running 3 tests
+test configuration_candidate_provisioning_and_historical_evidence_match_authenticated_state ... ok
+test governance_cli_authenticates_requests_protects_signers_and_requires_quorum ... ok
+test potb_proof_sidecars_work_offline_and_reject_truncation_or_foreign_anchors ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.05s
+
+     Running tests/proofs.rs (/tmp/astrolune-tps-qualification/release/deps/proofs-6ec08071c361e76a)
+
+running 1 test
+test offline_proof_verification_binds_trusted_genesis_key_and_height ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests/receipts.rs (/tmp/astrolune-tps-qualification/release/deps/receipts-6a81edce53ac9dc8)
+
+running 1 test
+test wait_saves_only_authenticated_finality_and_timeout_never_resubmits ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.76s
+
+     Running tests/recovery.rs (/tmp/astrolune-tps-qualification/release/deps/recovery-29a5e337e3fc0d07)
+
+running 1 test
+test recovery_exports_both_backends_as_observers_and_rejects_forgery_lock_rollback_or_overwrite ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.03s
+
+     Running tests/release.rs (/tmp/astrolune-tps-qualification/release/deps/release-566778e6233de6d0)
+
+running 2 tests
+test release_signatures_verify_offline_only_against_an_explicitly_supplied_authority ... ok
+test a_release_authority_can_be_held_in_a_consensus_vault_without_plaintext_export ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.32s
+
+     Running tests/retention.rs (/tmp/astrolune-tps-qualification/release/deps/retention-ecf65143d0572c04)
+
+running 3 tests
+test retention_status_reports_a_requested_policy_without_changing_anything ... ok
+test offline_compaction_requires_the_independently_trusted_profile_and_minimum_height ... ok
+test in_place_retention_survives_restart_and_still_refuses_unrecorded_shortening ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.11s
+
+     Running tests/trocto.rs (/tmp/astrolune-tps-qualification/release/deps/trocto-d397a07907c90866)
+
+running 1 test
+test provisions_native_profile_and_signs_source_and_packages_identically ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests/vrf.rs (/tmp/astrolune-tps-qualification/release/deps/vrf-962d331e7a0aa516)
+
+running 1 test
+test offline_proofs_are_registered_context_bound_and_never_overwritten ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests/wallet.rs (/tmp/astrolune-tps-qualification/release/deps/wallet-467a9570202c2529)
+
+running 8 tests
+test self_payment_has_one_access_key_and_existing_output_is_never_overwritten ... ok
+test submission_checks_chain_and_expiry_before_sending_any_payment ... ok
+test status_and_account_report_node_state_without_fabricated_defaults ... ok
+test signed_file_executes_and_replay_fails_without_changing_balances ... ok
+test accepted_lost_response_and_wrong_id_preserve_exact_signed_file ... ok
+test contract_commands_activate_explicitly_sign_inspect_and_execute ... ok
+test rejects_bad_seeds_parameters_and_corrupted_payment_files ... ok
+test vault_passwords_stay_off_argv_and_unlocked_keys_sign_normal_transactions ... ok
+
+test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.42s
+
+     Running unittests src/lib.rs (/tmp/astrolune-tps-qualification/release/deps/codec-e2c2c6681878fca9)
+
+running 132 tests
+test decoder::tests::clone_decoder ... ok
+test decoder::tests::debug_decoder ... ok
+test decoder::tests::empty_succeeds ... ok
+test decoder::tests::finish_fails_on_remaining ... ok
+test decoder::tests::finish_succeeds_on_empty ... ok
+test decoder::tests::read_exact_full_length ... ok
+test decoder::tests::read_exact_returns_error_on_truncation ... ok
+test decoder::tests::read_exact_zero_length ... ok
+test decoder::tests::read_fixed_32_bytes ... ok
+test decoder::tests::read_fixed_returns_error_on_truncation ... ok
+test decoder::tests::read_u16_insufficient_bytes ... ok
+test decoder::tests::read_u16_little_endian ... ok
+test decoder::tests::read_u32_insufficient_bytes ... ok
+test decoder::tests::read_u32_little_endian ... ok
+test decoder::tests::read_u64_insufficient_bytes ... ok
+test decoder::tests::read_u64_little_endian ... ok
+test decoder::tests::read_u8_exact_one_byte ... ok
+test decoder::tests::rejects_trailing_bytes ... ok
+test decoder::tests::rejects_truncation ... ok
+test decoder::tests::sequential_reads ... ok
+test decoder::tests::tracks_position ... ok
+test error::tests::display_variants ... ok
+test error::tests::variants_are_distinct ... ok
+test primitives::tests::bool_only_canonical_values_accepted ... ok
+test primitives::tests::bool_rejects_non_canonical ... ok
+test primitives::tests::bool_roundtrip ... ok
+test primitives::tests::encoding_determinism ... ok
+test primitives::tests::fixed_array_roundtrips ... ok
+test primitives::tests::golden_u16_256 ... ok
+test primitives::tests::golden_u16_one ... ok
+test primitives::tests::golden_u16_zero ... ok
+test primitives::tests::golden_u32_max ... ok
+test primitives::tests::golden_u64_one ... ok
+test primitives::tests::trailing_byte_rejection_all_types ... ok
+test primitives::tests::truncation_rejection_all_types ... ok
+test primitives::tests::u16_boundary_values ... ok
+test primitives::tests::u16_roundtrip ... ok
+test primitives::tests::u32_boundary_values ... ok
+test primitives::tests::u32_roundtrip ... ok
+test primitives::tests::u64_boundary_values ... ok
+test primitives::tests::u64_roundtrip ... ok
+test primitives::tests::u8_exhaustive_roundtrip ... ok
+test primitives::tests::u8_roundtrip ... ok
+test protocol::tests::address_decode_various_lengths ... ok
+test protocol::tests::address_roundtrip ... ok
+test protocol::tests::block_header_decode_truncated_height ... ok
+test protocol::tests::block_header_decode_truncated_parent ... ok
+test protocol::tests::block_header_roundtrip ... ok
+test protocol::tests::block_header_roundtrip_all_max ... ok
+test protocol::tests::block_header_roundtrip_with_large_capacity ... ok
+test protocol::tests::block_header_truncation ... ok
+test protocol::tests::canonical_encoding_little_endian ... ok
+test protocol::tests::canonical_encoding_no_inter_type_confusion ... ok
+test protocol::tests::encoding_determinism_protocol_types ... ok
+test protocol::tests::execution_receipt_differs_by_succeeded ... ok
+test protocol::tests::execution_receipt_differs_by_transaction ... ok
+test protocol::tests::execution_receipt_encoding_deterministic ... ok
+test protocol::tests::execution_receipt_roundtrip ... ok
+test protocol::tests::execution_receipt_roundtrip_all_max ... ok
+test protocol::tests::execution_receipt_roundtrip_all_zeros ... ok
+test protocol::tests::execution_receipt_trailing_bytes_rejection ... ok
+test protocol::tests::execution_receipt_truncation_rejection ... ok
+test protocol::tests::golden_address_one ... ok
+test protocol::tests::golden_address_zero ... ok
+test protocol::tests::golden_block_header_all_zeros ... ok
+test protocol::tests::golden_block_header_height_one ... ok
+test protocol::tests::golden_block_header_max_height ... ok
+test protocol::tests::golden_hash256_max ... ok
+test protocol::tests::golden_hash256_one ... ok
+test protocol::tests::golden_hash256_zero ... ok
+test protocol::tests::golden_resources_all_ones ... ok
+test protocol::tests::golden_resources_max_values ... ok
+test protocol::tests::golden_resources_zero ... ok
+test protocol::tests::golden_state_key_empty ... ok
+test protocol::tests::golden_state_key_max_length ... ok
+test protocol::tests::golden_state_key_one_byte ... ok
+test protocol::tests::golden_transaction_max_nonce ... ok
+test protocol::tests::golden_transaction_minimal ... ok
+test protocol::tests::golden_transaction_with_access_list ... ok
+test protocol::tests::golden_transaction_zero_nonce ... ok
+test protocol::tests::golden_validator_id_one ... ok
+test protocol::tests::golden_validator_id_zero ... ok
+test protocol::tests::hash256_decode_various_lengths ... ok
+test protocol::tests::hash256_roundtrip ... ok
+test protocol::tests::oversized_access_count_fails_before_reading_or_allocating_keys ... ok
+test protocol::tests::resources_decode_all_zero ... ok
+test protocol::tests::resources_decode_little_endian_order ... ok
+test protocol::tests::resources_nonzero_roundtrip ... ok
+test protocol::tests::resources_roundtrip ... ok
+test protocol::tests::state_key_decode_empty ... ok
+test protocol::tests::state_key_decode_truncated ... ok
+test protocol::tests::state_key_empty_roundtrip ... ok
+test protocol::tests::state_key_length_boundary ... ok
+test protocol::tests::state_key_roundtrip ... ok
+test protocol::tests::trailing_byte_rejection_protocol_types ... ok
+test protocol::tests::transaction_decode_truncated_chain_id ... ok
+test protocol::tests::transaction_decode_truncated_nonce ... ok
+test protocol::tests::transaction_decode_truncated_sender ... ok
+test protocol::tests::transaction_decode_truncated_signature ... ok
+test protocol::tests::transaction_empty_access_list ... ok
+test protocol::tests::transaction_roundtrip ... ok
+test protocol::tests::transaction_roundtrip_many_access_list_entries ... ok
+test protocol::tests::transaction_roundtrip_with_large_payload ... ok
+test protocol::tests::transaction_roundtrip_with_multiple_access_list_entries ... ok
+test protocol::tests::truncation_rejection_protocol_types ... ok
+test protocol::tests::validator_id_decode_various_lengths ... ok
+test protocol::tests::validator_id_roundtrip ... ok
+test tests::address_roundtrip ... ok
+test tests::block_header_roundtrip ... ok
+test tests::block_header_roundtrip_all_max ... ok
+test tests::golden_block_header_all_zeros ... ok
+test tests::golden_resources_zero ... ok
+test tests::golden_transaction_minimal ... ok
+test tests::every_supported_length_roundtrips ... ok
+test tests::golden_transaction_with_access_list ... ok
+test tests::hash256_roundtrip ... ok
+test tests::length_prefix_exactly_127 ... ok
+test tests::length_prefix_exactly_128 ... ok
+test tests::length_prefix_golden_vectors ... ok
+test tests::length_prefix_long ... ok
+test tests::length_prefix_short ... ok
+test tests::length_prefix_zero ... ok
+test tests::mixed_sequence_encoding ... ok
+test tests::resources_nonzero_roundtrip ... ok
+test tests::resources_roundtrip ... ok
+test tests::state_key_empty_roundtrip ... ok
+test tests::state_key_length_boundary ... ok
+test tests::state_key_roundtrip ... ok
+test tests::transaction_empty_access_list ... ok
+test tests::transaction_roundtrip ... ok
+test tests::transaction_roundtrip_many_access_list_entries ... ok
+test tests::validator_id_roundtrip ... ok
+
+test result: ok. 132 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.05s
+
+     Running tests/block_commitments.rs (/tmp/astrolune-tps-qualification/release/deps/block_commitments-e813a778dc4f50c7)
+
+running 3 tests
+test canonical_zero_fixtures_match_independent_blake2s_vectors ... ok
+test exhausted_height_cannot_have_a_child ... ok
+test every_canonical_byte_is_bound_and_xor_cancellation_no_longer_works ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/canonical.rs (/tmp/astrolune-tps-qualification/release/deps/canonical-d72176c73d2665fa)
+
+running 11 tests
+test receipts_accept_only_canonical_boolean_bytes ... ok
+test state_key_limit_is_checked_before_reading_content ... ok
+test state_keys_reject_every_reserved_length_marker ... ok
+test state_keys_reject_every_overlong_short_length ... ok
+test transaction_golden_bytes ... ok
+test transaction_payload_limit ... ok
+test transaction_rejects_every_truncation_and_trailing_bytes ... ok
+test transaction_rejects_noncanonical_lengths_at_every_position ... ok
+test transaction_rejects_unbacked_or_excessive_access_counts ... ok
+test transaction_versions_lanes_and_legacy_bytes_fail_closed ... ok
+test accepted_transaction_mutations_preserve_exact_bytes ... ok
+
+test result: ok. 11 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running unittests src/lib.rs (/tmp/astrolune-tps-qualification/release/deps/config-3787e951e8e6041f)
+
+running 4 tests
+test tests::debug_never_displays_secret_reference ... ok
+test tests::default_retention_is_disabled_and_carries_every_documented_default ... ok
+test tests::node_validation_reports_an_invalid_retention_policy ... ok
+test tests::retention_validation_rejects_every_value_outside_its_documented_range ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/lib.rs (/tmp/astrolune-tps-qualification/release/deps/consensus-108d8819be0704ae)
+
+running 14 tests
+test error::tests::display ... ok
+test error::tests::is_std_error ... ok
+test sampler::tests::empty_committee_unchanged ... ok
+test sampler::tests::no_duplicates_in_committee ... ok
+test finality::tests::round_exhaustion_does_not_wrap_or_clear_votes ... ok
+test sampler::tests::replacement_count_exceeds_committee_replaces_available_seats ... ok
+test sampler::tests::retains_committee_size_minus_replacement_count_members ... ok
+test sampler::tests::sorts_new_members_by_vrf_then_weight_then_id ... ok
+test sampler::tests::total_power_is_sum_of_member_powers ... ok
+test sampler::tests::zero_replacement_count_unchanged ... ok
+test tests::full_lifecycle_committee_rotation_and_finality ... ok
+test weight::tests::quorum_does_not_saturate_for_large_genesis_weights ... ok
+test weight::tests::quorum_is_strictly_greater_than_two_thirds ... ok
+test vrf_selection::tests::tickets_cover_weighted_intervals_and_full_width_bounds ... ok
+
+test result: ok. 14 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/admission.rs (/tmp/astrolune-tps-qualification/release/deps/admission-7d6ade91916da644)
+
+running 3 tests
+test no_admission_when_bounded_roster_is_full ... ok
+test standby_is_not_an_approver_and_registered_candidate_cannot_reenter ... ok
+test weighted_quorum_is_strict_and_request_binds_every_authority_coordinate ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.35s
+
+     Running tests/authentication.rs (/tmp/astrolune-tps-qualification/release/deps/authentication-2c5eaaeadfb8eac0)
+
+running 12 tests
+test accepted_mutations_always_reencode_exactly ... ok
+test committee_commitment_binds_chain_height_seat_order_and_full_weights ... ok
+test golden_commitments_match_independent_python_blake2s_vectors ... ok
+test every_signed_vote_field_is_authenticated_without_consuming_the_slot ... ok
+test invalid_membership_and_key_bindings_fail_closed ... ok
+test certificate_size_bound_accepts_exact_limit_and_rejects_excess ... ok
+test certificates_reject_replay_insufficient_power_and_every_invalid_signature ... ok
+test nil_quorums_never_finalize_and_first_certificate_is_frozen ... ok
+test nil_replays_and_authenticated_conflicts_never_add_power ... ok
+test rounds_phases_blocks_and_nil_have_separate_power ... ok
+test strict_wire_decoders_reject_truncation_tags_order_duplicates_and_trailing_bytes ... ok
+test all_weighted_subsets_agree_with_reference_threshold_in_both_orders ... ok
+
+test result: ok. 12 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.03s
+
+     Running tests/batch_equivalence.rs (/tmp/astrolune-tps-qualification/release/deps/batch_equivalence-c5a6be2e98436c1f)
+
+running 7 tests
+test finality_quorum_reports_the_check_the_serial_order_reached_first ... ok
+test prevote_quorum_reports_the_hoisted_phase_round_and_block_checks_in_order ... ok
+test admission_quorum_reports_an_outsider_before_a_higher_invalid_signature ... ok
+test finality_quorum_rejects_every_corrupted_signature_position_with_invalid_proof ... ok
+test prevote_quorum_rejects_every_corrupted_signature_position_with_invalid_proof ... ok
+test admission_quorum_authenticates_every_approval_including_those_after_quorum ... ok
+test governance_quorum_authenticates_every_approval_including_those_after_quorum ... ok
+
+test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.03s
+
+     Running tests/durable_votes.rs (/tmp/astrolune-tps-qualification/release/deps/durable_votes-9ef03eeb2d3e869b)
+
+running 2 tests
+test typed_signing_binds_context_and_cannot_relabel_a_vote_phase ... ok
+test restarted_signers_produce_an_independently_verified_precommit_certificate ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/formal_model.rs (/tmp/astrolune-tps-qualification/release/deps/formal_model-804a20cebd426f93)
+
+running 5 tests
+test extended_formal_model_campaign ... ignored, deeper bounded exploration; run with --release --ignored. Bounded model checking, never a proof
+test conflicting_finality_requires_at_least_the_accountability_threshold ... ok
+test eventual_synchrony_decides_at_every_terminal_state_within_the_round_bound ... ok
+test modelled_transitions_agree_with_the_production_local_bft ... ok
+test asynchronous_exploration_preserves_safety_below_the_accountability_threshold ... ok
+
+test result: ok. 4 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 0.78s
+
+     Running tests/governance.rs (/tmp/astrolune-tps-qualification/release/deps/governance-4a42825939ca886f)
+
+running 4 tests
+test all_governance_envelopes_reject_truncation_trailing_bytes_and_unknown_versions ... ok
+test quorum_parent_epoch_and_signature_domains_are_authenticated ... ok
+test exactly_two_thirds_of_the_rotated_committee_cannot_change_parameters ... ok
+test pending_update_activates_once_and_handoffs_replay_exactly ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+
+     Running tests/handoff.rs (/tmp/astrolune-tps-qualification/release/deps/handoff-42f7f062701b0e77)
+
+running 7 tests
+test bootstrap_requires_exact_strong_registered_keys_and_foreign_genesis_is_rejected ... ok
+test rotation_wire_commitments_are_stable ... ok
+test old_quorum_cannot_substitute_a_different_structurally_valid_next_state ... ok
+test bounded_canonical_decoders_reject_all_truncations_trailing_data_and_bad_counts ... ok
+test every_anchor_is_checked_and_failed_handoffs_preserve_authority ... ok
+test complete_collection_is_order_independent_idempotent_and_fail_closed ... ok
+test handoffs_recover_from_genesis_and_reject_replay_without_changing_trust ... ok
+
+test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.05s
+
+     Running tests/historical_evidence.rs (/tmp/astrolune-tps-qualification/release/deps/historical_evidence-678b40b9a01729dd)
+
+running 2 tests
+test past_offence_is_authenticated_after_the_validator_leaves_the_committee ... ok
+test every_truncation_mutation_and_padding_fails_to_authenticate ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.08s
+
+     Running tests/history.rs (/tmp/astrolune-tps-qualification/release/deps/history-3fc54ba9905cb552)
+
+running 4 tests
+test full_width_counts_have_bounded_paths_and_overflow_is_atomic ... ok
+test failed_updates_and_proof_generation_preserve_history_and_authority ... ok
+test codecs_enforce_minimal_paths_and_mutations_cannot_gain_authority ... ok
+test frontiers_and_every_leaf_match_the_reference_across_unbalanced_tree_shapes ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.17s
+
+     Running tests/local_bft.rs (/tmp/astrolune-tps-qualification/release/deps/local_bft-4fa907ea40a8ff2c)
+
+running 11 tests
+test proposal_codec_is_canonical_and_matches_independent_python_digest ... ok
+test invalid_proposal_validation_always_yields_nil_without_locking ... ok
+test resume_rejects_wrong_context_and_raw_journals_and_round_exhaustion_is_checked ... ok
+test local_votes_survive_restart_and_form_finality_with_execution_validation ... ok
+test invalid_proofs_stale_timers_and_conflicting_slot_retries_cannot_change_decisions ... ok
+test round_robin_uses_committed_seat_order_and_full_width_coordinates ... ok
+test reproposals_require_the_exact_signed_valid_round_and_preserve_locks ... ok
+test restart_cannot_erase_quorum_locks_to_create_a_conflicting_prevote_quorum ... ok
+test signed_proposals_bind_designation_and_survive_restart_without_double_proposals ... ok
+test timeout_and_nil_votes_retain_lock_until_a_newer_proof_authorizes_change ... ok
+test prevote_proofs_reject_duplicates_mixed_contexts_phase_changes_and_tampering ... ok
+
+test result: ok. 11 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.03s
+
+     Running tests/potb.rs (/tmp/astrolune-tps-qualification/release/deps/potb-a13071fcf2e63d90)
+
+running 8 tests
+test duplicates_forged_signatures_and_different_slots_are_not_evidence ... ok
+test score_matches_small_reference_and_never_overflows_at_full_width ... ok
+test evidence_canonicalizes_order_and_deduplicates_the_offence_slot ... ok
+test collector_retains_one_proof_per_member_across_rounds_without_counting_conflicts ... ok
+test rejected_histories_never_publish_partial_counters_or_head ... ok
+test evidence_order_and_duplicates_do_not_stack_penalties ... ok
+test finalized_replay_grows_capped_age_without_treating_certificate_omission_as_downtime ... ok
+test all_truncations_and_single_byte_changes_fail_decode_or_authentication ... ok
+
+test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests/potb_transition.rs (/tmp/astrolune-tps-qualification/release/deps/potb_transition-09b27181650a7b8c)
+
+running 6 tests
+test new_envelopes_are_exact_bounded_and_legacy_genesis_cannot_activate_them ... ok
+test too_few_surviving_seats_and_missing_banned_contributions_fail_closed ... ok
+test rejected_quorum_fork_witness_batch_and_replay_preserve_all_state ... ok
+test canonical_order_duplicates_and_aggregate_admission_capacity_are_checked ... ok
+test age_is_membership_not_certificate_presence_and_power_changes_only_after_handoff ... ok
+test evidence_admission_and_restart_update_one_committed_authority ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.21s
+
+     Running tests/unbounded_model.rs (/tmp/astrolune-tps-qualification/release/deps/unbounded_model-618b46aefb16de40)
+
+running 23 tests
+test doubling_the_quorum_overflows_u128_above_an_exact_total_so_the_threshold_needs_the_difference_form ... ok
+test an_honest_seat_leads_within_the_longest_faulty_run_plus_one_for_every_placement ... ok
+test a_locked_seat_never_prevotes_a_conflicting_value_without_a_strictly_newer_certificate ... ok
+test extended_unbounded_obligation_campaign ... ignored, wider enumeration of the same finite obligations; run with --release --ignored. Enumerated obligations, never a mechanized proof
+test conflicting_certificates_in_one_slot_require_at_least_the_accountability_threshold ... ok
+test honest_enabling_conditions_are_monotone_in_the_byzantine_message_pool ... ok
+test an_honest_leader_always_has_a_legal_proposal_under_the_proposer_lock_rule ... ok
+test liveness_requires_the_strictly_stronger_honest_quorum_precondition ... ok
+test every_transition_rule_preserves_the_safety_invariant_over_the_whole_case_space ... ok
+test eventual_synchrony_prevotes_the_reproposed_highest_certificate_in_every_lock_case ... ok
+test quorum_power_is_the_least_weight_strictly_above_two_thirds_at_every_total ... ok
+test quorum_power_matches_the_closed_form_on_every_residue_class_and_at_the_u128_extremes ... ok
+test the_initial_configuration_satisfies_every_clause_of_the_safety_invariant ... ok
+test the_accountability_threshold_is_positive_and_attained_at_every_total ... ok
+test the_weight_classes_partition_every_total_and_increase_with_the_weight ... ok
+test two_quorums_over_one_total_always_share_at_least_the_accountability_threshold ... ok
+test the_invariant_implies_agreement_over_every_certificate_map_in_the_window ... ok
+test the_round_advance_is_the_only_round_changing_rule_and_stops_at_the_u32_ceiling ... ok
+test every_aggregate_slot_transition_is_matched_by_an_abstract_class_transition ... ok
+test the_preservation_case_space_and_its_verdicts_are_invariant_under_a_round_offset ... ok
+test the_abstract_relation_is_a_strict_over_approximation_with_an_exact_slack_count ... ok
+test every_seat_leads_exactly_once_in_every_window_of_seat_count_consecutive_rounds ... ok
+test aggregate_certificate_formation_conforms_to_the_production_certificate ... ok
+
+test result: ok. 22 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 0.25s
+
+     Running tests/vrf_selection.rs (/tmp/astrolune-tps-qualification/release/deps/vrf_selection-5d2134d2391719b3)
+
+running 4 tests
+test rotation_replaces_requested_seats_updates_retained_weights_and_checks_height ... ok
+test producer_requires_exact_committee_role_height_and_weights ... ok
+test every_proof_and_trusted_weight_is_required ... ok
+test selection_is_order_independent_and_accepted_by_finality_context ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running unittests src/lib.rs (/tmp/astrolune-tps-qualification/release/deps/contract_abi-5b935786f9dbb1e1)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/lib.rs (/tmp/astrolune-tps-qualification/release/deps/contract_sdk-5635224ab7b9ffd4)
+
+running 12 tests
+test tests::address_zero ... ok
+test tests::memory_buffer_fill_and_read ... ok
+test tests::contract_error_display ... ok
+test tests::metered_host_state_io_cost ... ok
+test tests::metered_host_tracks_usage ... ok
+test tests::memory_buffer_into_vec ... ok
+test tests::mock_host_basic_operations ... ok
+test tests::mock_host_events ... ok
+test tests::mock_host_insufficient_balance ... ok
+test tests::mock_host_state_operations ... ok
+test tests::resource_usage_overflow_saturates ... ok
+test tests::resource_usage_saturating_add ... ok
+
+test result: ok. 12 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests/registry.rs (/tmp/astrolune-tps-qualification/release/deps/registry-f0d2075c89a319bd)
+
+running 2 tests
+test canonical_inputs_are_bounded_and_never_accept_truncations_or_reserved_names ... ok
+test registry_requires_live_ownership_for_every_mutation_and_prevents_confusable_takeover ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/lib.rs (/tmp/astrolune-tps-qualification/release/deps/crypto-c489566d90a8b42d)
+
+running 63 tests
+test batch::tests::empty_batch_is_accepted ... ok
+test batch::tests::first_failure_is_none_for_valid_and_empty_batches ... ok
+test batch::tests::chunk_boundaries_cover_every_request ... ok
+test batch::tests::batch_rejects_weak_key_like_the_serial_path ... ok
+test batch::tests::single_request_matches_direct_verification ... ok
+test batch::tests::suggested_workers_is_bounded_and_nonzero ... ok
+test blake2s::tests::blake2s_deterministic ... ok
+test blake2s::tests::blake2s_differs_by_input ... ok
+test blake2s::tests::blake2s_empty_input ... ok
+test blake2s::tests::blake2s_exact_block_boundary ... ok
+test blake2s::tests::blake2s_large_input ... ok
+test blake2s::tests::derive_key_deterministic ... ok
+test blake2s::tests::derive_key_varies_by_domain ... ok
+test blake2s::tests::domain_hash_deterministic ... ok
+test blake2s::tests::domain_hash_separates_domains ... ok
+test blake2s::tests::ed25519_different_keys_different_sigs ... ok
+test blake2s::tests::ed25519_rejects_wrong_key ... ok
+test blake2s::tests::ed25519_rejects_wrong_message ... ok
+test batch::tests::first_digest_failure_matches_the_serial_digest_scan ... ok
+test blake2s::tests::ed25519_sign_verify_roundtrip ... ok
+test blake2s::tests::registered_key_round_trips_and_decides_like_the_provider ... ok
+test ed25519_provider::tests::default_is_empty ... ok
+test ed25519_provider::tests::different_keys_different_validator_ids ... ok
+test ed25519_provider::tests::different_keys_different_pubkeys ... ok
+test ed25519_provider::tests::different_positions_allow_different_messages ... ok
+test ed25519_provider::tests::duplicate_key_rejected ... ok
+test ed25519_provider::tests::generate_and_lookup ... ok
+test ed25519_provider::tests::public_key_is_valid_32_bytes ... ok
+test ed25519_provider::tests::sign_and_verify_roundtrip ... ok
+test ed25519_provider::tests::sign_at_position_allows_same_message ... ok
+test batch::tests::valid_batch_accepted_at_every_worker_count ... ok
+test ed25519_provider::tests::sign_at_position_rejects_equivocation ... ok
+test ed25519_provider::tests::verify_pubkey_static_method ... ok
+test ed25519_provider::tests::verify_rejects_unknown_validator ... ok
+test error::tests::error_display_messages ... ok
+test error::tests::error_is_std_error ... ok
+test ed25519_provider::tests::verify_rejects_wrong_message ... ok
+test tests::blake2s_hash_deterministic ... ok
+test tests::blake2s_hash_differs_by_domain ... ok
+test tests::blake2s_hash_differs_by_message ... ok
+test tests::blake2s_hash_not_xor_fold ... ok
+test tests::blake2s_raw_hash_deterministic ... ok
+test tests::blake2s_raw_hash_differs_by_input ... ok
+test tests::ed25519_different_keys_different_signatures ... ok
+test tests::ed25519_sign_and_verify_roundtrip ... ok
+test tests::ed25519_signature_rejects_wrong_message ... ok
+test tests::merkle_root_four_elements ... ok
+test tests::merkle_root_three_elements ... ok
+test tests::mock_accepts_nonzero_signature ... ok
+test tests::mock_hash_deterministic ... ok
+test tests::mock_hash_differs_by_message ... ok
+test tests::mock_hash_differs_by_domain ... ok
+test tests::receipts_root_empty ... ok
+test tests::mock_rejects_zero_signature ... ok
+test tests::receipts_root_order_matters ... ok
+test tests::receipts_root_single ... ok
+test tests::transactions_root_deterministic ... ok
+test tests::transactions_root_empty ... ok
+test batch::tests::first_failure_reports_the_lowest_index_at_every_worker_count ... ok
+test batch::tests::first_failure_and_verify_all_agree_on_mixed_batches ... ok
+test batch::tests::first_failure_reports_the_lowest_of_several_failures_at_every_worker_count ... ok
+test batch::tests::every_corrupted_position_is_rejected_at_every_worker_count ... ok
+test batch::tests::parallel_decision_matches_serial_on_mixed_batches ... ok
+
+test result: ok. 63 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.70s
+
+     Running tests/batch_equivalence.rs (/tmp/astrolune-tps-qualification/release/deps/batch_equivalence-6b5365a68552e63e)
+
+running 5 tests
+test every_adversarial_request_is_rejected_by_the_strict_predicate ... ok
+test malleable_and_degenerate_signatures_never_pass_a_batch ... ok
+test noncanonical_key_encodings_are_rejected_at_every_batch_position ... ok
+test empty_message_batches_match_serial_verification_at_every_worker_count ... ok
+test adversarial_requests_are_rejected_at_the_same_index_at_every_worker_count ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.26s
+
+     Running tests/conformance.rs (/tmp/astrolune-tps-qualification/release/deps/conformance-1edc43c6344dce23)
+
+running 5 tests
+test blake2s_standard_vectors_and_block_boundaries ... ok
+test domain_message_boundaries_are_unambiguous ... ok
+test rejects_weak_keys_and_noncanonical_scalars ... ok
+test provider_requires_registered_identity_and_valid_signature ... ok
+test rfc8032_ed25519_empty_message ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/vrf.rs (/tmp/astrolune-tps-qualification/release/deps/vrf-1f0f6783766bef14)
+
+running 5 tests
+test noncanonical_scalar_is_rejected_even_when_congruent_mod_order ... ok
+test wire_envelope_is_exact_bounded_and_versioned ... ok
+test rfc9381_examples_16_through_18 ... ok
+test proof_is_deterministic_registered_and_context_bound ... ok
+test rejects_mutations_wrong_key_output_lengths_and_weak_keys ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+
+     Running unittests src/main.rs (/tmp/astrolune-tps-qualification/release/deps/daemon-971ebdd49f1250d5)
+
+running 19 tests
+test network::peers::tests::a_banned_peer_is_never_dialled_by_a_polling_worker ... ok
+test network::peers::tests::inbound_admission_refuses_a_connection_past_the_per_source_cap_and_reuses_released_slots ... ok
+test network::peers::tests::public_batch_rpc_uses_live_admission_and_preserves_per_entry_failures ... ok
+test network::peers::tests::speculative_cursor_stays_within_four_heights_of_committed_state ... ok
+test network::peers::tests::a_served_session_charges_every_request_and_ends_once_the_block_budget_is_spent ... ok
+test options::tests::a_named_retained_suffix_enables_retention_and_keeps_the_other_defaults ... ok
+test network::peers::tests::a_malformed_inbound_request_is_scored_until_its_source_address_is_refused ... ok
+test options::tests::accepts_zero_and_native_paths ... ok
+test options::tests::certified_transport_requires_explicit_secure_configuration ... ok
+test options::tests::discovery_and_metrics_need_explicit_scoped_network_configuration ... ok
+test options::tests::every_retention_bound_is_checked_before_a_directory_is_opened ... ok
+test options::tests::malformed_arguments_fail_before_startup ... ok
+test options::tests::observer_requires_public_network_context_and_forbids_signing_options ... ok
+test options::tests::retention_stays_disabled_until_a_retained_suffix_is_named ... ok
+test options::tests::signing_anchor_requires_an_explicit_consensus_key_and_stays_optional ... ok
+test network::peers::tests::server_accepts_raw_and_discovery_compact_requests_alongside_legacy ... ok
+test network::peers::tests::connected_compact_failure_retries_legacy_and_keeps_preference_across_reconnects ... ok
+test network::peers::tests::outgoing_packets_advertise_owned_dictionary_and_reconstruct_after_pool_changes ... ok
+test network::metrics::tests::http_is_read_only_bounded_and_has_an_absolute_header_deadline ... ok
+
+test result: ok. 19 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.60s
+
+     Running tests/network.rs (/tmp/astrolune-tps-qualification/release/deps/network-52279ba404d1876d)
+
+running 17 tests
+test native_contracts_finalize_over_tls_and_recover_with_verified_receipts ... ignored, requires pinned LLVM 22.1.8 and native OS isolation
+test missing_journal_and_incomplete_network_arguments_fail_without_provisioning ... ok
+test dry_run_checks_tls_before_touching_chain_or_signing_state ... ok
+test observer_directory_cannot_downgrade_to_demonstration_or_reuse_validator_journal ... ok
+test governance_rpc_persists_only_valid_current_quorum_and_survives_restart ... ok
+test potb_rpc_authenticates_and_persists_pending_admission_without_claiming_finality ... ok
+test rotating_profiles_refuse_automated_retention_before_shortening_anything ... ok
+test daemon_retained_recovery_requires_both_descriptor_and_independent_pin ... ok
+test scoped_tls_discovery_builds_a_mesh_reuses_sessions_and_survives_bootstrap_loss ... ok
+test unreached_heights_are_unavailable_rather_than_absent_retained_history ... ok
+test tls_potb_profile_serves_verifiable_handoffs_and_recovers_all_roles ... ok
+test tls_rotating_profile_serves_verifiable_handoffs_and_recovers_all_roles ... ok
+Finalized history read failed: storage data is corrupt
+Finalized history read failed: storage data is corrupt
+test observer_rpc_payment_gossip_and_restart_use_tls_without_any_consensus_seed ... ok
+fatal: I/O or storage error: finalized history read failed; storage recovery required
+fatal: I/O or storage error: finalized history read failed; storage recovery required
+test corrupted_history_read_over_rpc_stops_observer_process ... ok
+test corrupted_history_read_stops_observer_process ... ok
+test tls_quorum_payment_restart_and_late_join ... ok
+test configured_retention_compacts_a_running_daemon_and_still_recovers_locally ... ok
+
+test result: ok. 16 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 6.47s
+
+     Running tests/payments_rpc.rs (/tmp/astrolune-tps-qualification/release/deps/payments_rpc-2c892c9e5791217c)
+
+running 2 tests
+test legacy_daemon_exposes_status_but_rejects_account_operations ... ok
+test rpc_payments_commit_recover_and_reject_replay ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.21s
+
+     Running tests/restart.rs (/tmp/astrolune-tps-qualification/release/deps/restart-a8b02770636b4d90)
+
+running 6 tests
+test listener_failure_prevents_block_production ... ok
+test dry_run_and_invalid_options_have_no_filesystem_effects ... ok
+test additional_blocks_extend_the_same_archive_after_process_restart ... ok
+test locked_or_corrupt_archive_fails_without_overwriting_it ... ok
+test genesis_dry_run_and_invalid_input_do_not_create_chain_data ... ok
+test genesis_process_activation_restart_and_missing_identity ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running unittests src/lib.rs (/tmp/astrolune-tps-qualification/release/deps/dns-2e4fde8af5e985ab)
+
+running 34 tests
+test tests::confusable_different_names ... ok
+test tests::confusable_eight_vs_b ... ok
+test tests::confusable_five_vs_s ... ok
+test tests::confusable_identical ... ok
+test tests::confusable_length_differs ... ok
+test tests::confusable_one_vs_l ... ok
+test tests::confusable_three_vs_e ... ok
+test tests::confusable_zero_vs_o ... ok
+test tests::display_and_error_trait ... ok
+test tests::display_lease_expired ... ok
+test tests::display_not_owner ... ok
+test tests::display_reserved_name ... ok
+test tests::extended_resolver_queries ... ok
+test tests::has_name ... ok
+test tests::has_name_respects_expiry ... ok
+test tests::lease_expiry ... ok
+test tests::multiple_records ... ok
+test tests::non_owner_cannot_renew ... ok
+test tests::normalize_empty_name ... ok
+test tests::normalize_max_length ... ok
+test tests::normalize_non_ascii ... ok
+test tests::normalize_rejects_dots ... ok
+test tests::normalize_too_long ... ok
+test tests::normalize_valid_name ... ok
+test tests::owner_can_renew ... ok
+test tests::purge_expired_entries ... ok
+test tests::register_and_resolve ... ok
+test tests::register_overwrites_existing ... ok
+test tests::register_rejects_reserved_names ... ok
+test tests::remove_by_owner ... ok
+test tests::remove_rejects_non_owner ... ok
+test tests::renew_extends_from_later_of_now_or_expiry ... ok
+test tests::resolve_case_insensitive ... ok
+test tests::resolve_missing_returns_none ... ok
+
+test result: ok. 34 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running unittests src/main.rs (/tmp/astrolune-tps-qualification/release/deps/dns-a3f7f602c70d7d24)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/certified.rs (/tmp/astrolune-tps-qualification/release/deps/certified-bf47bea6d3a55d24)
+
+running 5 tests
+test resolver_authenticates_code_ownership_exact_name_and_freshness ... ok
+test command_prepares_canonical_calls_and_refuses_overwrite ... ok
+test network_resolver_streams_rotation_then_reuses_authority_and_rejects_rollback ... ok
+test network_resolver_streams_potb_then_reuses_authority_and_rejects_rollback ... ok
+test resolver_process_serves_verified_results_and_rejects_mismatched_peer_proofs ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.04s
+
+     Running unittests src/lib.rs (/tmp/astrolune-tps-qualification/release/deps/execution-6ee6c22ac2c9f6cb)
+
+running 39 tests
+test contract::native_tests::local_native_failures_never_become_invalid_transactions_or_traps ... ok
+test error::tests::execution_error_from_state_error ... ok
+test error::tests::execution_error_display ... ok
+test executor::tests::executor_accepts_any_chain_id ... ok
+test executor::tests::executor_empty_block ... ok
+test error::tests::execution_error_from_transaction_error ... ok
+test executor::tests::executor_multiple_transactions_sequential ... ok
+test executor::tests::executor_accepts_pre_validated_transaction ... ok
+test executor::tests::executor_receipt_commitment_deterministic ... ok
+test executor::tests::executor_single_transaction ... ok
+test fold::tests::guarded_translation_matches_all_intermediate_balances ... ok
+test scheduler::tests::serial_scheduler_lease_from_access_list ... ok
+test scheduler::tests::serial_scheduler_plan_one_per_wave ... ok
+test snapshot_cache::tests::entry_and_byte_limits_bypass_without_changing_values ... ok
+test snapshot_cache::tests::overlays_override_cached_values_and_absence_and_new_parents_are_fresh ... ok
+test snapshot_cache::tests::repeated_values_and_absence_are_cached_but_errors_are_retried ... ok
+test tests::execution_error_display ... ok
+test snapshot_cache::tests::workers_share_cached_reads_and_keep_the_same_budget ... ok
+test tests::execution_error_from_state_error ... ok
+test tests::execution_error_from_transaction_error ... ok
+test tests::executor_accepts_any_chain_id ... ok
+test tests::executor_accepts_pre_validated_transaction ... ok
+test tests::executor_empty_block ... ok
+test tests::executor_multiple_transactions_sequential ... ok
+test tests::executor_receipt_commitment_deterministic ... ok
+test tests::executor_single_transaction ... ok
+test tests::lane_conversion ... ok
+test tests::serial_scheduler_lease_from_access_list ... ok
+test tests::serial_scheduler_plan_one_per_wave ... ok
+test wave::tests::lane_conversion ... ok
+test worker_pool::tests::dropping_idle_workers_joins_them ... ok
+test worker_pool::tests::oversized_batch_is_rejected_before_dispatch ... ok
+test worker_pool::tests::readiness_pool_drains_on_failure_and_contains_worker_panics ... ok
+test worker_pool::tests::readiness_pool_receives_completion_order_and_reuses_a_fast_worker ... ok
+test worker_pool::tests::result_buffer_reuses_its_allocation_across_varying_batches ... ok
+test worker_pool::tests::task_error_drains_other_tasks_and_closes_pool ... ok
+test worker_pool::tests::worker_panic_is_reported_without_escaping_thread_scope ... ok
+test worker_pool::tests::zero_workers_are_rejected ... ok
+test worker_pool::tests::workers_are_bounded_and_reused_across_batches ... ok
+
+test result: ok. 39 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests/contracts.rs (/tmp/astrolune-tps-qualification/release/deps/contracts-c519a83e43f8d790)
+
+running 14 tests
+test native_disjoint_keys_share_code_and_enforce_access_at_use ... ignored, requires pinned sandboxed native clang 22.1.8
+test native_dynamic_address_keys_are_isolated_and_bounds_are_atomic ... ignored, requires pinned sandboxed native clang 22.1.8
+test native_invalid_source_is_deterministic_and_atomic_without_llvm ... ok
+test native_per_transaction_fuel_is_bounded_before_local_preparation ... ok
+test native_state_events_replay_and_failure_rollback ... ignored, requires pinned sandboxed native clang 22.1.8
+test payloads_are_canonical_bounded_and_context_signed ... ok
+test mixed_waves_match_serial_and_isolate_contract_state ... ok
+test native_activation_is_checked_from_snapshot_even_with_contracts_enabled ... ok
+test governed_mixed_lane_prices_preserve_parallel_results_fees_and_first_error ... ok
+test ready_descendants_execute_while_an_unrelated_earlier_wave_is_blocked ... ok
+test parent_cache_reduces_code_reads_and_matches_uncached_sessions_across_blocks ... ok
+test cached_calls_preserve_rollback_and_first_error_after_cache_hits ... ok
+test failures_discard_the_whole_batch_and_keep_serial_error_order ... ok
+test shared_code_with_disjoint_state_runs_in_parallel_and_matches_every_serial_effect ... ok
+
+test result: ok. 11 passed; 0 failed; 3 ignored; 0 measured; 0 filtered out; finished in 0.02s
+
+     Running tests/fold.rs (/tmp/astrolune-tps-qualification/release/deps/fold-10dc0b2a1771c6bf)
+
+running 4 tests
+test final_nonce_max_and_exact_reservation_boundary_match_reference ... ok
+test intermediate_funding_overflow_and_reserve_are_not_net_balances ... ok
+test contended_random_batches_preserve_every_output_and_root ... ok
+test failures_replay_in_reference_order_and_publish_no_prefix ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.70s
+
+     Running tests/payments.rs (/tmp/astrolune-tps-qualification/release/deps/payments-4bc889f5f9949eba)
+
+running 15 tests
+test changed_height_lane_or_prices_reject_the_entire_block ... ok
+test malformed_or_unauthorized_payments_roll_back_the_entire_block ... ok
+test fee_reserve_nonce_exhaustion_and_transaction_bounds_are_checked ... ok
+test parallel_global_capacity_stale_parent_and_worker_bounds_fail_atomically ... ok
+test payment_payload_has_fixed_canonical_bytes_and_rejects_every_truncation ... ok
+test rejected_overlay_entry_does_not_consume_balance_nonce_or_resources ... ok
+test sequential_transfers_create_accounts_burn_fees_and_preserve_old_snapshots ... ok
+test stale_roots_corrupt_accounts_and_total_resource_exhaustion_fail_closed ... ok
+test parallel_executor_reuses_the_same_workers_across_payment_waves ... ok
+test parallel_waves_match_sequential_outputs_roots_and_old_snapshots ... ok
+test parallel_replays_invalid_inputs_to_preserve_first_error_and_atomicity ... ok
+test consecutive_singleton_waves_preserve_creation_nonces_and_wide_wave_visibility ... ok
+test repeated_changing_width_waves_preserve_outputs_and_snapshot_visibility ... ok
+test late_wave_resource_failure_allows_clean_retry_on_same_database ... ok
+test consecutive_singleton_failures_after_a_valid_prefix_allow_clean_retry ... ok
+
+test result: ok. 15 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.07s
+
+     Running tests/prefetch.rs (/tmp/astrolune-tps-qualification/release/deps/prefetch-e4de733bfb2ae423)
+
+running 4 tests
+test keys_are_sorted_deduplicated_and_empty_lists_are_skipped ... ok
+test key_count_bytes_and_inspected_prefix_are_bounded ... ok
+test stale_roots_and_empty_blocks_do_not_prefetch ... ok
+test successful_and_failed_hints_preserve_outputs_roots_and_canonical_errors ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests/scheduling.rs (/tmp/astrolune-tps-qualification/release/deps/scheduling-84360a64999f1b0d)
+
+running 11 tests
+test a_writer_waits_for_the_highest_prior_reader_wave ... ok
+test access_order_and_duplicates_do_not_change_the_plan ... ok
+test independent_transactions_share_a_wave ... ok
+test native_calls_share_only_the_native_immutable_code_key ... ok
+test only_a_canonical_call_can_share_its_exact_code_key ... ok
+test generated_plans_are_complete_conflict_free_and_match_serial_writes ... ok
+test same_sender_is_ordered_without_declared_conflicts ... ok
+test transitive_conflicts_preserve_block_order ... ok
+test generated_plans_match_pairwise_predecessors_with_repeated_keys_and_senders ... ok
+test generated_read_write_plans_match_an_independent_pairwise_oracle ... ok
+test readiness_dependencies_preserve_every_conflict_without_whole_wave_edges ... ok
+
+test result: ok. 11 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.03s
+
+     Running unittests src/lib.rs (/tmp/astrolune-tps-qualification/release/deps/genesis-35748e04cbbd3a0d)
+
+running 19 tests
+test tests::allocation_encoding_deterministic ... ok
+test tests::allocation_roundtrip ... ok
+test tests::genesis_commitment_deterministic ... ok
+test tests::genesis_commitment_differs_by_chain_id ... ok
+test tests::genesis_commitment_non_zero ... ok
+test tests::genesis_encoding_deterministic ... ok
+test tests::genesis_encoding_differs_by_allocations ... ok
+test tests::genesis_encoding_differs_by_chain_id ... ok
+test tests::genesis_encoding_differs_by_validators ... ok
+test tests::genesis_encoding_differs_by_version ... ok
+test tests::genesis_encoding_empty_allocations ... ok
+test tests::genesis_encoding_empty_allocations_comment_updated ... ok
+test tests::genesis_encoding_empty_validators_fails_validation ... ok
+test tests::genesis_rejects_empty_validator_set ... ok
+test tests::genesis_roundtrip ... ok
+test tests::genesis_roundtrip_single_validator ... ok
+test tests::genesis_validate_passes ... ok
+test tests::genesis_validator_roundtrip ... ok
+test tests::genesis_validator_weight_zero_roundtrip ... ok
+
+test result: ok. 19 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests/canonical.rs (/tmp/astrolune-tps-qualification/release/deps/canonical-dbaddfcc033cbb88)
+
+running 9 tests
+test every_accepted_single_byte_mutation_is_canonical ... ok
+test invalid_configuration_cannot_be_decoded_hashed_or_materialized ... ok
+test independent_genesis_and_state_vectors ... ok
+test native_runtime_profile_is_explicit_and_preserves_historical_state ... ok
+test parameters_and_allocations_bind_the_initial_root ... ok
+test snapshot_roundtrip_and_corrupt_account_rejection ... ok
+test rotating_activation_is_explicit_in_genesis_bytes_and_materialized_state ... ok
+test truncation_trailing_bytes_and_hostile_counts_fail ... ok
+test maximum_lists_fit_the_codec_and_state_bounds ... ok
+
+test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.11s
+
+     Running unittests src/lib.rs (/tmp/astrolune-tps-qualification/release/deps/integration-2e208d2fb3b955ff)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/backends.rs (/tmp/astrolune-tps-qualification/release/deps/backends-7f2de3f161afa127)
+
+running 3 tests
+test extended_backend_qualification ... ignored, extended deterministic engine-configuration and ahead-of-time qualification; the compared engine profiles vary value-stack allocation only, the ahead-of-time path hoists translation out of the metered call on the same interpreter, and neither is a JIT or SIMD backend
+test million_backend_qualification ... ignored, million-input deterministic engine-configuration and ahead-of-time qualification; the compared engine profiles vary value-stack allocation only, the ahead-of-time path hoists translation out of the metered call on the same interpreter, and neither is a JIT or SIMD backend
+test backend_qualification_smoke ... ok
+
+test result: ok. 1 passed; 0 failed; 2 ignored; 0 measured; 0 filtered out; finished in 0.03s
+
+     Running tests/baseline.rs (/tmp/astrolune-tps-qualification/release/deps/baseline-bf7545325a165ed5)
+
+running 25 tests
+test block_producer_produces_empty_block ... ok
+test block_producer_commits_to_storage ... ok
+test block_producer_multiple_blocks ... ok
+test configuration_validates_and_redacts_key_reference ... ok
+test block_producer_submit_and_produce ... ok
+test dns_service_resolution ... ok
+test end_to_end_block_production ... ok
+test committee_rotation_feeds_finality ... ok
+test full_node_service_committee_setup ... ok
+test full_node_service_full_cycle ... ok
+test full_node_service_multiple_cycles ... ok
+test full_node_service_with_transactions ... ok
+test genesis_and_mempool_form_a_deterministic_baseline ... ok
+test hash_transaction_deterministic ... ok
+test keystore_signs_consensus_votes ... ok
+test p2p_frame_roundtrip ... ok
+test producer_config_default_values ... ok
+test protocol_baseline_invariants_hold ... ok
+test rpc_service_full_workflow ... ok
+test state_execution_storage_roundtrip ... ok
+test storage_commit_and_recover ... ok
+test sync_verifies_header_chain ... ok
+test telemetry_tracks_node_capacity ... ok
+test transaction_validates_and_executes ... ok
+test transactions_root_deterministic ... ok
+
+test result: ok. 25 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests/compatibility.rs (/tmp/astrolune-tps-qualification/release/deps/compatibility-64b9f50a67a74aa0)
+
+running 3 tests
+test frozen_envelopes_reject_truncation_trailing_bytes_and_cross_network_authority ... ok
+test frozen_history_authenticates_and_reexecutes_in_both_profiles ... ok
+test current_implementation_reproduces_the_frozen_protocol_corpus ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.09s
+
+     Running tests/contracts.rs (/tmp/astrolune-tps-qualification/release/deps/contracts-55ad8f55800dfff8)
+
+running 3 tests
+test extended_contract_mutations ... ignored, extended deterministic contract mutation campaign; no coverage-guided fuzzing claim
+test million_contract_mutations ... ignored, million-input deterministic contract campaign; no coverage-guided fuzzing claim
+test contract_mutation_smoke ... ok
+
+test result: ok. 1 passed; 0 failed; 2 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests/durable_chain.rs (/tmp/astrolune-tps-qualification/release/deps/durable_chain-50c571da13c3aa03)
+
+running 3 tests
+test recovery_rejects_mismatched_state_and_exhausted_height ... ok
+test produced_blocks_recover_with_identical_bodies_certificates_and_state ... ok
+test restarted_service_matches_uninterrupted_execution ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests/genesis_accounts.rs (/tmp/astrolune-tps-qualification/release/deps/genesis_accounts-115dd5aaa06d1563)
+
+running 1 test
+test recovered_genesis_account_authenticates_signed_admission ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/governance_compatibility.rs (/tmp/astrolune-tps-qualification/release/deps/governance_compatibility-12db8161c7b486a6)
+
+running 2 tests
+test frozen_handoffs_authenticate_governance_and_reject_old_profile_authority ... ok
+test frozen_governance_bytes_and_complete_manifest_are_preserved ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.05s
+
+     Running tests/local_bft_pipeline.rs (/tmp/astrolune-tps-qualification/release/deps/local_bft_pipeline-e2baf9fb8bf4d83e)
+
+running 4 tests
+test payment_is_committed_only_after_validated_local_votes_and_durable_certificate ... ok
+test invalid_execution_and_nil_timeouts_cannot_publish_or_form_finality ... ok
+test round_change_reproposes_verified_value_and_rejects_delayed_events ... ok
+test four_participants_authenticate_proposals_recover_votes_and_commit_payment_atomically ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests/mutations.rs (/tmp/astrolune-tps-qualification/release/deps/mutations-f504ab3d98595961)
+
+running 3 tests
+test extended_extension_mutations ... ignored, extended deterministic mutation campaign; no coverage-guided fuzzing claim
+test million_extension_mutations ... ignored, million-input deterministic campaign; no coverage-guided fuzzing claim
+test extension_mutation_smoke ... ok
+
+test result: ok. 1 passed; 0 failed; 2 ignored; 0 measured; 0 filtered out; finished in 0.16s
+
+     Running tests/potb_compatibility.rs (/tmp/astrolune-tps-qualification/release/deps/potb_compatibility-870d93d6d871ea4e)
+
+running 2 tests
+test frozen_handoffs_authenticate_policy_and_reject_old_profile_authority ... ok
+test frozen_potb_bytes_and_complete_manifest_are_preserved ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.03s
+
+     Running tests/signed_pipeline.rs (/tmp/astrolune-tps-qualification/release/deps/signed_pipeline-991def63a3a9f191)
+
+running 1 test
+test signed_wire_transactions_keep_identity_through_selection_and_scheduling ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/lib.rs (/tmp/astrolune-tps-qualification/release/deps/keystore-e4dfff256a46f199)
+
+running 47 tests
+test anchor::tests::a_journal_behind_the_anchor_never_reconciles_and_lagging_anchors_catch_up ... ok
+test anchor::tests::anchor_domains_and_physical_slots_match_independent_blake2s_vectors ... ok
+test anchor::tests::a_locked_anchor_cannot_be_opened_twice_and_missing_files_are_never_created ... ok
+test anchor::tests::noncanonical_absent_position_and_unsupported_phase_are_rejected ... ok
+test anchor::tests::checksummed_gaps_slot_swaps_and_stale_positions_are_rejected ... ok
+test journal::rollover::tests::checksummed_gaps_slot_swaps_stale_positions_and_lock_regressions_are_rejected ... ok
+test journal::rollover::tests::exhausted_sequence_decodes_without_wrapping_or_authorizing_another_decision ... ok
+test journal::rollover::tests::rollover_domains_and_physical_slots_match_independent_blake2s_vectors ... ok
+test journal::rollover_tests::rollover_child ... ok
+test journal::tests::checksums_match_independent_python_blake2s_vectors ... ok
+test journal::rollover::tests::every_extension_truncation_and_single_byte_mutation_fails_closed ... ok
+test journal::tests::protected_checksum_binds_lock_metadata_and_matches_python_vector ... ok
+test journal::tests::protected_lock_and_digest_recover_together_after_uncertain_write ... ok
+test journal::tests::protected_recovery_rejects_invalid_safety_even_with_valid_checksums ... ok
+test journal::tests::uncertain_writes_poison_signing_and_recovery_preserves_complete_decisions ... ok
+test journal::tests::valid_checksums_do_not_allow_reordered_duplicate_or_invalid_coordinates ... ok
+test journal::tests::full_journal_halts_new_signing_and_unexpected_length_poisons_the_session ... ok
+test release::tests::a_manifest_signature_authenticates_only_its_own_bytes_and_authority ... ok
+test release::tests::release_error_display_is_stable ... ok
+test release::tests::release_manifest_domain_matches_an_independent_blake2s_vector ... ok
+test tests::consensus_key_rejects_a_relabelled_handle ... ok
+test tests::default_is_empty ... ok
+test tests::different_positions_do_not_conflict ... ok
+test tests::has_conflict_tracks_state ... ok
+test tests::insert_and_lookup ... ok
+test tests::keystore_error_display ... ok
+test tests::keystore_error_is_std_error ... ok
+test tests::mock_signature_deterministic ... ok
+test tests::mock_signature_varies_by_message ... ok
+test tests::mock_signature_varies_by_position ... ok
+test tests::mock_signature_varies_by_validator ... ok
+test tests::multiple_keys_independent ... ok
+test tests::purpose_exact_match ... ok
+test tests::sign_consensus_different_message_equivocation ... ok
+test tests::sign_consensus_same_message_no_conflict ... ok
+test tests::sign_consensus_success ... ok
+test tests::sign_consensus_unknown_key ... ok
+test tests::sign_consensus_wrong_purpose ... ok
+test tests::signing_position_ord ... ok
+test tests::unknown_key_returns_error ... ok
+test tests::wrong_purpose_returns_error ... ok
+test anchor::tests::every_anchor_truncation_and_single_byte_mutation_fails_closed ... ok
+
+running 1 test
+
+running 1 test
+test journal::rollover_tests::rollover_child ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 46 filtered out; finished in 0.00s
+
+
+running 1 test
+test journal::rollover_tests::unexpected_slot_mutation_or_truncation_disables_even_identical_retries ... ok
+test journal::rollover_tests::signatures_continue_past_the_old_limit_with_constant_size_and_preserved_locks ... ok
+
+running 1 test
+test journal::rollover_tests::rollover_child ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 46 filtered out; finished in 0.00s
+
+
+running 1 test
+
+running 1 test
+test journal::rollover_tests::rollover_child ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 46 filtered out; finished in 0.00s
+
+test journal::rollover_tests::file_lock_and_protected_watermark_survive_rollover_and_abrupt_process_exit ... ok
+test journal::rollover_tests::interrupted_activation_never_discards_the_original_watermark_or_partial_extension ... ok
+test journal::rollover_tests::uncertain_slot_writes_never_fall_back_past_a_possible_signed_decision ... ok
+
+test result: ok. 47 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.22s
+
+     Running tests/admission.rs (/tmp/astrolune-tps-qualification/release/deps/admission-c6619edad739fd63)
+
+running 1 test
+test typed_approval_respects_namespace_watermark_and_preserves_journal ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/anchor.rs (/tmp/astrolune-tps-qualification/release/deps/anchor-aebca9cc36bd526b)
+
+running 5 tests
+test a_restored_older_journal_signs_alone_but_never_beside_its_independent_anchor ... ok
+test anchor_child ... ok
+test an_anchor_one_decision_behind_catches_up_and_a_further_gap_fails_closed ... ok
+test an_anchored_decision_survives_process_exit_without_destructors ... ok
+test anchors_are_explicitly_provisioned_and_bound_to_exactly_one_journal ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.03s
+
+     Running tests/durable.rs (/tmp/astrolune-tps-qualification/release/deps/durable-0e60ec495b4f35fa)
+
+running 9 tests
+test journal_child ... ok
+test corrupt_incomplete_and_oversized_files_are_never_repaired_implicitly ... ok
+test decision_survives_process_exit_without_destructors ... ok
+test independent_handles_and_processes_cannot_share_an_active_journal ... ok
+test symbolic_journal_alias_is_rejected ... ok
+test namespaces_handles_phases_and_missing_journals_fail_without_rewriting ... ok
+test protected_journal_preserves_lock_and_rejects_mode_or_safety_downgrades ... ok
+test restart_preserves_idempotency_conflicts_and_monotonic_watermark ... ok
+test vrf_proofs_are_non_exporting_namespaced_and_do_not_consume_a_vote_position ... ok
+
+test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.03s
+
+     Running tests/release.rs (/tmp/astrolune-tps-qualification/release/deps/release-cb6484808d195ea0)
+
+running 2 tests
+test verification_requires_the_explicitly_supplied_authority_and_exact_manifest_bytes ... ok
+test every_signature_truncation_and_single_byte_mutation_fails_closed ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests/vault.rs (/tmp/astrolune-tps-qualification/release/deps/vault-970ff80d0444fd2c)
+
+running 3 tests
+test original_provider_vault_remains_readable_after_dependency_upgrades ... ok
+test a_consensus_vault_is_never_interchangeable_with_a_wallet_vault ... ok
+test random_vaults_round_trip_and_authenticate_every_header_class ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.93s
+
+     Running unittests src/lib.rs (/tmp/astrolune-tps-qualification/release/deps/mempool-66d4cd0ea2cf7007)
+
+running 3 tests
+test tests::expiry_releases_item_and_byte_capacity_at_the_next_height ... ok
+test tests::selection_is_priority_then_sequence ... ok
+test tests::removal_releases_exact_byte_capacity_even_when_repeated ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/lib.rs (/tmp/astrolune-tps-qualification/release/deps/node-4f85d2fd7dd2412a)
+
+running 57 tests
+test execution_pipeline::tests::disconnected_completion_is_a_local_failure_and_releases_slot ... ok
+test full_service::tests::commit_failure_remains_visible_and_keeps_pending_work ... ok
+test full_service::tests::block_capacity_updates ... ok
+test full_service::tests::advance_through_full_cycle ... ok
+test full_service::tests::committee_setup ... ok
+test full_service::tests::full_cycle_produces_block_in_storage ... ok
+test full_service::tests::service_starts_idle ... ok
+test full_service::tests::multiple_full_cycles ... ok
+test full_service::tests::state_clone_and_eq ... ok
+test full_service::tests::state_debug ... ok
+test full_service::tests::submit_transaction_increases_pending ... ok
+test producer::tests::altered_proposals_are_rejected_before_publication ... ok
+test producer::tests::block_header_parent_linkage ... ok
+test producer::tests::commit_block_advances_height ... ok
+test producer::tests::failed_storage_commit_preserves_proposal_for_retry ... ok
+test producer::tests::hash_transaction_deterministic ... ok
+test network_background::tests::received_execution_survives_a_round_change_without_reexecution ... ok
+test producer::tests::multiple_blocks_sequential ... ok
+test producer::tests::produce_block_includes_submitted_transactions ... ok
+test producer::tests::produce_block_multiple_transactions ... ok
+test producer::tests::producer_and_admission_use_the_same_transaction_commitment ... ok
+test producer::tests::producer_config_default ... ok
+test producer::tests::producer_error_display ... ok
+test producer::tests::producer_starts_at_height_zero ... ok
+test producer::tests::producer_with_account ... ok
+test producer::tests::proposal_is_repeatable_without_publishing_or_consuming_the_pool ... ok
+test producer::tests::receipts_root_empty ... ok
+test producer::tests::rejected_pool_admission_preserves_sender_nonce ... ok
+test producer::tests::submit_and_produce_empty_block ... ok
+test producer::tests::submit_transaction_increases_pending ... ok
+test producer::tests::transaction_root_binds_order_and_duplicate_count ... ok
+test producer::tests::transactions_root_deterministic ... ok
+test producer::tests::transactions_root_empty ... ok
+test tests::controller_clamps_to_min_after_repeated_scaling_down ... ok
+test tests::controller_clamps_to_min_capacity ... ok
+test tests::controller_ignores_observations_beyond_window ... ok
+test tests::controller_returns_current_when_no_observations ... ok
+test tests::controller_scales_down_correctly ... ok
+test tests::controller_scales_down_when_exceeds ... ok
+test tests::controller_scales_up_correctly ... ok
+test tests::controller_scales_up_when_within_target ... ok
+test tests::controller_uses_rolling_window ... ok
+test tests::default_capacity_values ... ok
+test tests::latency_window_value ... ok
+test tests::min_capacity_values ... ok
+test tests::node_error_display ... ok
+test tests::node_error_is_error ... ok
+test tests::node_state_clone_and_eq ... ok
+test tests::node_state_debug ... ok
+test tests::service_capacity_updates_with_observations ... ok
+test tests::service_default_capacity ... ok
+test tests::service_default_trait ... ok
+test tests::service_multiple_full_cycles ... ok
+test tests::service_observation_recording ... ok
+test tests::service_records_observation_on_commit ... ok
+test tests::service_starts_idle ... ok
+test tests::service_transitions_through_pipeline ... ok
+
+test result: ok. 57 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+
+     Running tests/adversarial_rotation.rs (/tmp/astrolune-tps-qualification/release/deps/adversarial_rotation-b5f35c5e1c33a00c)
+
+running 7 tests
+test extended_byzantine_equivocation_campaign ... ignored, explicit multi-seed Byzantine equivocation campaign; bounded coalitions only, no formal safety proof
+test extended_membership_churn_campaign ... ignored, explicit multi-seed membership-churn campaign; bounded churn schedules only, no disk-failure model
+test extended_rotating_schedule_campaign ... ignored, explicit multi-seed delivery-schedule campaign; bounded simulation only, not exhaustive state exploration
+test adverse_weight_concentration_keeps_weighted_quorum_above_a_seat_majority_smoke ... ok
+test validly_signed_equivocation_is_attributed_without_conflicting_finality_smoke ... ok
+test rotating_profiles_preserve_finality_and_recover_after_hostile_delivery ... ok
+test membership_churn_during_delivery_faults_still_converges_and_reauthenticates_smoke ... ok
+
+test result: ok. 4 passed; 0 failed; 3 ignored; 0 measured; 0 filtered out; finished in 0.91s
+
+     Running tests/compact_transport.rs (/tmp/astrolune-tps-qualification/release/deps/compact_transport-b4115bc5353b6958)
+
+running 7 tests
+test complete_partial_and_empty_dictionaries_preserve_every_message_and_legacy_byte ... ok
+test no_hits_and_nonblock_messages_use_exact_legacy_fallback ... ok
+test inline_transactions_keep_the_legacy_transaction_size_limit ... ok
+test request_dictionary_owns_transactions_until_response_reconstruction ... ok
+test request_ids_are_sorted_unique_bounded_and_roundtrip ... ok
+test dictionary_respects_canonical_transaction_and_total_byte_bounds ... ok
+test compact_references_obey_expanded_block_and_exchange_limits ... ok
+
+test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests/execution_pipeline.rs (/tmp/astrolune-tps-qualification/release/deps/execution_pipeline-63f7051dbbb09f55)
+
+running 9 tests
+test changing_public_proposal_cannot_change_accepted_execution ... ok
+test exact_snapshot_rejects_every_config_change ... ok
+test exact_snapshot_rejects_state_parent_and_height_changes ... ok
+test production_is_stale_after_admission_but_received_execution_is_independent_of_pool ... ok
+test storage_failure_keeps_detached_execution_retryable ... ok
+test detached_production_matches_serial_and_preserves_pending_state ... ok
+test worker_has_one_slot_and_continues_after_execution_failure ... ok
+test received_rotation_job_uses_prepared_transition_snapshot ... ok
+test received_potb_job_uses_prepared_transition_snapshot ... ok
+
+test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests/genesis.rs (/tmp/astrolune-tps-qualification/release/deps/genesis-e576137b4e10a3d4)
+
+running 12 tests
+test certified_production_rejects_other_chains_and_heights ... ok
+test failed_genesis_publication_can_be_retried_without_partial_state ... ok
+test existing_legacy_chain_is_not_converted ... ok
+test failed_payment_publication_keeps_balances_and_pending_proposal_for_retry ... ok
+test commit_rejects_consistent_but_forged_payment_outputs ... ok
+test expired_pool_entries_are_removed_only_after_successful_commit ... ok
+test conflicting_pool_payments_do_not_reserve_capacity_or_block_later_candidates ... ok
+test invalid_genesis_and_producer_config_fail_before_archive_creation ... ok
+test genesis_survives_restart_and_matches_uninterrupted_production ... ok
+test mismatches_missing_genesis_and_reinitialization_preserve_archive ... ok
+test signed_payments_survive_restart_and_replay_is_rejected ... ok
+test certified_payments_verify_before_publication_and_survive_restart ... ok
+
+test result: ok. 12 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests/network.rs (/tmp/astrolune-tps-qualification/release/deps/network-1005791c8e7bebaf)
+
+running 33 tests
+test certified_history_cannot_be_downgraded_to_demonstration_finality ... ok
+test background_production_progresses_during_continuous_admission ... ok
+test demonstration_history_is_rejected_before_network_signing ... ok
+test background_catchup_matches_serial_with_bounded_queued_exchanges ... ok
+test background_production_gets_a_turn_with_a_nonempty_receive_backlog ... ok
+test evidence_persistence_failure_is_local_and_never_silently_dropped ... ok
+test double_vote_proofs_are_durable_bounded_and_never_count_forged_accusations ... ok
+test all_nodes_restart_after_precommit_and_recover_the_payment_body ... ok
+test legacy_validator_and_log_observer_exchange_certified_payments_and_recover ... ok
+test every_network_message_has_canonical_mutation_and_truncation_behavior ... ok
+test background_production_keeps_captured_candidate_and_recovers_after_three_heights ... ok
+test bulk_payments_finalize_in_one_network_block_and_recover_on_both_roles ... ok
+test observer_cannot_replace_missing_quorum_or_relay_live_consensus_messages ... ok
+test contracts_finalize_recover_and_catch_up_with_authenticated_history ... ok
+test observer_gossips_payments_syncs_relays_and_recovers_without_signing_authority ... ok
+test observer_recovery_rejects_demonstration_history ... ok
+test observer_role_validation_preserves_validator_data_and_rejects_corrupt_markers ... ok
+test observer_rejects_forged_finality_body_mutations_gaps_and_truncated_batches ... ok
+test prepared_exchange_requires_complete_decoding_before_application ... ok
+test observer_storage_failure_is_fatal_and_does_not_publish_or_consume_pending_payment ... ok
+test prepared_exchanges_preserve_the_receiving_nodes_genesis_binding ... ok
+test prepared_finalized_and_future_responses_match_for_both_roles ... ok
+test locked_value_survives_round_change_when_precommits_are_lost ... ok
+test prepared_live_exchanges_own_bytes_and_use_current_admission_state ... ok
+test prepared_live_responses_own_their_snapshot_across_node_changes ... ok
+test prepared_finalized_exchanges_match_sequential_catch_up_for_both_roles ... ok
+test registry_and_envelopes_fail_closed ... ok
+test two_of_four_never_finalize_and_forged_input_cannot_advance_state ... ok
+test payment_gossip_three_of_four_commit_and_late_node_catches_up_after_restart ... ok
+test observer_gossip_remains_bounded_with_a_large_valid_pending_pool ... ok
+test recovered_evidence_authenticates_different_rotating_committees_in_one_history ... ok
+test network_crosses_full_signing_journal_recovers_and_finalizes_payments ... ok
+test rotating_roster_pauses_without_a_proof_then_changes_seats_and_recovers ... ok
+
+test result: ok. 33 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.62s
+
+     Running tests/potb.rs (/tmp/astrolune-tps-qualification/release/deps/potb-fd19534167e22328)
+
+running 5 tests
+test structurally_valid_disk_state_does_not_replace_a_quorum ... ok
+test failed_write_preserves_authority_batch_and_pool_for_retry ... ok
+test canonical_system_envelope_and_reserved_capacity_cannot_be_bypassed ... ok
+test payments_policy_admission_and_evidence_recover_from_both_storage_backends ... ok
+test governed_fees_capacity_boundary_and_recovery_match_serial_and_parallel ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.20s
+
+     Running tests/potb_network.rs (/tmp/astrolune-tps-qualification/release/deps/potb_network-921b78f1916e2c15)
+
+running 4 tests
+test restored_pending_admission_refreshes_an_already_complete_single_member_batch ... ok
+test governance_gossip_survives_restart_activates_at_epoch_and_observer_authenticates_it ... ok
+test gossip_includes_quorum_admission_and_evidence_then_recovers_every_role ... ok
+test retained_checkpoints_require_independent_pins_and_resume_all_profiles ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.99s
+
+     Running tests/rotation.rs (/tmp/astrolune-tps-qualification/release/deps/rotation-227a6bc31b9a34ae)
+
+running 7 tests
+test measure_verified_transition_cache ... ignored, local comparative measurement; correctness is checked separately without timing assumptions
+test rotating_recovery_rejects_a_well_formed_storage_record_without_a_quorum ... ok
+test failed_publication_preserves_committee_state_batch_and_pending_transactions ... ok
+test system_envelope_budget_and_recovery_anchor_cannot_be_substituted ... ok
+test verified_transition_cache_matches_revalidation_and_cannot_cross_a_height ... ok
+test application_admission_cannot_spend_reserved_system_capacity_or_the_system_slot ... ok
+test system_payment_and_contract_commit_together_and_recover_after_rotations ... ok
+
+test result: ok. 6 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 0.07s
+
+     Running tests/throughput.rs (/tmp/astrolune-tps-qualification/release/deps/throughput-68e7c796bd644f72)
+
+running 5 tests
+test oversized_candidate_does_not_execute_or_consume_byte_budget ... ok
+test rejected_candidate_leaves_bytes_for_later_valid_payment ... ok
+test rejected_parallel_candidate_prefix_uses_original_skip_selector ... ok
+test batch_admission_preserves_individual_errors_order_and_pool ... ok
+test block_byte_budget_matches_codec_and_rejects_oversized_received_proposals ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+
+     Running tests/trocto.rs (/tmp/astrolune-tps-qualification/release/deps/trocto-4a94c88cbb590c46)
+
+running 3 tests
+test certified_nodes_and_restarted_observer_replay_native_state ... ignored, requires pinned LLVM 22.1.8 and native OS isolation
+test native_contract_state_receipts_survive_restart_and_exact_replay ... ignored, requires pinned LLVM 22.1.8 and native OS isolation
+test native_infrastructure_failure_is_local_and_does_not_score_the_peer ... ok
+
+test result: ok. 1 passed; 0 failed; 2 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/lib.rs (/tmp/astrolune-tps-qualification/release/deps/p2p-929dd459cebc300f)
+
+running 97 tests
+test admission::tests::a_ban_expires_at_its_exact_tick_and_the_source_is_admitted_again ... ok
+test admission::tests::a_banned_source_is_refused_on_inbound_admission_and_outbound_dialling ... ok
+test admission::tests::a_byte_heavy_message_is_refused_by_the_byte_budget_not_the_message_budget ... ok
+test admission::tests::a_flood_of_banned_sources_evicts_the_earliest_expiring_ban_first ... ok
+test admission::tests::a_rate_limit_breach_is_itself_scored_and_eventually_bans_the_source ... ok
+test admission::tests::a_refused_attempt_is_itself_charged_so_refusals_cannot_be_retried_freely ... ok
+test admission::tests::a_refused_charge_deducts_nothing_from_any_tier ... ok
+test admission::tests::a_flood_of_new_sources_never_evicts_a_record_holding_a_live_connection ... ok
+test admission::tests::a_tick_below_the_highest_observed_tick_accrues_nothing_and_never_refunds ... ok
+test admission::tests::a_zero_rate_bucket_admits_its_burst_once_and_nothing_afterwards ... ok
+test admission::tests::an_admitted_connection_is_not_charged_against_the_inbound_attempt_budget_when_dialled ... ok
+test admission::tests::an_ipv4_mapped_ipv6_endpoint_shares_the_allowance_of_its_ipv4_form ... ok
+test admission::tests::an_unparsable_endpoint_is_refused_rather_than_admitted ... ok
+test admission::tests::backwards_ticks_never_widen_a_connection_attempt_or_message_budget ... ok
+test admission::tests::charging_zero_bytes_still_spends_one_message_token ... ok
+test admission::tests::connection_attempts_from_one_source_are_bounded_over_time ... ok
+test admission::tests::crossing_the_ban_threshold_bans_for_exactly_the_configured_duration ... ok
+test admission::tests::default_configuration_matches_the_documented_named_constants ... ok
+test admission::tests::every_message_kind_maps_to_one_class_and_every_class_is_reachable ... ok
+test admission::tests::every_network_error_maps_to_a_named_offence_class ... ok
+test admission::tests::every_offence_class_carries_its_documented_default_weight ... ok
+test admission::tests::every_refusal_offence_class_and_tier_renders_a_distinct_message ... ok
+test admission::tests::eviction_removes_the_least_penalised_record_and_retains_an_active_ban ... ok
+test admission::tests::exhausting_one_class_budget_leaves_every_other_class_fully_available ... ok
+test admission::tests::ipv4_ipv6_bare_and_bracketed_endpoints_resolve_to_their_source_address ... ok
+test admission::tests::offences_below_the_threshold_decay_back_to_zero_without_a_ban ... ok
+test admission::tests::one_source_cannot_occupy_more_than_its_configured_share_of_the_total_slots ... ok
+test admission::tests::per_source_caps_apply_independently_to_distinct_ipv4_and_ipv6_sources ... ok
+test admission::tests::prune_reclaims_only_records_that_owe_and_remember_nothing ... ok
+test admission::tests::refill_never_exceeds_the_configured_burst_at_any_elapsed_tick ... ok
+test admission::tests::refill_in_many_small_steps_admits_exactly_as_many_as_one_large_step ... ok
+test admission::tests::released_slots_return_to_both_the_total_and_the_source_count ... ok
+test admission::tests::releasing_an_unadmitted_or_already_released_peer_saturates_at_zero ... ok
+test admission::tests::repeated_connect_and_disconnect_churn_is_bounded_by_the_attempt_budget ... ok
+test admission::tests::scaling_a_rate_limit_saturates_instead_of_wrapping ... ok
+test admission::tests::score_decay_in_many_small_steps_removes_exactly_as_much_as_one_large_step ... ok
+test admission::tests::the_global_tier_refuses_a_charge_that_no_single_peer_budget_would_refuse ... ok
+test admission::tests::the_peer_table_never_grows_beyond_its_bound_under_connection_churn ... ok
+test admission::tests::the_score_saturates_at_its_ceiling_instead_of_wrapping ... ok
+test admission::tests::the_source_tier_keeps_its_debt_when_a_peer_reconnects_from_a_new_port ... ok
+test admission::tests::the_total_connection_cap_holds_across_many_distinct_sources ... ok
+test discovery::tests::envelope_is_canonical_bounded_and_genesis_bound ... ok
+test discovery::tests::scope_and_directory_never_expand_operator_authority_or_unbounded_hints ... ok
+test error::tests::network_error_display ... ok
+test admission::tests::the_source_table_never_grows_beyond_its_bound_under_an_address_flood ... ok
+test error::tests::network_error_is_error ... ok
+test exchange::tests::bounded_round_trip_and_oversized_prefix ... ok
+test frame::tests::encode_decode_empty_payload ... ok
+test frame::tests::encode_decode_roundtrip ... ok
+test frame::tests::frame_header_size_is_5 ... ok
+test frame::tests::encode_decode_max_payload ... ok
+test frame::tests::max_frame_size_is_1_mib ... ok
+test frame::tests::oversized_frame_rejected ... ok
+test frame::tests::too_short_header_rejected ... ok
+test frame::tests::trailing_bytes_rejected ... ok
+test frame::tests::unknown_kind_rejected ... ok
+test message::tests::compact_block_reconstruct_all_prefilled ... ok
+test message::tests::compact_block_reconstruct_complete ... ok
+test message::tests::compact_block_reconstruct_empty ... ok
+test message::tests::compact_block_reconstruct_missing ... ok
+test message::tests::message_kind_from_u8_roundtrips ... ok
+test tests::compact_block_reconstruct_all_prefilled ... ok
+test tests::compact_block_reconstruct_complete ... ok
+test tests::compact_block_reconstruct_empty ... ok
+test tests::compact_block_reconstruct_missing ... ok
+test tests::encode_decode_empty_payload ... ok
+test tests::encode_decode_roundtrip ... ok
+test tests::frame_header_size_is_5 ... ok
+test tests::encode_decode_max_payload ... ok
+test tests::max_frame_size_is_1_mib ... ok
+test tests::message_kind_from_u8_roundtrips ... ok
+test tests::network_error_display ... ok
+test tests::network_error_is_error ... ok
+test tests::oversized_frame_rejected ... ok
+test tests::too_short_header_rejected ... ok
+test tests::trailing_bytes_rejected ... ok
+test tests::unknown_kind_rejected ... ok
+test tls::tests::absent_or_wrong_application_protocol_is_rejected ... ok
+test tls::tests::mutual_tls_exchanges_packets_across_multiple_records ... ok
+test tls::tests::startup_rejects_expired_wrong_name_and_missing_usages ... ok
+test tls::tests::missing_and_untrusted_client_certificates_are_rejected ... ok
+test tls::tests::startup_rejects_mismatched_key_root_and_malformed_inputs ... ok
+test transport::tests::accept_refuses_a_banned_source_recorded_through_the_shared_controller ... ok
+test transport::tests::accept_refuses_a_connection_past_the_per_source_cap_and_retains_nothing ... ok
+test tls::tests::unrelated_network_ca_is_rejected ... ok
+test transport::tests::connect_is_refused_before_a_socket_is_created_when_the_total_cap_is_full ... ok
+test transport::tests::connect_is_refused_without_dialling_an_unparsable_endpoint ... ok
+test transport::tests::disconnect_nonexistent_peer ... ok
+test transport::tests::disconnect_returns_the_admitted_slot_so_the_source_can_reconnect ... ok
+test transport::tests::owned_frame_encode_roundtrip ... ok
+test transport::tests::peer_id_equality ... ok
+test transport::tests::peer_manager_new_default ... ok
+test transport::tests::peer_manager_with_limit ... ok
+test transport::tests::transport_error_display ... ok
+test transport::tests::listen_and_connect ... ok
+test tls::tests::plaintext_and_stalled_handshakes_are_rejected_within_deadline ... ok
+test tls::tests::trickled_tls_records_cannot_extend_packet_deadline ... ok
+
+test result: ok. 97 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.27s
+
+     Running unittests src/lib.rs (/tmp/astrolune-tps-qualification/release/deps/rpc-81d18a3602492449)
+
+running 32 tests
+test block::tests::explorer_numbers_are_lossless_and_ids_match_canonical_domains ... ok
+test json::tests::address_to_hex_format ... ok
+test json::tests::hash_to_hex_format ... ok
+test json::tests::parse_and_serialize_bool ... ok
+test json::tests::parse_and_serialize_null ... ok
+test json::tests::parse_and_serialize_number ... ok
+test json::tests::parse_and_serialize_string ... ok
+test json::tests::parse_array ... ok
+test json::tests::parse_nested_object ... ok
+test json::tests::parse_string_escaping ... ok
+test json::tests::rpc_error_response_serialize ... ok
+test json::tests::rpc_request_parse ... ok
+test json::tests::rpc_response_serialize ... ok
+test server::tests::block_height_accepts_full_width_decimal_and_rejects_invalid_input ... ok
+test server::tests::batch_dispatch_checks_bounds_before_service_and_preserves_results ... ok
+test server::tests::dispatch_chain_status ... ok
+test server::tests::dispatch_unknown_method ... ok
+test server::tests::parse_hex_address_valid ... ok
+test server::tests::parse_hex_address_with_prefix ... ok
+test server::tests::parse_hex_address_wrong_length ... ok
+test server::tests::parse_hex_bytes_valid ... ok
+test server::tests::parse_hex_bytes_with_prefix ... ok
+test tests::account_lookup_found ... ok
+test tests::account_lookup_missing ... ok
+test tests::chain_status_query ... ok
+test tests::error_display_messages ... ok
+test tests::error_is_std_error ... ok
+test tests::full_lifecycle ... ok
+test tests::pending_transactions_empty_by_default ... ok
+test tests::submit_empty_transaction_rejected ... ok
+test tests::submit_valid_transaction ... ok
+test tests::transaction_hash_deterministic ... ok
+
+test result: ok. 32 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests/client.rs (/tmp/astrolune-tps-qualification/release/deps/client-4ec55eaca96efadb)
+
+running 10 tests
+test invalid_limits_fail_before_connecting ... ok
+test batch_submission_preserves_results_and_rejects_ambiguous_responses ... ok
+test decodes_real_wire_types_and_sends_expected_methods ... ok
+test historical_proofs_distinguish_unavailability_and_reject_a_wrong_height ... ok
+test rejects_oversized_empty_truncated_and_non_utf8_frames ... ok
+test rejects_ambiguous_or_malformed_envelopes_and_typed_results ... ok
+test remote_rejection_is_distinct_and_terminal_controls_are_escaped ... ok
+test malformed_hashes_and_accounts_are_not_success ... ok
+test deadline_covers_the_entire_dripped_frame ... ok
+test receipt_wait_preserves_transport_failures_and_bounds_a_silent_peer ... ok
+
+test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.30s
+
+     Running tests/handoff_client.rs (/tmp/astrolune-tps-qualification/release/deps/handoff_client-f32a99bd7c114bbf)
+
+running 3 tests
+test invalid_limits_fail_before_connecting_and_complete_positions_need_no_peer ... ok
+test streams_from_genesis_and_resumes_only_the_verified_prefix ... ok
+test malformed_forked_incomplete_or_wrong_height_handoffs_never_advance_authority ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+
+     Running tests/json_bounds.rs (/tmp/astrolune-tps-qualification/release/deps/json_bounds-da67724754a18f72)
+
+running 2 tests
+test strictly_decodes_json_strings_numbers_and_whitespace ... ok
+test bounds_nesting_and_rejects_duplicate_keys_at_every_depth ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/potb_client.rs (/tmp/astrolune-tps-qualification/release/deps/potb_client-588fedccd18e93d8)
+
+running 3 tests
+test limits_fail_without_connecting_and_genesis_proofs_require_the_separate_namespace ... ok
+test authenticates_only_a_complete_prefix_and_commits_after_the_consumer ... ok
+test rejects_wrong_height_parent_quorum_roster_and_frontier_without_advancing ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+
+     Running tests/proofs.rs (/tmp/astrolune-tps-qualification/release/deps/proofs-6af4580e3103aac0)
+
+running 3 tests
+test genesis_proof_requires_exact_trusted_materialized_state ... ok
+test certified_receipts_bind_execution_output_order_genesis_and_quorum ... ok
+test certified_state_authenticates_membership_absence_genesis_and_minimum_height ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/rotation.rs (/tmp/astrolune-tps-qualification/release/deps/rotation-8950a332a77b88eb)
+
+running 1 test
+test rotated_state_and_receipts_require_exact_independent_handoff_position ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running unittests src/lib.rs (/tmp/astrolune-tps-qualification/release/deps/runtime-3ea87dc5e600b780)
+
+running 36 tests
+test alternate::tests::acceptance_and_error_variants_are_distinguished ... ok
+test alternate::tests::event_order_alone_is_a_difference ... ok
+test alternate::tests::every_consensus_visible_wasm_field_is_compared ... ok
+test alternate::tests::identical_wasm_outputs_report_no_difference ... ok
+test alternate::tests::qualified_profiles_each_move_at_least_one_neutral_axis ... ok
+test alternate::tests::resource_classes_are_reported_in_declaration_order ... ok
+test alternate::tests::seam_comparison_still_checks_return_data_and_resources ... ok
+test alternate::tests::seam_projection_drops_events_writes_and_accessed_keys ... ok
+test aot::tests::a_fresh_cache_reports_its_profile_bounds_and_empty_counters ... ok
+test aot::tests::only_profiles_that_translate_ahead_of_the_call_may_back_a_cache ... ok
+test aot::tests::retirement_counts_a_generation_and_empties_the_live_one ... ok
+test aot::tests::the_aot_backend_is_send_and_sync_behind_the_seam ... ok
+test aot::tests::the_declared_engine_pin_matches_the_manifest ... ok
+test aot::tests::zero_bounds_are_refused_so_a_generation_cannot_retire_on_every_call ... ok
+test tests::code_hash_is_deterministic ... ok
+test tests::constants_are_correct ... ok
+test tests::different_code_different_hash ... ok
+test tests::empty_module_rejected ... ok
+test tests::interpreter_empty_input ... ok
+test tests::interpreter_empty_module_trap ... ok
+test tests::interpreter_execute_basic ... ok
+test tests::interpreter_input_size_limit ... ok
+test tests::interpreter_is_send_and_sync ... ok
+test tests::interpreter_kind ... ok
+test tests::interpreter_output_size_limit ... ok
+test tests::interpreter_resource_metering ... ok
+test tests::interpreter_resource_metering_empty ... ok
+test tests::interpreter_xor_wraps_at_code_length ... ok
+test tests::oversized_module_rejected ... ok
+test tests::roundtrip_validate_and_execute ... ok
+test tests::runtime_error_display ... ok
+test tests::runtime_error_is_std_error ... ok
+test tests::size_limit_at_boundary ... ok
+test tests::valid_module_accepted ... ok
+test tests::wrong_metering_version_rejected ... ok
+test tests::wrong_version_rejected ... ok
+
+test result: ok. 36 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests/aot.rs (/tmp/astrolune-tps-qualification/release/deps/aot-afe7f49aebc93ae0)
+
+running 14 tests
+test every_qualified_profile_translates_eagerly_and_every_other_one_does_not ... ok
+test a_forged_module_identity_is_refused_before_any_translation ... ok
+test an_artifact_is_refused_by_a_runtime_that_did_not_produce_it ... ok
+test deferred_translation_makes_a_charge_depend_on_cache_state_and_stays_refused ... ok
+test an_artifact_key_separates_code_engine_configuration_and_target ... ok
+test charged_compute_is_bit_exact_on_every_ahead_of_time_path ... ok
+test simd_opcodes_stay_rejected_so_the_engine_feature_cannot_be_enabled_silently ... ok
+test the_ahead_of_time_path_agrees_on_rejected_modules_and_error_variants ... ok
+test a_cache_hit_and_a_cache_miss_produce_identical_output_for_every_module ... ok
+test the_recursion_and_stack_caps_do_not_move_on_the_ahead_of_time_path ... ok
+test retirement_bounds_the_cache_and_never_changes_a_result ... ok
+test one_shared_cache_agrees_with_the_reference_across_concurrent_callers ... ok
+test the_aot_seam_returns_exactly_the_projection_of_the_cached_interpreter_output ... ok
+test the_ahead_of_time_path_agrees_with_the_reference_interpreter_on_accepted_modules ... ok
+
+test result: ok. 14 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.04s
+
+     Running tests/backends.rs (/tmp/astrolune-tps-qualification/release/deps/backends-c6e7f3767f526c0b)
+
+running 7 tests
+test every_interpreter_profile_stays_an_interpreter_and_only_the_aot_backend_claims_aot ... ok
+test the_seam_cannot_express_events_writes_or_accessed_keys ... ok
+test qualified_profiles_agree_on_rejected_modules_and_error_variants ... ok
+test the_recursion_and_stack_caps_are_consensus_visible_and_not_backend_axes ... ok
+test qualified_profiles_agree_with_the_reference_interpreter_on_accepted_modules ... ok
+test lazy_compilation_charges_its_own_work_to_the_call_and_stays_disqualified ... ok
+test the_runtime_backend_seam_returns_exactly_the_projection_of_the_interpreter_output ... ok
+
+test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests/wasm.rs (/tmp/astrolune-tps-qualification/release/deps/wasm-303a06330b42451e)
+
+running 5 tests
+test instructions_after_function_end_are_rejected_before_translation ... ok
+test input_output_is_repeatable_and_resources_are_deterministic ... ok
+test state_is_private_lease_checked_and_visible_within_call ... ok
+test rejects_forbidden_features_imports_start_memory_and_signatures ... ok
+test infinite_loops_recursion_growth_and_bad_pointers_are_bounded ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/lib.rs (/tmp/astrolune-tps-qualification/release/deps/state-813df643a09b44e7)
+
+running 34 tests
+test lease::tests::normalization_sorts_and_preserves_strongest_access ... ok
+test persistent::tests::commit_rejects_stale_parent ... ok
+test lease::tests::reads_share_but_writes_conflict ... ok
+test persistent::tests::commit_persists_to_disk ... ok
+test persistent::tests::delete_through_commit ... ok
+test persistent::tests::open_creates_new_file ... ok
+test persistent::tests::root_deterministic ... ok
+test persistent::tests::open_loads_existing_file ... ok
+test persistent::tests::snapshot_isolation ... ok
+test tests::diff_apply_delete ... ok
+test tests::diff_apply_to_empty ... ok
+test tests::diff_merge ... ok
+test tests::diff_put_and_delete ... ok
+test tests::diff_sort_canonical ... ok
+test tests::empty_state ... ok
+test tests::lease_covers_read_access ... ok
+test tests::lease_has_writes ... ok
+test tests::lease_write_keys ... ok
+test tests::state_change_key ... ok
+test tests::state_commit_and_snapshot ... ok
+test tests::state_commit_rejects_stale_parent ... ok
+test tests::state_delete_through_commit ... ok
+test tests::state_diff_encode_delete ... ok
+test tests::state_diff_encode_deterministic ... ok
+test tests::state_diff_encode_empty ... ok
+test tests::state_diff_encode_put ... ok
+test tests::state_diff_encode_sorted_canonical ... ok
+test tests::state_error_display ... ok
+test tests::state_multiple_diffs_in_one_commit ... ok
+test tests::state_root_changes_on_same_data ... ok
+test tests::state_snapshot_isolation ... ok
+test tree::tests::fixed_layout_updates_share_unaffected_branches_and_preserve_proofs ... ok
+test tree::tests::updates_and_topology_changes_match_flat_reference ... ok
+test tree::tests::transient_snapshot_overflow_is_rejected_before_write_coalescing ... ok
+
+test result: ok. 34 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.28s
+
+     Running tests/absence.rs (/tmp/astrolune-tps-qualification/release/deps/absence-ebabcce200688f39)
+
+running 6 tests
+test authentic_but_nonadjacent_or_nonboundary_witnesses_do_not_prove_absence ... ok
+test ordering_uses_complete_key_bytes_including_empty_keys_and_prefixes ... ok
+test proof_is_bound_to_snapshot_across_insert_delete_and_snapshot_exchange ... ok
+test golden_framing_and_every_truncation_or_byte_mutation ... ok
+test generated_gaps_cover_empty_singleton_odd_and_even_trees ... ok
+test rejects_oversized_queries_lengths_paths_and_packets ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests/commitments.rs (/tmp/astrolune-tps-qualification/release/deps/commitments-a618c9c45e4104c6)
+
+running 9 tests
+test diff_commitment_binds_order_and_operation_boundaries ... ok
+test commitment_binds_full_contents_and_entry_boundaries ... ok
+test rejected_overlay_preserves_state_and_existing_snapshots ... ok
+test independent_blake2s_golden_roots ... ok
+test snapshot_golden_framing_and_roundtrip ... ok
+test snapshot_rejects_duplicates_ordering_and_unbounded_lengths ... ok
+test exact_key_value_bounds_and_ordered_writes ... ok
+test snapshot_rejects_every_truncation_and_single_byte_mutation ... ok
+test generated_tree_shapes_have_valid_and_strict_paths ... ok
+
+test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.04s
+
+     Running tests/recovery.rs (/tmp/astrolune-tps-qualification/release/deps/recovery-28fd3654242d8804)
+
+running 8 tests
+test corrupt_or_legacy_files_are_rejected_without_overwrite ... ok
+test absence_proofs_survive_restart_and_preserve_old_snapshots ... ok
+test failed_rename_keeps_memory_unchanged_and_allows_retry ... ok
+test failed_disk_write_leaves_memory_and_published_file_unchanged ... ok
+test process_probe ... ok
+test proposed_root_is_verified_before_any_disk_change ... ok
+test memory_and_disk_backends_agree_through_restarts ... ok
+test writer_lock_is_exclusive_and_released_on_process_exit ... ok
+
+test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests/seals.rs (/tmp/astrolune-tps-qualification/release/deps/seals-b43436b26ca26a07)
+
+running 4 tests
+test later_final_writer_and_transient_bounds_cannot_be_hidden ... ok
+test concurrent_final_writers_publish_each_subtree_once ... ok
+test reverse_completion_seals_match_reference_roots_proofs_and_old_snapshots ... ok
+test missing_changed_and_stale_seals_cannot_override_actual_effects ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests/value_proof.rs (/tmp/astrolune-tps-qualification/release/deps/value_proof-5dba351bc65e50b8)
+
+running 1 test
+test bounded_value_proofs_distinguish_absence_empty_values_and_wrong_contexts ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/lib.rs (/tmp/astrolune-tps-qualification/release/deps/storage-1c39860561fd7d09)
+
+running 29 tests
+test archive::tests::structure_is_checked_even_with_a_valid_checksum ... ok
+test history::tests::repeated_updates_restore_original_values_and_deletions_in_one_root_check ... ok
+test history::tests::truncating_below_a_compaction_floor_keeps_the_index_connected_to_the_head ... ok
+test archive::tests::all_truncations_and_single_byte_mutations_fail_closed ... ok
+test log::tests::a_compaction_exceeding_its_byte_budget_refuses_without_touching_the_log ... ok
+test log::tests::log_checksums_match_independent_python_blake2s_vectors ... ok
+test log_record::tests::payloads_reject_truncation_and_every_accepted_mutation_is_canonical ... ok
+test log::tests::uncertain_publication_and_rollback_require_reopen_without_losing_committed_head ... ok
+test receipts::tests::effects_preserve_legacy_bytes_and_authenticate_the_optional_witness ... ok
+test receipts::tests::potb_effects_use_a_distinct_tag_key_and_exclusive_bounded_witness ... ok
+test log::tests::an_interrupted_compaction_recovers_exactly_one_complete_log ... ok
+test retention::tests::a_bounded_policy_rejects_every_value_outside_its_documented_range ... ok
+test retention::tests::a_disabled_policy_never_selects_a_floor_at_any_head_height ... ok
+test retention::tests::a_due_floor_always_advances_and_always_keeps_the_retained_suffix ... ok
+test retention::tests::a_retention_record_rejects_truncation_and_every_single_byte_mutation ... ok
+test retention::tests::an_interval_defers_compaction_until_the_excess_accumulates ... ok
+test tests::commit_advances_checkpoint ... ok
+test tests::commit_rejects_wrong_height ... ok
+test tests::commit_rejects_wrong_state_root ... ok
+test tests::empty_storage_recovers_none ... ok
+test tests::prune_removes_old_data ... ok
+test tests::recover_returns_latest_checkpoint ... ok
+test tests::sequential_commits ... ok
+test tests::snapshot_export_import_roundtrip ... ok
+test tests::storage_error_display ... ok
+test writer_lock::tests::dropping_owner_releases_lock_while_duplicate_descriptor_remains_open ... ok
+test history::tests::a_transition_exceeding_change_limit_drops_the_disconnected_prefix ... ok
+test history::tests::byte_budget_evicts_old_versions_before_the_height_limit ... ok
+test receipts::tests::recent_index_evicts_old_positions_without_erasing_a_newer_duplicate ... ok
+
+test result: ok. 29 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.09s
+
+     Running tests/append_log.rs (/tmp/astrolune-tps-qualification/release/deps/append_log-c8017224941c894e)
+
+running 12 tests
+
+running 1 test
+test historical_reads_detect_corruption_after_startup ... ok
+running 1 test
+
+test historical_index_evicts_a_bounded_window_and_rebuilds_only_published_changes ... ok
+test delta_replay_matches_reference_and_reconstructs_historical_snapshots ... ok
+
+running 1 test
+test corrupt_missing_or_orphan_head_never_resets_the_chain ... ok
+test incompatible_retention_or_import_is_explicit_and_non_destructive ... ok
+test legacy_detection_preserves_existing_archives_and_uses_shared_writer_lock ... ok
+test process_child ... ok
+test abrupt_process_exit_preserves_publication_and_releases_writer_lock ... ok
+test rejected_and_failed_commits_preserve_published_prefix_and_state ... ok
+test every_unpublished_partial_or_complete_tail_is_discarded ... ok
+test every_committed_truncation_or_byte_mutation_fails_without_repairing_data ... ok
+test grows_linearly_past_legacy_checkpoint_limit_without_rewriting_prefix ... ok
+
+test result: ok. 12 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.20s
+
+     Running tests/atomicity.rs (/tmp/astrolune-tps-qualification/release/deps/atomicity-e22516531f823f6f)
+
+running 7 tests
+test exhausted_checkpoint_height_never_wraps_to_genesis ... ok
+test caller_must_supply_the_exact_authenticated_checkpoint ... ok
+test pruning_preserves_latest_checkpoint_snapshot_and_next_height ... ok
+test rejected_commit_does_not_change_state_history_or_certificates ... ok
+test source_io_error_cannot_publish_a_partial_import ... ok
+test historical_snapshot_roundtrip_restores_entries_and_allows_extension ... ok
+test invalid_snapshot_import_preserves_existing_checkpoint_and_state ... ok
+
+test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/recovery.rs (/tmp/astrolune-tps-qualification/release/deps/recovery-e48e642db313cee8)
+
+running 9 tests
+test legacy_empty_archive_is_rejected_without_rewriting ... ok
+test process_probe ... ok
+test corrupt_archive_fails_closed_and_pending_bytes_do_not_replace_it ... ok
+test process_lock_and_abrupt_exit_recovery ... ok
+test unsupported_transaction_version_cannot_publish_an_unrecoverable_archive ... ok
+test rename_failure_retains_the_published_version_for_retry ... ok
+test snapshot_import_is_durable_and_atomic ... ok
+test restarts_preserve_bodies_certificates_and_historical_snapshots ... ok
+test rejected_or_failed_updates_preserve_disk_and_memory ... ok
+
+test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests/retention.rs (/tmp/astrolune-tps-qualification/release/deps/retention-60d398c1144204ca)
+
+running 13 tests
+test a_committed_marker_naming_the_published_log_is_completed_on_restart ... ok
+test a_disabled_policy_retains_every_committed_block_and_records_nothing ... ok
+test a_committed_marker_whose_replacement_does_not_verify_fails_closed ... ok
+test a_shortened_log_without_its_local_record_is_not_reported_as_self_compacted ... ok
+test an_unpublished_replacement_without_a_readable_marker_is_discarded_on_restart ... ok
+test automatic_evaluation_compacts_in_place_and_restart_resumes_from_the_recorded_anchor ... ok
+test a_floor_outside_the_bounded_state_index_is_refused_without_changing_the_log ... ok
+test chain_storage_drives_automatic_retention_and_reports_its_floors ... ok
+test repeated_pruning_to_the_same_or_lower_floor_leaves_every_byte_unchanged ... ok
+test compaction_physically_reclaims_bytes_and_leaves_the_log_extendable ... ok
+test the_legacy_archive_backend_refuses_automated_retention ... ok
+test retention_refuses_a_floor_above_the_head_or_below_the_minimum_suffix ... ok
+test the_history_floor_accessor_agrees_with_every_historical_state_read ... ok
+
+test result: ok. 13 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+
+     Running unittests src/lib.rs (/tmp/astrolune-tps-qualification/release/deps/sync-a0efcc303265a7a3)
+
+running 16 tests
+test tests::block_with_zero_transactions_root_rejected ... ok
+test tests::broken_parent_linkage_rejected ... ok
+test tests::chain_verifier_stores_config ... ok
+test tests::empty_headers_rejected ... ok
+test tests::first_header_wrong_genesis_rejected ... ok
+test tests::genesis_anchor_binds_header_contents_and_child_height ... ok
+test tests::single_genesis_header_accepted ... ok
+test tests::long_valid_chain ... ok
+test tests::snapshot_zero_height_rejected ... ok
+test tests::snapshot_zero_state_root_rejected ... ok
+test tests::sync_error_display_matches_variant ... ok
+test tests::sync_error_is_std_error ... ok
+test tests::valid_block_verification ... ok
+test tests::valid_header_chain ... ok
+test tests::valid_snapshot_verification ... ok
+test tests::wrong_height_sequence_rejected ... ok
+
+test result: ok. 16 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running unittests src/lib.rs (/tmp/astrolune-tps-qualification/release/deps/telemetry-6054751dc0c439df)
+
+running 10 tests
+test tests::capacity_eviction ... ok
+test tests::counter_increment ... ok
+test operational::tests::metrics_are_bounded_saturating_and_count_only_new_finality ... ok
+test tests::capacity_one_eviction ... ok
+test tests::record_and_retrieve ... ok
+test tests::noop_sink_is_truly_noop ... ok
+test tests::reset_clears_everything ... ok
+test tests::counter_with_noop_sink ... ok
+test tests::total_count_across_names ... ok
+test tests::zero_history_disables_recording_and_name_cardinality_is_bounded ... ok
+
+test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/lib.rs (/tmp/astrolune-tps-qualification/release/deps/testkit-936722ccacaf3546)
+
+running 14 tests
+test bench::tests::a_measurement_orders_its_statistics_and_counts_every_round ... ok
+test bench::tests::a_zero_median_reports_no_rate_instead_of_dividing_by_zero ... ok
+test bench::tests::a_suite_records_every_benchmark_and_emits_the_pinned_schema ... ok
+test bench::tests::calibration_returns_a_power_of_two_within_the_cap ... ok
+test bench::tests::environment_settings_ignore_malformed_and_zero_overrides ... ok
+test bench::tests::median_handles_odd_even_and_empty_sample_sets ... ok
+test bench::tests::names_with_quotes_or_control_bytes_stay_inside_one_json_string ... ok
+test fork_lock::tests::a_holder_that_panics_does_not_poison_later_acquisitions ... ok
+test port::tests::a_claim_excludes_a_second_holder_of_the_same_port ... ok
+test port::tests::a_probe_declines_an_address_a_listener_already_holds ... ok
+test port::tests::a_reservation_sits_inside_the_window_and_below_every_automatic_range ... ok
+test port::tests::a_reserved_port_binds_while_reserved_and_binds_again_after_release ... ok
+test port::tests::an_explicit_interface_is_preserved ... ok
+test port::tests::many_reservations_held_at_once_are_all_distinct ... ok
+
+test result: ok. 14 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.03s
+
+     Running unittests src/lib.rs (/tmp/astrolune-tps-qualification/release/deps/transaction-b3b2f9acb5c95bb7)
+
+running 37 tests
+test envelope::tests::accessors_return_correct_values ... ok
+test envelope::tests::envelope_id_deterministic ... ok
+test envelope::tests::envelope_id_differs_by_nonce ... ok
+test envelope::tests::envelope_id_differs_by_sender ... ok
+test envelope::tests::rejects_zero_chain_id ... ok
+test envelope::tests::rejects_zero_sender ... ok
+test envelope::tests::rejects_zero_signature ... ok
+test envelope::tests::well_formed_envelope ... ok
+test error::tests::error_display ... ok
+test integration_tests::accepts_zero_nonce_for_unknown_account ... ok
+test integration_tests::assigned_lane_matches_payload ... ok
+test integration_tests::different_nonces_produce_different_ids ... ok
+test integration_tests::error_display ... ok
+test integration_tests::estimate_encoded_len_basic ... ok
+test integration_tests::lane_contracts_for_long_payload ... ok
+test integration_tests::lane_payments_for_short_payload ... ok
+test integration_tests::lane_system_for_empty_payload ... ok
+test integration_tests::rejects_insufficient_resources ... ok
+test integration_tests::rejects_invalid_nonce ... ok
+test integration_tests::rejects_nonzero_nonce_for_unknown_account ... ok
+test integration_tests::rejects_oversized_transaction ... ok
+test integration_tests::rejects_wrong_chain ... ok
+test integration_tests::rejects_zero_signature ... ok
+test integration_tests::transaction_id_is_deterministic ... ok
+test integration_tests::valid_transaction_passes ... ok
+test validator::tests::accepts_zero_nonce_for_unknown_account ... ok
+test validator::tests::assigned_lane_matches_payload ... ok
+test validator::tests::different_nonces_produce_different_ids ... ok
+test validator::tests::estimate_encoded_len_basic ... ok
+test validator::tests::rejects_insufficient_resources ... ok
+test validator::tests::rejects_invalid_nonce ... ok
+test validator::tests::rejects_nonzero_nonce_for_unknown_account ... ok
+test validator::tests::rejects_oversized_transaction ... ok
+test validator::tests::rejects_wrong_chain ... ok
+test validator::tests::rejects_zero_signature ... ok
+test validator::tests::transaction_id_is_deterministic ... ok
+test validator::tests::valid_transaction_passes ... ok
+
+test result: ok. 37 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests/contract_protocol.rs (/tmp/astrolune-tps-qualification/release/deps/contract_protocol-57a95ad7bd7ac090)
+
+running 3 tests
+test historical_encodings_are_byte_identical ... ok
+test native_roundtrip_and_namespaces_are_separate ... ok
+test native_rejects_invalid_source_input_keys_and_counts ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/signed_admission.rs (/tmp/astrolune-tps-qualification/release/deps/signed_admission-a41df675c008cb6b)
+
+running 14 tests
+test commitments_match_independent_blake2s_vectors ... ok
+test admits_valid_signature_without_mutating_account_state ... ok
+test exhausted_nonces_fail_without_wrapping ... ok
+test envelope_uses_the_same_signature_and_identifier ... ok
+test expiry_is_inclusive_and_checked_before_account_or_signature ... ok
+test rejects_codec_limits_even_with_unlimited_context ... ok
+test rejects_excessive_limits_and_resource_payment_overflow ... ok
+test native_contract_payload_is_signed_and_key_mismatch_is_rejected ... ok
+test rejects_unknown_sender_and_mismatched_registered_key ... ok
+test resource_cost_checks_every_product_and_sum ... ok
+test size_calculation_matches_codec_across_prefix_boundaries ... ok
+test signatures_and_ids_bind_every_transaction_field ... ok
+test validation_reports_the_first_failed_stage ... ok
+test unsupported_versions_lanes_payloads_and_prices_are_rejected ... ok
+
+test result: ok. 14 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running unittests src/lib.rs (/tmp/astrolune-tps-qualification/release/deps/trocto_compiler-6a41c8b31648877c)
+
+running 2 tests
+test package::tests::published_source_is_canonical_and_profile_authenticated ... ok
+test package::tests::rejects_native_and_invalid_source_artifacts ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/language.rs (/tmp/astrolune-tps-qualification/release/deps/language-bdf2a06cfd1cad44)
+
+running 6 tests
+test fuel_and_arithmetic_errors_keep_source_order ... ok
+test literal_extremes_and_every_checked_operator ... ok
+test precedence_left_associativity_and_immutable_bindings ... ok
+test unsupported_authority_types_and_binding_errors_are_refused ... ok
+test all_explicit_input_limits_are_enforced ... ok
+test identities_and_ir_are_deterministic_and_malformed_bytes_do_not_panic ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/stateful.rs (/tmp/astrolune-tps-qualification/release/deps/stateful-2cdd7f68b1f0759c)
+
+running 11 tests
+test contexts_require_prefix_unique_sorted_extras_and_bounded_shapes ... ok
+test empty_loops_always_consume_fuel_and_allow_local_interruption ... ok
+test dynamic_address_keys_read_write_delete_and_error_order ... ok
+test events_are_bounded_and_failure_publishes_no_effects ... ok
+test mutation_loop_lexical_shadowing_and_early_returns ... ok
+test llvm_definitions_are_unique_across_all_instruction_families ... ok
+test short_circuit_skips_arithmetic_access_and_dynamic_bounds ... ok
+test state_metadata_effects_and_atomic_failure ... ok
+test type_scope_initialization_and_control_errors_are_rejected ... ok
+test v2_llvm_contains_bounded_slots_and_final_native_abi ... ok
+test new_recursive_syntax_and_literal_keys_obey_compiler_limits ... ok
+
+test result: ok. 11 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running unittests src/lib.rs (/tmp/astrolune-tps-qualification/release/deps/trocto_runtime-69317df14e6ed09e)
+
+running 20 tests
+test cache::tests::failed_worker_is_replaced_without_recompiling_artifact ... ignored, requires pinned native clang 22.1.8
+test cache::tests::all_pending_reservations_refuse_excess_capacity_without_compiling ... ok
+test cache::tests::preparation_waiters_receive_the_original_deterministic_source_error ... ok
+test cache::tests::oversized_source_and_fuel_never_reserve_artifacts ... ok
+test process::tests::build_directories_are_unique_owned_and_removed_after_drop ... ok
+test process::tests::compiler_process_fixture ... ok
+test process::tests::diagnostics_are_bounded_without_silently_truncating_them ... ok
+test process::tests::large_checked_module_compiles_and_runs_under_compiler_quotas ... ignored, requires pinned native clang 22.1.8
+test process::tests::parallel_llvm_identity_queries_publish_success ... ignored, requires pinned native clang 22.1.8
+test tests::framing_preserves_address_words_and_rejects_noncanonical_effects ... ok
+test tests::invalid_contexts_are_rejected_before_native_work ... ok
+test tests::native_builds_are_reproducible_across_owned_directories ... ignored, requires pinned native clang 22.1.8
+test tests::worker_readiness_requires_every_enforcement_capability ... ok
+test tests::blocked_pipe_write_cannot_escape_caller_deadline ... ok
+test process::tests::compiler_descendant_inherited_pipes_end_when_direct_compiler_exits ... ok
+test process::tests::compiler_rejection_preserves_exit_status_and_both_diagnostics ... ok
+test process::tests::compiler_children_inherit_kernel_hard_resource_limits ... ok
+test process::tests::compiler_child_cannot_raise_inherited_memory_and_output_limits ... ok
+test process::tests::parallel_compiler_completion_is_atomic ... ok
+test process::tests::compiler_timeout_and_diagnostic_limit_join_owned_readers ... ok
+
+test result: ok. 16 passed; 0 failed; 4 ignored; 0 measured; 0 filtered out; finished in 0.06s
+
+     Running tests/native.rs (/tmp/astrolune-tps-qualification/release/deps/native-c9a977faeefcc645)
+
+running 8 tests
+test deterministic_traps_leave_the_native_worker_reusable ... ignored, requires pinned native clang 22.1.8; optional ASTROLUNE_LLVM_CLANG
+test fuel_and_unused_expression_errors_survive_llvm_optimization ... ignored, requires pinned native clang 22.1.8; optional ASTROLUNE_LLVM_CLANG
+test native_arithmetic_and_fuel_match_reference_across_reused_workers ... ignored, requires pinned native clang 22.1.8; optional ASTROLUNE_LLVM_CLANG
+test native_control_flow_short_circuit_shadowing_and_early_return ... ignored, requires pinned native clang 22.1.8
+test native_event_limit_and_protocol_fuel_limit ... ignored, requires pinned native clang 22.1.8
+test native_shared_artifact_uses_independent_bounded_workers ... ignored, requires pinned native clang 22.1.8
+test native_state_address_keys_metadata_events_and_failure_rollback ... ignored, requires pinned native clang 22.1.8
+test native_timeout_retires_worker_and_bounds_reference_verification ... ignored, requires pinned native clang 22.1.8
+
+test result: ok. 0 passed; 0 failed; 8 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/lib.rs (/tmp/astrolune-tps-qualification/release/deps/types-6937fba58aec582a)
+
+running 86 tests
+test address::tests::address_clone ... ok
+test address::tests::address_display_all_start_with_0x ... ok
+test address::tests::address_display_hex_lowercase ... ok
+test address::tests::address_display_prefixes_0x ... ok
+test address::tests::address_eq_reflexive ... ok
+test address::tests::address_eq_symmetric ... ok
+test address::tests::address_from_bytes_roundtrips ... ok
+test address::tests::address_not_zero ... ok
+test address::tests::address_zero_is_all_zeros ... ok
+test address::tests::validator_id_clone ... ok
+test address::tests::validator_id_display_hex_lowercase ... ok
+test address::tests::validator_id_eq_reflexive ... ok
+test address::tests::validator_id_eq_symmetric ... ok
+test address::tests::validator_id_from_bytes_roundtrips ... ok
+test address::tests::validator_id_not_zero ... ok
+test address::tests::validator_id_ordering ... ok
+test address::tests::validator_id_ordering_antisymmetric ... ok
+test address::tests::validator_id_ordering_transitive ... ok
+test address::tests::validator_id_zero_is_all_zeros ... ok
+test block::tests::block_header_hash_deterministic ... ok
+test block::tests::block_header_hash_deterministic_across_many_values ... ok
+test block::tests::block_header_hash_differs_by_height ... ok
+test block::tests::block_header_hash_differs_by_parent ... ok
+test block::tests::block_header_validate_parent_passes ... ok
+test block::tests::block_header_validate_parent_rejects_wrong_height ... ok
+test block::tests::block_header_validate_parent_rejects_wrong_parent_hash ... ok
+test block::tests::receipt_commitment_deterministic ... ok
+test block::tests::receipt_commitment_deterministic_across_variations ... ok
+test block::tests::receipt_commitment_differs_on_output_root ... ok
+test block::tests::receipt_commitment_differs_on_resources ... ok
+test block::tests::receipt_commitment_differs_on_success ... ok
+test block::tests::receipt_commitment_differs_on_success_flag ... ok
+test block::tests::receipt_commitment_differs_on_transaction ... ok
+test hash::tests::display_all_64_hex_chars ... ok
+test hash::tests::display_is_hex_lowercase ... ok
+test hash::tests::from_bytes_roundtrips ... ok
+test hash::tests::xor_commutative ... ok
+test hash::tests::xor_is_deterministic ... ok
+test hash::tests::xor_self_yields_zero ... ok
+test hash::tests::xor_zero_identity ... ok
+test hash::tests::zero_is_all_zeros ... ok
+test resources::tests::checked_add ... ok
+test resources::tests::checked_add_associative ... ok
+test resources::tests::checked_add_commutative ... ok
+test resources::tests::checked_add_identity ... ok
+test resources::tests::checked_add_none_on_overflow ... ok
+test resources::tests::checked_add_overflow ... ok
+test resources::tests::checked_add_sum_correct ... ok
+test resources::tests::checked_mul ... ok
+test resources::tests::checked_mul_distributive_over_add ... ok
+test resources::tests::checked_mul_none_on_overflow ... ok
+test resources::tests::checked_mul_one ... ok
+test resources::tests::checked_mul_overflow ... ok
+test resources::tests::checked_mul_zero ... ok
+test resources::tests::count ... ok
+test resources::tests::count_correct ... ok
+test resources::tests::count_popcount_equivalent ... ok
+test resources::tests::fits_in ... ok
+test resources::tests::fits_in_antisymmetric ... ok
+test resources::tests::fits_in_reflexive ... ok
+test resources::tests::fits_in_transitive ... ok
+test resources::tests::fits_in_transitive_closure ... ok
+test resources::tests::nothing_fits_in_zero_except_zero ... ok
+test resources::tests::saturating_add ... ok
+test resources::tests::saturating_add_associative ... ok
+test resources::tests::saturating_add_never_exceeds_max ... ok
+test resources::tests::zero_fits_in_everything ... ok
+test resources::tests::zero_is_all_zeros ... ok
+test state_key::tests::as_bytes_returns_slice ... ok
+test state_key::tests::empty ... ok
+test state_key::tests::is_empty_correct ... ok
+test state_key::tests::len_returns_correct_length ... ok
+test state_key::tests::max_len_enforced ... ok
+test state_key::tests::new_returns_none_for_excess_length ... ok
+test state_key::tests::new_returns_some_for_valid_length ... ok
+test state_key::tests::state_key_clone ... ok
+test state_key::tests::state_key_eq_reflexive ... ok
+test state_key::tests::state_key_eq_symmetric ... ok
+test state_key::tests::state_key_max_len_boundary ... ok
+test state_key::tests::state_key_ord ... ok
+test state_key::tests::state_key_ord_equal ... ok
+test state_key::tests::state_key_various_lengths ... ok
+test tests::domain_tags_are_non_empty ... ok
+test tests::domain_tags_are_unique ... ok
+test tests::domain_tags_pairwise_unique ... ok
+test tests::domain_tags_start_with_protocol_name ... ok
+
+test result: ok. 86 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.03s
+
+   Doc-tests codec
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests config
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests consensus
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests contract_abi
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests contract_sdk
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests crypto
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests dns
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests execution
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests genesis
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests integration
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests keystore
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests mempool
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests node
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests p2p
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests rpc
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests runtime
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests state
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests storage
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests sync
+
+running 1 test
+test crates/sync/src/lib.rs - ChainVerifier (line 108) ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+all doctests ran in 0.31s; merged doctests compilation took 0.30s
+   Doc-tests telemetry
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests testkit
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests transaction
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests trocto_compiler
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests trocto_runtime
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests types
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+

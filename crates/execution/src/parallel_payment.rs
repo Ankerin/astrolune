@@ -86,6 +86,17 @@ pub struct ExecutionPolicy {
     pub contracts: bool,
 }
 
+/// Local execution choice for reproducible ablation; never part of consensus data.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum ExecutionAcceleration {
+    /// Existing dependency DAG and payment waves.
+    Waves,
+    /// Guarded account prefixes, with ordinary atomic state preparation.
+    Fold,
+    /// Guarded prefixes plus execution-driven final-writer subtree sealing.
+    FoldAndSeal,
+}
+
 /// Executes under authenticated parameters, preserving serial errors and atomic publication.
 pub fn execute_parallel(
     database: &mut impl StateDatabase,
@@ -94,6 +105,27 @@ pub fn execute_parallel(
     context: ValidationContext,
     policy: ExecutionPolicy,
     workers: usize,
+) -> Result<(Vec<TransactionOutput>, Hash256), ExecutionError> {
+    execute_parallel_with_acceleration(
+        database,
+        transactions,
+        parent,
+        context,
+        policy,
+        workers,
+        ExecutionAcceleration::Fold,
+    )
+}
+
+/// Executes with an explicit local accelerator, preserving the same reference fallback.
+pub fn execute_parallel_with_acceleration(
+    database: &mut impl StateDatabase,
+    transactions: &[Transaction],
+    parent: Hash256,
+    context: ValidationContext,
+    policy: ExecutionPolicy,
+    workers: usize,
+    acceleration: ExecutionAcceleration,
 ) -> Result<(Vec<TransactionOutput>, Hash256), ExecutionError> {
     let capacity = policy.capacity;
     let serial = |database: &mut _, transactions: &[_], parent, context, prefetch| {
@@ -112,8 +144,23 @@ pub fn execute_parallel(
     crate::prefetch::declared_keys(database, transactions);
     let cached = crate::snapshot_cache::CachedSnapshot::new(snapshot.as_ref());
     let view = execution_view(snapshot.as_ref(), &cached, policy.contracts);
-    let outputs = speculate(view, transactions, context, policy, workers);
-    let outputs = match outputs {
+    let outputs = match acceleration {
+        ExecutionAcceleration::Waves => {
+            speculate(view, transactions, context, policy, workers).map(|o| (o, None))
+        }
+        ExecutionAcceleration::Fold | ExecutionAcceleration::FoldAndSeal => crate::fold::speculate(
+            view,
+            transactions,
+            context,
+            policy,
+            workers,
+            acceleration == ExecutionAcceleration::FoldAndSeal,
+        )
+        .unwrap_or_else(|| {
+            speculate(view, transactions, context, policy, workers).map(|o| (o, None))
+        }),
+    };
+    let (outputs, seals) = match outputs {
         Ok(outputs) => outputs,
         Err(ExecutionError::NativeUnavailable) => return Err(ExecutionError::NativeUnavailable),
         Err(_) => {
@@ -131,7 +178,7 @@ pub fn execute_parallel(
         }
     }
     let diffs: Vec<_> = outputs.iter().map(|output| output.diff.clone()).collect();
-    let root = database.commit(parent, &diffs)?;
+    let root = database.commit_sealed(parent, &diffs, seals.as_ref())?;
     Ok((outputs, root))
 }
 

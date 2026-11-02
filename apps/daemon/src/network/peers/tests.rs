@@ -21,6 +21,45 @@ use types::{Address, Resources, Transaction, ValidatorId};
 static NEXT: AtomicU64 = AtomicU64::new(0);
 
 #[test]
+fn public_batch_rpc_uses_live_admission_and_preserves_per_entry_failures() {
+    use codec::CanonicalEncode;
+    use rpc::{RpcError, RpcRequest, RpcResponse, RpcService};
+    let fixture = Fixture::new();
+    let node = fixture.observer("rpc-batch");
+    let before = node.storage().state().root();
+    let status = crate::network::NetworkStatus {
+        node: Arc::new(Mutex::new(node)),
+        chain_id: 42,
+        metrics: Arc::new(NodeMetrics::new(0, true)),
+        storage_failed: Arc::new(AtomicBool::new(false)),
+    };
+    let [valid, mut invalid] = transactions();
+    invalid.signature[0] ^= 1;
+    let response = status
+        .handle(RpcRequest::SubmitTransactions(vec![
+            valid.to_bytes(),
+            invalid.to_bytes(),
+            valid.to_bytes(),
+        ]))
+        .unwrap();
+    let RpcResponse::TransactionsSubmitted(results) = response else {
+        panic!("expected batch results");
+    };
+    assert!(results[0].is_ok());
+    assert_eq!(results[1], Err(RpcError::InvalidRequest));
+    assert_eq!(results[2], Err(RpcError::InvalidRequest));
+    assert_eq!(status.node.lock().unwrap().storage().state().root(), before);
+    assert_eq!(
+        status.handle(RpcRequest::SubmitTransactions(vec![vec![1]])),
+        Err(RpcError::InvalidRequest)
+    );
+    assert_eq!(
+        status.handle(RpcRequest::SubmitTransactions(vec![])),
+        Err(RpcError::LimitExceeded)
+    );
+}
+
+#[test]
 fn speculative_cursor_stays_within_four_heights_of_committed_state() {
     assert_eq!(poll_height(7, None), 7);
     assert_eq!(poll_height(7, Some(6)), 7);

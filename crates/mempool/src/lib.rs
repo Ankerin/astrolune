@@ -5,7 +5,7 @@
 
 #![forbid(unsafe_code)]
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
 use types::{Address, Hash256, Resources, Transaction};
 
@@ -36,6 +36,7 @@ pub struct PoolLimits {
 pub struct Mempool {
     limits: PoolLimits,
     entries: BTreeMap<(Address, u64), (PoolEntry, usize)>,
+    ids: BTreeSet<Hash256>,
     bytes: usize,
 }
 
@@ -52,6 +53,7 @@ impl Mempool {
         Ok(Self {
             limits,
             entries: BTreeMap::new(),
+            ids: BTreeSet::new(),
             bytes: 0,
         })
     }
@@ -69,11 +71,7 @@ impl Mempool {
             return Err(MempoolError::CapacityExceeded);
         }
         let key = (entry.transaction.sender, entry.transaction.nonce);
-        if self
-            .entries
-            .values()
-            .any(|(current, _)| current.id == entry.id)
-        {
+        if self.ids.contains(&entry.id) {
             return Err(MempoolError::Duplicate);
         }
         if self.entries.contains_key(&key) {
@@ -88,6 +86,7 @@ impl Mempool {
             return Err(MempoolError::CapacityExceeded);
         }
         self.bytes += encoded_len;
+        self.ids.insert(entry.id);
         self.entries.insert(key, (entry, encoded_len));
         Ok(())
     }
@@ -135,8 +134,9 @@ impl Mempool {
 
     /// Removes a transaction by its sender and nonce.
     pub fn remove(&mut self, sender: &Address, nonce: u64) {
-        if let Some((_, bytes)) = self.entries.remove(&(*sender, nonce)) {
+        if let Some((entry, bytes)) = self.entries.remove(&(*sender, nonce)) {
             self.bytes -= bytes;
+            self.ids.remove(&entry.id);
         }
     }
 
@@ -145,6 +145,7 @@ impl Mempool {
         self.entries.retain(|_, (entry, bytes)| {
             if entry.transaction.expires_at < next_height {
                 self.bytes -= *bytes;
+                self.ids.remove(&entry.id);
                 false
             } else {
                 true

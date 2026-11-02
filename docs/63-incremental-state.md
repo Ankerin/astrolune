@@ -7,10 +7,11 @@ This implements the state-backend portion of P1 from the
 share unchanged state and Merkle subtrees instead of cloning the entire map and
 rehashing every entry. Membership and absence proofs use retained hashes.
 
-This is an adoption of established persistent-tree techniques. It is not VeyraFold,
-LuneSeal, a new consensus protocol, or a claim of original invention. E2E benchmark
-infrastructure, more precise execution access modes, and the research proposals
-remain separate work.
+This adopts established persistent-tree techniques. Guarded payment execution,
+experimental last-writer subtree sealing and advancing local pipeline benchmarks
+now build on this backend; their implementation and measurement boundaries are
+documented in [65](65-guarded-throughput.md). This backend alone does not establish
+a new consensus protocol or original invention.
 
 ## Compatibility
 

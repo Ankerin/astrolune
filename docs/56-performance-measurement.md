@@ -369,10 +369,16 @@ are measured by the per-crate benchmarks in their respective crates.
 
 The following section 7.6 requirements are **not** addressed and remain open:
 proposal-to-prevote, prevote-to-precommit and certificate latency at p50/p95/p99;
-compact-block reconstruction success and fallback bandwidth; AOT and JIT warm-up,
-native-cache hit rate and interpreter parity, none of which exist to measure;
+compact-block reconstruction success and fallback bandwidth; distributed-load
+measurements of AOT and JIT warm-up, native-cache hit rate and interpreter parity;
 behavior under packet loss, partitions, slow disks, corrupt frames and worker
 failure; and the confidence intervals and multi-machine topology a calibration
 report must state. Those are distributed measurements on provisioned hardware,
 not micro-benchmarks, and [document 52](52-network-operations.md) keeps them as
 release activities.
+
+The native LLVM paths now exist and their conformance is documented in
+[64](64-trocto-native-llvm.md). Advancing signed-payment execution and a durable
+certified-node loopback pipeline are measured in [65](65-guarded-throughput.md).
+Those fixtures add whole-block timing and recovery checks; they do not supply
+geographical consensus or production-load tail-latency qualification.

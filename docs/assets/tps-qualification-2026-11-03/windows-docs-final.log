@@ -1,0 +1,7 @@
+    Checking node v0.1.0 (D:\actual\astrolune-network\astrolune\crates\node)
+ Documenting node v0.1.0 (D:\actual\astrolune-network\astrolune\crates\node)
+ Documenting integration v0.1.0 (D:\actual\astrolune-network\astrolune\tests\integration)
+ Documenting cli v0.1.0 (D:\actual\astrolune-network\astrolune\apps\cli)
+ Documenting daemon v0.1.0 (D:\actual\astrolune-network\astrolune\apps\daemon)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 3.24s
+   Generated D:\actual\astrolune-network\astrolune\target\doc\cargo_contract\index.html and 27 other files

@@ -26,6 +26,11 @@ use std::collections::BTreeMap;
 use std::fmt;
 use types::{Address, Hash256};
 
+/// Maximum transactions in a public batch submission.
+pub const MAX_BATCH_TRANSACTIONS: usize = 1024;
+/// Maximum total canonical batch bytes, leaving room for hex and JSON framing.
+pub const MAX_BATCH_TRANSACTION_BYTES: usize = 480 * 1024;
+
 /// Public request accepted by the baseline service boundary.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum RpcRequest {
@@ -63,11 +68,15 @@ pub enum RpcRequest {
     },
     /// Submits canonical signed transaction bytes.
     SubmitTransaction(Vec<u8>),
+    /// Submits a bounded batch; results preserve input order and individual failures.
+    SubmitTransactions(Vec<Vec<u8>>),
 }
 
 /// Public response produced by the service boundary.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum RpcResponse {
+    /// Per-entry admission results; acceptance does not imply finalization.
+    TransactionsSubmitted(Vec<Result<Hash256, RpcError>>),
     /// Finalized block body; absent for an unknown/pruned/genesis-only height.
     Block(Option<Box<types::Block>>),
     /// Canonical handoff; None means unavailable, not proof of an absent transition.
@@ -199,6 +208,7 @@ impl RpcService for InMemoryRpcService {
             RpcRequest::CommitteeHandoff(_) => Ok(RpcResponse::CommitteeHandoff(None)),
             RpcRequest::PotbHandoff(_) => Ok(RpcResponse::PotbHandoff(None)),
             RpcRequest::StateProof(_)
+            | RpcRequest::SubmitTransactions(_)
             | RpcRequest::SubmitPotbAdmission(_)
             | RpcRequest::SubmitPotbEvidence(_)
             | RpcRequest::SubmitGovernance(_) => Err(RpcError::Unavailable),

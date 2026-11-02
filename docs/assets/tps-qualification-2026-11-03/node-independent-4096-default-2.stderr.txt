@@ -1,0 +1,1 @@
+verified 176128 durable signed transfers, 43 certificates and full state after reopen

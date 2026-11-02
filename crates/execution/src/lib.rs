@@ -14,6 +14,7 @@
 mod contract;
 mod error;
 mod executor;
+mod fold;
 mod parallel_payment;
 mod payment;
 mod prefetch;
@@ -26,8 +27,8 @@ mod worker_pool;
 pub use error::ExecutionError;
 pub use executor::{ExecutorConfig, SimpleExecutor, TransactionOutput};
 pub use parallel_payment::{
-    ExecutionPolicy, MAX_PAYMENT_WORKERS, execute_parallel, execute_payments_parallel,
-    execute_signed_parallel,
+    ExecutionAcceleration, ExecutionPolicy, MAX_PAYMENT_WORKERS, execute_parallel,
+    execute_parallel_with_acceleration, execute_payments_parallel, execute_signed_parallel,
 };
 pub use payment::{PAYMENT_PRICES, PaymentSession, execute_payments, payment_resources};
 pub use scheduler::{ExecutionScheduler, GreedyScheduler, SerialScheduler};

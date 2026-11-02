@@ -253,6 +253,164 @@ fn transfer() -> Transaction {
     transfer_from(99)
 }
 
+#[test]
+fn bulk_payments_finalize_in_one_network_block_and_recover_on_both_roles() {
+    let recipient = Address([77; 32]);
+    let mut allocations: Vec<_> = (99..179)
+        .map(|seed| Allocation {
+            address: address_from_public_key(&ed25519_public_key(&[seed; 32])),
+            amount: 1_000_000,
+        })
+        .collect();
+    allocations.push(Allocation {
+        address: recipient,
+        amount: 1,
+    });
+    allocations.sort_by_key(|allocation| allocation.address);
+    let fixture = Fixture::with_allocations(1, 1, 1, 1, allocations);
+    let mut validator = fixture.open(1);
+    let txs: Vec<_> = (99..179).map(transfer_from).collect();
+    assert!(
+        validator
+            .submit_transactions(txs.clone())
+            .unwrap()
+            .iter()
+            .all(Result::is_ok)
+    );
+    let now = Instant::now();
+    for _ in 0..8 {
+        validator.tick(now).unwrap();
+        if validator.request().height > 1 {
+            break;
+        }
+    }
+    assert_eq!(validator.request().height, 2);
+    let (block, encoded) = validator.storage().read_finalized(1).unwrap().unwrap();
+    assert_eq!(block.transactions, txs);
+    let certificate = consensus::FinalityCertificate::decode(&encoded).unwrap();
+    fixture
+        .network
+        .committee(1)
+        .unwrap()
+        .verify_certificate(&certificate, &block.header)
+        .unwrap();
+    assert_eq!(
+        validator
+            .storage()
+            .read_receipts(1)
+            .unwrap()
+            .unwrap()
+            .effects
+            .receipts
+            .len(),
+        80
+    );
+    let snapshot = validator.storage().state().snapshot().unwrap();
+    assert_eq!(
+        state::read_account(snapshot.as_ref(), recipient).unwrap(),
+        Some(AccountState {
+            nonce: 0,
+            balance: 1 + 80 * 123,
+        })
+    );
+    for tx in &txs {
+        assert_eq!(
+            state::read_account(snapshot.as_ref(), tx.sender).unwrap(),
+            Some(AccountState {
+                nonce: 1,
+                balance: 1_000_000 - 123 - 1,
+            })
+        );
+    }
+    let directory = fixture.path.join("bulk-observer");
+    let mut observer = ObserverNode::open(fixture.network.clone(), &directory).unwrap();
+    assert_eq!(
+        observer
+            .receive(&validator.respond(observer.request()).unwrap())
+            .unwrap(),
+        0
+    );
+    let checkpoint = *validator.storage().checkpoint().unwrap();
+    assert_eq!(observer.storage().checkpoint(), Some(&checkpoint));
+    drop(observer);
+    drop(validator);
+    let validator = fixture.open(1);
+    let observer = ObserverNode::open(fixture.network.clone(), &directory).unwrap();
+    for storage in [validator.storage(), observer.storage()] {
+        assert_eq!(storage.checkpoint(), Some(&checkpoint));
+        assert_eq!(storage.state().root(), block.header.state_root);
+        assert_eq!(
+            storage.read_finalized(1).unwrap().unwrap(),
+            (block.clone(), encoded.clone())
+        );
+        assert_eq!(
+            storage
+                .read_receipts(1)
+                .unwrap()
+                .unwrap()
+                .effects
+                .receipts
+                .len(),
+            80
+        );
+    }
+}
+
+#[test]
+fn observer_gossip_remains_bounded_with_a_large_valid_pending_pool() {
+    let fixture = Fixture::with_allocations(1, 1, 1, 1, {
+        let mut allocations: Vec<_> = (99..231)
+            .map(|seed| Allocation {
+                address: address_from_public_key(&ed25519_public_key(&[seed; 32])),
+                amount: 1_000_000,
+            })
+            .collect();
+        allocations.sort_by_key(|allocation| allocation.address);
+        allocations
+    });
+    let mut observer =
+        ObserverNode::open(fixture.network.clone(), &fixture.path.join("large-pool")).unwrap();
+    let txs: Vec<_> = (99..231)
+        .map(|seed| {
+            let mut tx = transfer_from(seed);
+            for index in 0..249u16 {
+                let mut key = vec![255; 256];
+                key[..2].copy_from_slice(&index.to_be_bytes());
+                tx.access_list.push(types::StateKey(key));
+            }
+            tx.access_list.sort();
+            tx.resource_limit.bandwidth = 65_536;
+            tx.signature = ed25519_sign(&[seed; 32], signing_hash(&tx).as_bytes());
+            assert!(
+                transaction::estimate_encoded_len(&tx) <= node::network_wire::MAX_TRANSACTION_BYTES
+            );
+            tx
+        })
+        .collect();
+    assert!(
+        txs.iter()
+            .map(transaction::estimate_encoded_len)
+            .sum::<usize>()
+            > node::network_wire::MAX_EXCHANGE_BYTES
+    );
+    assert!(
+        observer
+            .submit_transactions(txs)
+            .unwrap()
+            .iter()
+            .all(Result::is_ok)
+    );
+    let response = observer.respond(observer.request()).unwrap();
+    assert!(response.len() <= node::network_wire::MAX_EXCHANGE_BYTES);
+    let messages = decode_exchange(fixture.network.genesis_hash(), &response).unwrap();
+    assert!(!messages.is_empty() && messages.len() < 132);
+    assert!(
+        messages
+            .iter()
+            .all(|message| matches!(message, NetworkMessage::Transaction(_)))
+    );
+}
+
 fn transfer_from(seed: u8) -> Transaction {
     let key = ed25519_public_key(&[seed; 32]);
     let sender = address_from_public_key(&key);

@@ -600,11 +600,60 @@ impl RpcService for NetworkStatus {
                         NetworkNodeError::Local(_) => RpcError::Unavailable,
                     })
             }
+            RpcRequest::SubmitTransactions(batch) => self.submit_transactions(&mut node, &batch),
         }
     }
 }
 
 impl NetworkStatus {
+    fn submit_transactions(
+        &self,
+        node: &mut PeerNode,
+        batch: &[Vec<u8>],
+    ) -> Result<RpcResponse, RpcError> {
+        if batch.is_empty()
+            || batch.len() > rpc::MAX_BATCH_TRANSACTIONS
+            || batch
+                .iter()
+                .any(|bytes| bytes.len() > node::network_wire::MAX_TRANSACTION_BYTES)
+            || batch
+                .iter()
+                .try_fold(0usize, |sum, bytes| sum.checked_add(bytes.len()))
+                .is_none_or(|sum| sum > rpc::MAX_BATCH_TRANSACTION_BYTES)
+        {
+            return Err(RpcError::LimitExceeded);
+        }
+        let transactions = batch
+            .iter()
+            .map(|bytes| types::Transaction::decode(bytes))
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(|_| RpcError::InvalidRequest)?;
+        let results = node
+            .submit_transactions(transactions)
+            .map_err(|error| match error {
+                NetworkNodeError::Input(_) => RpcError::InvalidRequest,
+                NetworkNodeError::Local(_) => RpcError::Unavailable,
+            })?;
+        Ok(RpcResponse::TransactionsSubmitted(
+            results
+                .into_iter()
+                .map(|result| match result {
+                    Ok(id) => {
+                        self.metrics.add(NodeMetric::TransactionsAccepted, 1);
+                        Ok(id)
+                    }
+                    Err(error) => {
+                        self.metrics.add(NodeMetric::TransactionsRejected, 1);
+                        Err(match error {
+                            NetworkNodeError::Input(_) => RpcError::InvalidRequest,
+                            NetworkNodeError::Local(_) => RpcError::Unavailable,
+                        })
+                    }
+                })
+                .collect(),
+        ))
+    }
+
     fn submit_potb(
         &self,
         node: &mut PeerNode,

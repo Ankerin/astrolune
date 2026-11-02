@@ -215,6 +215,10 @@ impl TcpRpcServer {
                     }
                 }
             }
+            "submit_transactions" => match batch_request(&rpc_req.params) {
+                Ok(request) => request,
+                Err(error) => return rpc_error(rpc_req.id, -32602, error),
+            },
             "submit_potb_admission" | "submit_potb_evidence" | "submit_governance" => {
                 match potb_request(rpc_req) {
                     Ok(request) => request,
@@ -248,6 +252,25 @@ impl TcpRpcServer {
     /// Converts an `RpcResponse` to a JSON-RPC response.
     fn response_to_json(id: i64, response: RpcResponse) -> crate::json::JsonRpcResponse {
         match response {
+            RpcResponse::TransactionsSubmitted(results) => rpc_success(
+                id,
+                JsonValue::Array(
+                    results
+                        .into_iter()
+                        .map(|result| {
+                            JsonValue::Object(match result {
+                                Ok(hash) => vec![(
+                                    "id".into(),
+                                    JsonValue::String(crate::json::hash_to_hex(hash)),
+                                )],
+                                Err(error) => {
+                                    vec![("error".into(), JsonValue::String(error.to_string()))]
+                                }
+                            })
+                        })
+                        .collect(),
+                ),
+            ),
             RpcResponse::Receipt(None)
             | RpcResponse::StateProofAt(None)
             | RpcResponse::Block(None)
@@ -340,6 +363,30 @@ fn request_height(params: &JsonValue) -> Result<u64, &'static str> {
         .ok_or("invalid or missing block height")
 }
 
+fn batch_request(params: &JsonValue) -> Result<RpcRequest, &'static str> {
+    let data = params
+        .get("data")
+        .and_then(JsonValue::as_array)
+        .ok_or("missing 'data' array")?;
+    if data.is_empty() || data.len() > crate::MAX_BATCH_TRANSACTIONS {
+        return Err("batch count exceeds limit");
+    }
+    let mut batch = Vec::with_capacity(data.len());
+    let mut total = 0usize;
+    for entry in data {
+        let hex = entry.as_str().ok_or("transaction must be hex")?;
+        total = total
+            .checked_add(hex.len().div_ceil(2))
+            .filter(|n| *n <= crate::MAX_BATCH_TRANSACTION_BYTES)
+            .ok_or("batch bytes exceed limit")?;
+        if hex.is_empty() {
+            return Err("empty transaction");
+        }
+        batch.push(parse_hex_bytes(hex).map_err(|_| "invalid transaction hex")?);
+    }
+    Ok(RpcRequest::SubmitTransactions(batch))
+}
+
 fn potb_request(request: &crate::json::JsonRpcRequest) -> Result<RpcRequest, &'static str> {
     let hex = request
         .params
@@ -425,6 +472,53 @@ fn receipt_request(params: &JsonValue) -> Result<RpcRequest, &'static str> {
 mod tests {
     use super::*;
     use crate::InMemoryRpcService;
+
+    #[test]
+    fn batch_dispatch_checks_bounds_before_service_and_preserves_results() {
+        struct BatchService;
+        impl RpcService for BatchService {
+            fn handle(&self, request: RpcRequest) -> Result<RpcResponse, RpcError> {
+                assert_eq!(
+                    request,
+                    RpcRequest::SubmitTransactions(vec![vec![1], vec![2]])
+                );
+                Ok(RpcResponse::TransactionsSubmitted(vec![
+                    Ok(types::Hash256([1; 32])),
+                    Err(RpcError::InvalidRequest),
+                ]))
+            }
+        }
+        let service: Arc<Mutex<dyn RpcService>> = Arc::new(Mutex::new(BatchService));
+        let request = crate::json::JsonRpcRequest {
+            id: 1,
+            method: "submit_transactions".into(),
+            params: JsonValue::Object(vec![(
+                "data".into(),
+                JsonValue::Array(vec![
+                    JsonValue::String("01".into()),
+                    JsonValue::String("02".into()),
+                ]),
+            )]),
+        };
+        let response = TcpRpcServer::dispatch(&service, &request);
+        assert_eq!(response.result.unwrap().as_array().unwrap().len(), 2);
+        for data in [
+            vec![],
+            vec![JsonValue::String(String::new())],
+            vec![JsonValue::String("z0".into())],
+            vec![JsonValue::String("01".into()); crate::MAX_BATCH_TRANSACTIONS + 1],
+            vec![JsonValue::String(
+                "01".repeat(crate::MAX_BATCH_TRANSACTION_BYTES + 1),
+            )],
+        ] {
+            let request = crate::json::JsonRpcRequest {
+                id: 1,
+                method: "submit_transactions".into(),
+                params: JsonValue::Object(vec![("data".into(), JsonValue::Array(data))]),
+            };
+            assert!(TcpRpcServer::dispatch(&service, &request).error.is_some());
+        }
+    }
 
     #[test]
     fn block_height_accepts_full_width_decimal_and_rejects_invalid_input() {

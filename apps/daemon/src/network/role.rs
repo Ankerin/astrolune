@@ -165,6 +165,16 @@ impl PeerNode {
         }
     }
 
+    pub(super) fn submit_transactions(
+        &mut self,
+        transactions: Vec<Transaction>,
+    ) -> Result<Vec<Result<Hash256, NetworkNodeError>>, NetworkNodeError> {
+        match self {
+            Self::Validator(node) => node.submit_transactions(transactions),
+            Self::Observer(node) => node.submit_transactions(transactions),
+        }
+    }
+
     pub(super) fn tick(&mut self, now: Instant) -> Result<(), NetworkNodeError> {
         match self {
             Self::Validator(node) => node.tick(now),

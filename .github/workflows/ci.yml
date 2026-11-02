@@ -329,6 +329,40 @@ jobs:
       - name: Compile-check the workspace-excluded fuzz package
         run: cargo check --locked --manifest-path crates/codec/fuzz/Cargo.toml --all-targets
 
+  local-throughput:
+    name: Local throughput smoke (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            suffix: ''
+          - os: windows-latest
+            suffix: '.exe'
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - name: Install pinned Rust toolchain
+        run: rustup toolchain install
+      - uses: Swatinem/rust-cache@v2.9.3
+      - name: Build advancing execution and certified pipeline benchmarks
+        run: cargo build --locked --release -p execution --example local_tps -p node --example certified_tps
+      - name: Check TPS accounting
+        run: python -B -m unittest discover -s tools -p test_local_tps.py
+      - name: Exercise all accelerators and durable recovery
+        run: >-
+          python -B tools/local-tps.py --output target/local-throughput
+          --execution target/release/examples/local_tps${{ matrix.suffix }}
+          --node target/release/examples/certified_tps${{ matrix.suffix }}
+          --sizes 256 --rounds 3 --repeats 1 --workers 4
+      - uses: actions/upload-artifact@v7
+        if: ${{ always() }}
+        with:
+          name: local-throughput-${{ matrix.os }}
+          path: target/local-throughput
+          retention-days: 90
+
   benchmarks:
     name: Benchmarks (${{ matrix.os }})
     strategy:
@@ -405,6 +439,7 @@ jobs:
         reproducibility,
         fuzz,
         benchmarks,
+        local-throughput,
         workflows,
       ]
     runs-on: ubuntu-latest

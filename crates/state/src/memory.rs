@@ -6,8 +6,8 @@
 use types::{Hash256, StateKey};
 
 use crate::{
-    StateAbsenceProof, StateDatabase, StateDiff, StateError, StateProof, StateSnapshot, commitment,
-    snapshot, tree::Tree,
+    CommitSeals, StateAbsenceProof, StateDatabase, StateDiff, StateError, StateProof,
+    StateSnapshot, commitment, snapshot, tree::Tree,
 };
 
 /// Version-1 state database; immutable snapshots share unchanged Merkle subtrees.
@@ -53,10 +53,24 @@ impl InMemoryState {
 
     /// Prepares an isolated transition, preserving transaction and duplicate-write order.
     pub fn prepare(&self, parent: Hash256, diffs: &[StateDiff]) -> Result<Self, StateError> {
+        self.prepare_sealed(parent, diffs, None)
+    }
+
+    /// Performs all ordered bounds checks before reusing matching private seals.
+    pub fn prepare_sealed(
+        &self,
+        parent: Hash256,
+        diffs: &[StateDiff],
+        seals: Option<&CommitSeals>,
+    ) -> Result<Self, StateError> {
         if parent != self.root {
             return Err(StateError::StaleSnapshot);
         }
-        let data = match self.data.prepare(diffs)? {
+        let prepared = match seals.filter(|s| s.parent() == parent) {
+            Some(seals) => self.data.prepare_sealed(diffs, Some(seals))?,
+            None => self.data.prepare(diffs)?,
+        };
+        let data = match prepared {
             Some(data) => data,
             // Inserting or deleting a leaf can shift every subsequent v1 index.
             // Preserve the original, ordered bound checks before rebuilding.
@@ -109,6 +123,13 @@ impl Default for InMemoryState {
 }
 
 impl StateSnapshot for InMemoryState {
+    fn plan_seals(
+        &self,
+        transaction_root: Hash256,
+        writes: &[Vec<StateKey>],
+    ) -> Option<CommitSeals> {
+        self.data.plan_seals(transaction_root, writes)
+    }
     fn root(&self) -> Hash256 {
         self.root
     }
@@ -127,6 +148,15 @@ impl StateSnapshot for InMemoryState {
 }
 
 impl StateDatabase for InMemoryState {
+    fn commit_sealed(
+        &mut self,
+        parent: Hash256,
+        diffs: &[StateDiff],
+        seals: Option<&CommitSeals>,
+    ) -> Result<Hash256, StateError> {
+        *self = self.prepare_sealed(parent, diffs, seals)?;
+        Ok(self.root)
+    }
     fn snapshot(&self) -> Result<Box<dyn StateSnapshot>, StateError> {
         Ok(Box::new(self.clone()))
     }

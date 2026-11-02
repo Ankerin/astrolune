@@ -1,0 +1,5 @@
+    Checking node v0.1.0 (D:\actual\astrolune-network\astrolune\crates\node)
+    Checking integration v0.1.0 (D:\actual\astrolune-network\astrolune\tests\integration)
+    Checking cli v0.1.0 (D:\actual\astrolune-network\astrolune\apps\cli)
+    Checking daemon v0.1.0 (D:\actual\astrolune-network\astrolune\apps\daemon)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 2.15s

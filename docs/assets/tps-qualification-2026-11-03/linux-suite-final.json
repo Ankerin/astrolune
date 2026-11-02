@@ -1,0 +1,16 @@
+{
+  "exit_status": 0,
+  "failed": 0,
+  "failed_tests": [],
+  "filtered_out": 138,
+  "host": "x86_64-unknown-linux-gnu",
+  "ignored": 35,
+  "measured": 0,
+  "operating_system": "linux",
+  "outcome": "ok",
+  "passed": 1408,
+  "profile": "release",
+  "rustc": "rustc 1.99.0 (b940084d7 2026-09-28)",
+  "schema": "astrolune.suite-result/1",
+  "suites": 154
+}

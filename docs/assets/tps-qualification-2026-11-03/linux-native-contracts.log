@@ -1,0 +1,69 @@
+   Compiling typenum v1.20.1
+   Compiling rand_core v0.10.1
+   Compiling cmov v0.5.4
+   Compiling proc-macro2 v1.0.107
+   Compiling unicode-ident v1.0.26
+   Compiling const-oid v0.10.2
+   Compiling quote v1.0.47
+   Compiling semver v1.0.28
+   Compiling subtle v2.6.1
+   Compiling cpufeatures v0.3.1
+   Compiling cfg-if v1.0.5
+   Compiling ctutils v0.4.4
+   Compiling rustc_version v0.4.1
+   Compiling ff v0.14.0
+   Compiling thiserror v2.0.21
+   Compiling group v0.14.0
+   Compiling signature v3.0.0
+   Compiling libm v0.2.16
+   Compiling wasmparser v0.228.0
+   Compiling ed25519 v3.0.0
+   Compiling curve25519-dalek v5.0.0
+   Compiling wasmi_ir v2.0.0
+   Compiling wasmi v2.0.0
+   Compiling bitflags v2.13.2
+   Compiling hybrid-array v0.4.15
+   Compiling leb128fmt v0.1.0
+   Compiling syn v2.0.119
+   Compiling syn v3.0.6
+   Compiling spin v0.9.9
+   Compiling wasmi_collections v2.0.0
+   Compiling trocto-runtime v0.1.0 (/mnt/d/actual/astrolune-network/astrolune/crates/trocto-runtime)
+   Compiling crypto-common v0.2.2
+   Compiling block-buffer v0.12.1
+   Compiling wasm-encoder v0.262.0
+   Compiling bumpalo v3.20.3
+   Compiling unicode-width v0.2.2
+   Compiling wasmi_core v2.0.0
+   Compiling digest v0.11.3
+   Compiling blake2 v0.11.0
+   Compiling types v0.1.0 (/mnt/d/actual/astrolune-network/astrolune/crates/types)
+   Compiling sha2 v0.11.0
+   Compiling memchr v2.8.3
+   Compiling codec v0.1.0 (/mnt/d/actual/astrolune-network/astrolune/crates/codec)
+   Compiling thiserror-impl v2.0.21
+   Compiling trocto-compiler v0.1.0 (/mnt/d/actual/astrolune-network/astrolune/crates/trocto-compiler)
+   Compiling wast v262.0.0
+   Compiling testkit v0.1.0 (/mnt/d/actual/astrolune-network/astrolune/crates/testkit)
+   Compiling zeroize_derive v1.5.0
+   Compiling curve25519-dalek-derive v0.1.1
+   Compiling zeroize v1.9.1
+   Compiling ed25519-dalek v3.0.0
+   Compiling vrf-rfc9381 v0.0.7
+   Compiling crypto v0.1.0 (/mnt/d/actual/astrolune-network/astrolune/crates/crypto)
+   Compiling state v0.1.0 (/mnt/d/actual/astrolune-network/astrolune/crates/state)
+   Compiling transaction v0.1.0 (/mnt/d/actual/astrolune-network/astrolune/crates/transaction)
+   Compiling genesis v0.1.0 (/mnt/d/actual/astrolune-network/astrolune/crates/genesis)
+   Compiling wat v1.262.0
+   Compiling runtime v0.1.0 (/mnt/d/actual/astrolune-network/astrolune/crates/runtime)
+   Compiling execution v0.1.0 (/mnt/d/actual/astrolune-network/astrolune/crates/execution)
+    Finished `release` profile [optimized] target(s) in 15.93s
+     Running tests/contracts.rs (/tmp/astrolune-tps-qualification/release/deps/contracts-c519a83e43f8d790)
+
+running 3 tests
+test native_dynamic_address_keys_are_isolated_and_bounds_are_atomic ... ok
+test native_disjoint_keys_share_code_and_enforce_access_at_use ... ok
+test native_state_events_replay_and_failure_rollback ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 11 filtered out; finished in 0.47s
+

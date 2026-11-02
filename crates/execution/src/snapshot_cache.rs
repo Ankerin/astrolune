@@ -36,6 +36,13 @@ impl<'a> CachedSnapshot<'a> {
 }
 
 impl StateSnapshot for CachedSnapshot<'_> {
+    fn plan_seals(
+        &self,
+        transaction_root: Hash256,
+        writes: &[Vec<StateKey>],
+    ) -> Option<state::CommitSeals> {
+        self.parent.plan_seals(transaction_root, writes)
+    }
     fn root(&self) -> Hash256 {
         self.parent.root()
     }

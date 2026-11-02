@@ -1,0 +1,878 @@
+[
+  {
+    "kind": "execution",
+    "size": 256,
+    "shape": "independent",
+    "mode": "fold",
+    "median_sustained_tps": 72005.78296444433,
+    "sustained_tps_range": [
+      64243.160361970055,
+      75326.96241817204
+    ],
+    "pooled": {
+      "samples": 120,
+      "transactions": 30720,
+      "sustained_tps": 70209.77684855463,
+      "median_block_tps": 65779.33090086849,
+      "block_latency_ms": {
+        "p50": 3.8881,
+        "p95": 4.2513,
+        "p99": 4.3431
+      },
+      "median_stage_ms": {}
+    }
+  },
+  {
+    "kind": "execution",
+    "size": 256,
+    "shape": "independent",
+    "mode": "seal",
+    "median_sustained_tps": 58821.53580502499,
+    "sustained_tps_range": [
+      58669.54208536991,
+      63365.3563527792
+    ],
+    "pooled": {
+      "samples": 120,
+      "transactions": 30720,
+      "sustained_tps": 60208.696040749055,
+      "median_block_tps": 55712.12500408048,
+      "block_latency_ms": {
+        "p50": 4.5882,
+        "p95": 4.9868,
+        "p99": 5.1201
+      },
+      "median_stage_ms": {}
+    }
+  },
+  {
+    "kind": "execution",
+    "size": 256,
+    "shape": "independent",
+    "mode": "waves",
+    "median_sustained_tps": 70488.46302109148,
+    "sustained_tps_range": [
+      62439.44319138726,
+      76729.69641565916
+    ],
+    "pooled": {
+      "samples": 120,
+      "transactions": 30720,
+      "sustained_tps": 69388.2271307968,
+      "median_block_tps": 65256.18149375478,
+      "block_latency_ms": {
+        "p50": 3.9211,
+        "p95": 4.3511,
+        "p99": 4.738
+      },
+      "median_stage_ms": {}
+    }
+  },
+  {
+    "kind": "execution",
+    "size": 256,
+    "shape": "recipient",
+    "mode": "fold",
+    "median_sustained_tps": 87735.90806236447,
+    "sustained_tps_range": [
+      87235.13190480125,
+      96913.072570288
+    ],
+    "pooled": {
+      "samples": 120,
+      "transactions": 30720,
+      "sustained_tps": 90416.89783508629,
+      "median_block_tps": 97269.98119193723,
+      "block_latency_ms": {
+        "p50": 2.6318,
+        "p95": 3.7451,
+        "p99": 3.9742
+      },
+      "median_stage_ms": {}
+    }
+  },
+  {
+    "kind": "execution",
+    "size": 256,
+    "shape": "recipient",
+    "mode": "seal",
+    "median_sustained_tps": 79556.47266489323,
+    "sustained_tps_range": [
+      69040.19298891447,
+      79937.86080351601
+    ],
+    "pooled": {
+      "samples": 120,
+      "transactions": 30720,
+      "sustained_tps": 75827.04423861329,
+      "median_block_tps": 70964.2545288223,
+      "block_latency_ms": {
+        "p50": 3.6066,
+        "p95": 3.924,
+        "p99": 4.0361
+      },
+      "median_stage_ms": {}
+    }
+  },
+  {
+    "kind": "execution",
+    "size": 256,
+    "shape": "recipient",
+    "mode": "waves",
+    "median_sustained_tps": 22847.682488612416,
+    "sustained_tps_range": [
+      22624.624340649072,
+      23190.24379196721
+    ],
+    "pooled": {
+      "samples": 120,
+      "transactions": 30720,
+      "sustained_tps": 22885.158445826575,
+      "median_block_tps": 22959.023524030745,
+      "block_latency_ms": {
+        "p50": 11.1495,
+        "p95": 11.9614,
+        "p99": 12.2723
+      },
+      "median_stage_ms": {}
+    }
+  },
+  {
+    "kind": "execution",
+    "size": 256,
+    "shape": "ring",
+    "mode": "fold",
+    "median_sustained_tps": 77891.57249697257,
+    "sustained_tps_range": [
+      77207.15191562707,
+      78836.36296446281
+    ],
+    "pooled": {
+      "samples": 120,
+      "transactions": 30720,
+      "sustained_tps": 77972.65017920765,
+      "median_block_tps": 71464.46317905198,
+      "block_latency_ms": {
+        "p50": 3.5785,
+        "p95": 3.7839,
+        "p99": 3.9432
+      },
+      "median_stage_ms": {}
+    }
+  },
+  {
+    "kind": "execution",
+    "size": 256,
+    "shape": "ring",
+    "mode": "seal",
+    "median_sustained_tps": 86451.80354165347,
+    "sustained_tps_range": [
+      69357.66270095266,
+      89487.02263392467
+    ],
+    "pooled": {
+      "samples": 120,
+      "transactions": 30720,
+      "sustained_tps": 80732.05472540064,
+      "median_block_tps": 76184.80767800014,
+      "block_latency_ms": {
+        "p50": 3.293,
+        "p95": 3.9004,
+        "p99": 4.0362
+      },
+      "median_stage_ms": {}
+    }
+  },
+  {
+    "kind": "execution",
+    "size": 256,
+    "shape": "ring",
+    "mode": "waves",
+    "median_sustained_tps": 23077.309663465665,
+    "sustained_tps_range": [
+      22848.86014534017,
+      23149.561085226105
+    ],
+    "pooled": {
+      "samples": 120,
+      "transactions": 30720,
+      "sustained_tps": 23024.528092734883,
+      "median_block_tps": 23346.16156273369,
+      "block_latency_ms": {
+        "p50": 10.9461,
+        "p95": 11.8382,
+        "p99": 12.2186
+      },
+      "median_stage_ms": {}
+    }
+  },
+  {
+    "kind": "execution",
+    "size": 256,
+    "shape": "sender",
+    "mode": "fold",
+    "median_sustained_tps": 89909.66010811988,
+    "sustained_tps_range": [
+      81793.71051097105,
+      91093.63963569661
+    ],
+    "pooled": {
+      "samples": 120,
+      "transactions": 30720,
+      "sustained_tps": 87397.64134477431,
+      "median_block_tps": 83525.01672131682,
+      "block_latency_ms": {
+        "p50": 3.0609,
+        "p95": 3.2838,
+        "p99": 3.3971
+      },
+      "median_stage_ms": {}
+    }
+  },
+  {
+    "kind": "execution",
+    "size": 256,
+    "shape": "sender",
+    "mode": "seal",
+    "median_sustained_tps": 122260.18974208353,
+    "sustained_tps_range": [
+      114516.152480941,
+      127524.1754204624
+    ],
+    "pooled": {
+      "samples": 120,
+      "transactions": 30720,
+      "sustained_tps": 121195.86229751376,
+      "median_block_tps": 132166.5505046594,
+      "block_latency_ms": {
+        "p50": 1.9353,
+        "p95": 3.1611,
+        "p99": 3.334
+      },
+      "median_stage_ms": {}
+    }
+  },
+  {
+    "kind": "execution",
+    "size": 256,
+    "shape": "sender",
+    "mode": "waves",
+    "median_sustained_tps": 24078.08447551395,
+    "sustained_tps_range": [
+      23417.13649583591,
+      24992.507129210284
+    ],
+    "pooled": {
+      "samples": 120,
+      "transactions": 30720,
+      "sustained_tps": 24145.392992994377,
+      "median_block_tps": 24158.806403971103,
+      "block_latency_ms": {
+        "p50": 10.5881,
+        "p95": 11.3622,
+        "p99": 11.6695
+      },
+      "median_stage_ms": {}
+    }
+  },
+  {
+    "kind": "execution",
+    "size": 4096,
+    "shape": "independent",
+    "mode": "fold",
+    "median_sustained_tps": 97876.7133353318,
+    "sustained_tps_range": [
+      96842.44224061162,
+      99079.42730349388
+    ],
+    "pooled": {
+      "samples": 120,
+      "transactions": 491520,
+      "sustained_tps": 97924.3355999587,
+      "median_block_tps": 99638.76084021553,
+      "block_latency_ms": {
+        "p50": 41.0762,
+        "p95": 45.2382,
+        "p99": 53.7146
+      },
+      "median_stage_ms": {}
+    }
+  },
+  {
+    "kind": "execution",
+    "size": 4096,
+    "shape": "independent",
+    "mode": "seal",
+    "median_sustained_tps": 79035.80943493835,
+    "sustained_tps_range": [
+      77983.2718647074,
+      81577.63904334484
+    ],
+    "pooled": {
+      "samples": 120,
+      "transactions": 491520,
+      "sustained_tps": 79503.860454938,
+      "median_block_tps": 79939.49891439584,
+      "block_latency_ms": {
+        "p50": 51.1992,
+        "p95": 54.9614,
+        "p99": 60.6058
+      },
+      "median_stage_ms": {}
+    }
+  },
+  {
+    "kind": "execution",
+    "size": 4096,
+    "shape": "independent",
+    "mode": "waves",
+    "median_sustained_tps": 91796.15561017158,
+    "sustained_tps_range": [
+      89345.55363541626,
+      91810.80563421575
+    ],
+    "pooled": {
+      "samples": 120,
+      "transactions": 491520,
+      "sustained_tps": 90969.28146963954,
+      "median_block_tps": 91309.44114208137,
+      "block_latency_ms": {
+        "p50": 44.8445,
+        "p95": 47.9638,
+        "p99": 48.8044
+      },
+      "median_stage_ms": {}
+    }
+  },
+  {
+    "kind": "execution",
+    "size": 4096,
+    "shape": "recipient",
+    "mode": "fold",
+    "median_sustained_tps": 116758.02640168068,
+    "sustained_tps_range": [
+      116266.42013038388,
+      116932.46129770338
+    ],
+    "pooled": {
+      "samples": 120,
+      "transactions": 491520,
+      "sustained_tps": 116651.62005063637,
+      "median_block_tps": 117844.22179226216,
+      "block_latency_ms": {
+        "p50": 34.7473,
+        "p95": 36.9274,
+        "p99": 40.312
+      },
+      "median_stage_ms": {}
+    }
+  },
+  {
+    "kind": "execution",
+    "size": 4096,
+    "shape": "recipient",
+    "mode": "seal",
+    "median_sustained_tps": 97589.07221585387,
+    "sustained_tps_range": [
+      95657.07871432076,
+      98434.6286583073
+    ],
+    "pooled": {
+      "samples": 120,
+      "transactions": 491520,
+      "sustained_tps": 97212.95374475465,
+      "median_block_tps": 97672.64402899657,
+      "block_latency_ms": {
+        "p50": 41.9351,
+        "p95": 44.0878,
+        "p99": 47.8366
+      },
+      "median_stage_ms": {}
+    }
+  },
+  {
+    "kind": "execution",
+    "size": 4096,
+    "shape": "recipient",
+    "mode": "waves",
+    "median_sustained_tps": 22562.583420208368,
+    "sustained_tps_range": [
+      22549.562793926063,
+      23067.88705701181
+    ],
+    "pooled": {
+      "samples": 120,
+      "transactions": 491520,
+      "sustained_tps": 22724.134179835688,
+      "median_block_tps": 22780.12011841658,
+      "block_latency_ms": {
+        "p50": 179.7546,
+        "p95": 185.5727,
+        "p99": 187.4172
+      },
+      "median_stage_ms": {}
+    }
+  },
+  {
+    "kind": "execution",
+    "size": 4096,
+    "shape": "ring",
+    "mode": "fold",
+    "median_sustained_tps": 116018.0952539436,
+    "sustained_tps_range": [
+      106745.92690731627,
+      116784.75822048084
+    ],
+    "pooled": {
+      "samples": 120,
+      "transactions": 491520,
+      "sustained_tps": 112993.73205708408,
+      "median_block_tps": 116206.32864886028,
+      "block_latency_ms": {
+        "p50": 35.2434,
+        "p95": 42.6397,
+        "p99": 52.7908
+      },
+      "median_stage_ms": {}
+    }
+  },
+  {
+    "kind": "execution",
+    "size": 4096,
+    "shape": "ring",
+    "mode": "seal",
+    "median_sustained_tps": 93095.25177282418,
+    "sustained_tps_range": [
+      89168.90595782611,
+      97388.37012621257
+    ],
+    "pooled": {
+      "samples": 120,
+      "transactions": 491520,
+      "sustained_tps": 93096.7964053636,
+      "median_block_tps": 95228.0206590867,
+      "block_latency_ms": {
+        "p50": 42.9799,
+        "p95": 48.8188,
+        "p99": 62.0276
+      },
+      "median_stage_ms": {}
+    }
+  },
+  {
+    "kind": "execution",
+    "size": 4096,
+    "shape": "ring",
+    "mode": "waves",
+    "median_sustained_tps": 22282.726922148704,
+    "sustained_tps_range": [
+      22260.00517534251,
+      22748.030064887284
+    ],
+    "pooled": {
+      "samples": 120,
+      "transactions": 491520,
+      "sustained_tps": 22428.014956134914,
+      "median_block_tps": 22419.113169723798,
+      "block_latency_ms": {
+        "p50": 182.6906,
+        "p95": 187.7808,
+        "p99": 189.6824
+      },
+      "median_stage_ms": {}
+    }
+  },
+  {
+    "kind": "execution",
+    "size": 4096,
+    "shape": "sender",
+    "mode": "fold",
+    "median_sustained_tps": 165845.01649593085,
+    "sustained_tps_range": [
+      165307.41741363914,
+      168742.40561332158
+    ],
+    "pooled": {
+      "samples": 120,
+      "transactions": 491520,
+      "sustained_tps": 166618.03358177788,
+      "median_block_tps": 168193.1757754194,
+      "block_latency_ms": {
+        "p50": 24.3464,
+        "p95": 26.3411,
+        "p99": 30.577
+      },
+      "median_stage_ms": {}
+    }
+  },
+  {
+    "kind": "execution",
+    "size": 4096,
+    "shape": "sender",
+    "mode": "seal",
+    "median_sustained_tps": 162631.75986642437,
+    "sustained_tps_range": [
+      160244.51372333273,
+      168285.35872185297
+    ],
+    "pooled": {
+      "samples": 120,
+      "transactions": 491520,
+      "sustained_tps": 163651.73504400539,
+      "median_block_tps": 166577.8739360123,
+      "block_latency_ms": {
+        "p50": 24.5848,
+        "p95": 27.4652,
+        "p99": 35.2666
+      },
+      "median_stage_ms": {}
+    }
+  },
+  {
+    "kind": "execution",
+    "size": 4096,
+    "shape": "sender",
+    "mode": "waves",
+    "median_sustained_tps": 24821.474829798903,
+    "sustained_tps_range": [
+      24541.781394202066,
+      25306.121982458488
+    ],
+    "pooled": {
+      "samples": 120,
+      "transactions": 491520,
+      "sustained_tps": 24885.802610119295,
+      "median_block_tps": 24945.75850544699,
+      "block_latency_ms": {
+        "p50": 164.1171,
+        "p95": 169.6564,
+        "p99": 172.668
+      },
+      "median_stage_ms": {}
+    }
+  },
+  {
+    "kind": "node",
+    "size": 256,
+    "shape": "independent",
+    "mode": "default",
+    "median_sustained_tps": 19077.484395213934,
+    "sustained_tps_range": [
+      19049.103715486755,
+      19270.139695339843
+    ],
+    "pooled": {
+      "samples": 120,
+      "transactions": 30720,
+      "sustained_tps": 19131.740341927547,
+      "median_block_tps": 19182.49597242516,
+      "block_latency_ms": {
+        "p50": 13.3447,
+        "p95": 14.2594,
+        "p99": 14.5362
+      },
+      "median_stage_ms": {
+        "admission": 3.3691,
+        "production": 4.68985,
+        "publication": 5.1218
+      }
+    }
+  },
+  {
+    "kind": "node",
+    "size": 256,
+    "shape": "recipient",
+    "mode": "default",
+    "median_sustained_tps": 20296.96601982641,
+    "sustained_tps_range": [
+      19952.635871799637,
+      20482.21617579022
+    ],
+    "pooled": {
+      "samples": 120,
+      "transactions": 30720,
+      "sustained_tps": 20241.551820678826,
+      "median_block_tps": 20247.077619070216,
+      "block_latency_ms": {
+        "p50": 12.643,
+        "p95": 13.3849,
+        "p99": 13.609
+      },
+      "median_stage_ms": {
+        "admission": 3.32105,
+        "production": 4.42285,
+        "publication": 4.7894
+      }
+    }
+  },
+  {
+    "kind": "node",
+    "size": 256,
+    "shape": "ring",
+    "mode": "default",
+    "median_sustained_tps": 19929.747639570513,
+    "sustained_tps_range": [
+      19723.0339033945,
+      20319.72209605077
+    ],
+    "pooled": {
+      "samples": 120,
+      "transactions": 30720,
+      "sustained_tps": 19987.786109347504,
+      "median_block_tps": 19961.714056243687,
+      "block_latency_ms": {
+        "p50": 12.824,
+        "p95": 13.4109,
+        "p99": 13.8599
+      },
+      "median_stage_ms": {
+        "admission": 3.35625,
+        "production": 4.4431,
+        "publication": 4.81655
+      }
+    }
+  },
+  {
+    "kind": "node",
+    "size": 4096,
+    "shape": "independent",
+    "mode": "default",
+    "median_sustained_tps": 28840.453918890307,
+    "sustained_tps_range": [
+      27830.691688152616,
+      29147.1291002916
+    ],
+    "pooled": {
+      "samples": 120,
+      "transactions": 491520,
+      "sustained_tps": 28594.912262801765,
+      "median_block_tps": 28833.851617592452,
+      "block_latency_ms": {
+        "p50": 142.0384,
+        "p95": 152.0782,
+        "p99": 165.1656
+      },
+      "median_stage_ms": {
+        "admission": 30.59035,
+        "production": 53.28695,
+        "publication": 56.37995
+      }
+    }
+  },
+  {
+    "kind": "node",
+    "size": 4096,
+    "shape": "recipient",
+    "mode": "default",
+    "median_sustained_tps": 30457.27025674304,
+    "sustained_tps_range": [
+      30316.465672977152,
+      32129.739511627566
+    ],
+    "pooled": {
+      "samples": 120,
+      "transactions": 491520,
+      "sustained_tps": 30946.316212899223,
+      "median_block_tps": 31136.07132106337,
+      "block_latency_ms": {
+        "p50": 131.5295,
+        "p95": 144.14,
+        "p99": 155.0986
+      },
+      "median_stage_ms": {
+        "admission": 30.8158,
+        "production": 47.8696,
+        "publication": 51.1398
+      }
+    }
+  },
+  {
+    "kind": "node",
+    "size": 4096,
+    "shape": "ring",
+    "mode": "default",
+    "median_sustained_tps": 30661.09237627209,
+    "sustained_tps_range": [
+      30142.77471857928,
+      31485.147730949728
+    ],
+    "pooled": {
+      "samples": 120,
+      "transactions": 491520,
+      "sustained_tps": 30753.120149365863,
+      "median_block_tps": 30998.118998418686,
+      "block_latency_ms": {
+        "p50": 132.1235,
+        "p95": 142.6675,
+        "p99": 158.3227
+      },
+      "median_stage_ms": {
+        "admission": 30.72605,
+        "production": 48.3229,
+        "publication": 51.571
+      }
+    }
+  },
+  {
+    "kind": "reference_node",
+    "size": 256,
+    "shape": "independent",
+    "mode": "default",
+    "median_sustained_tps": 8179.946684960777,
+    "sustained_tps_range": [
+      8139.223322562904,
+      8305.889695027035
+    ],
+    "pooled": {
+      "samples": 120,
+      "transactions": 30720,
+      "sustained_tps": 8207.742888606635,
+      "median_block_tps": 8203.603176332605,
+      "block_latency_ms": {
+        "p50": 31.2046,
+        "p95": 32.7211,
+        "p99": 33.8441
+      },
+      "median_stage_ms": {
+        "admission": 10.79415,
+        "production": 11.18185,
+        "publication": 8.96875
+      }
+    }
+  },
+  {
+    "kind": "reference_node",
+    "size": 256,
+    "shape": "recipient",
+    "mode": "default",
+    "median_sustained_tps": 6727.644706775868,
+    "sustained_tps_range": [
+      6689.214458240586,
+      6862.568422119264
+    ],
+    "pooled": {
+      "samples": 120,
+      "transactions": 30720,
+      "sustained_tps": 6758.99679238078,
+      "median_block_tps": 6819.029353790422,
+      "block_latency_ms": {
+        "p50": 37.5374,
+        "p95": 39.8289,
+        "p99": 40.6473
+      },
+      "median_stage_ms": {
+        "admission": 10.82005,
+        "production": 10.8986,
+        "publication": 15.71115
+      }
+    }
+  },
+  {
+    "kind": "reference_node",
+    "size": 256,
+    "shape": "ring",
+    "mode": "default",
+    "median_sustained_tps": 6641.074748992992,
+    "sustained_tps_range": [
+      6598.993898315046,
+      6803.275192348654
+    ],
+    "pooled": {
+      "samples": 120,
+      "transactions": 30720,
+      "sustained_tps": 6679.962517408238,
+      "median_block_tps": 6782.570912308776,
+      "block_latency_ms": {
+        "p50": 37.7347,
+        "p95": 40.608,
+        "p99": 43.6864
+      },
+      "median_stage_ms": {
+        "admission": 10.91835,
+        "production": 10.9196,
+        "publication": 15.7496
+      }
+    }
+  },
+  {
+    "kind": "reference_node",
+    "size": 4096,
+    "shape": "independent",
+    "mode": "default",
+    "median_sustained_tps": 8460.278214059643,
+    "sustained_tps_range": [
+      8172.094330907831,
+      8574.197601845495
+    ],
+    "pooled": {
+      "samples": 120,
+      "transactions": 491520,
+      "sustained_tps": 8398.74875047424,
+      "median_block_tps": 8516.086484018511,
+      "block_latency_ms": {
+        "p50": 480.8127,
+        "p95": 516.2009,
+        "p99": 525.8525
+      },
+      "median_stage_ms": {
+        "admission": 190.9955,
+        "production": 185.2749,
+        "publication": 103.173
+      }
+    }
+  },
+  {
+    "kind": "reference_node",
+    "size": 4096,
+    "shape": "recipient",
+    "mode": "default",
+    "median_sustained_tps": 6618.118929600697,
+    "sustained_tps_range": [
+      6533.887470585642,
+      6861.9524271694045
+    ],
+    "pooled": {
+      "samples": 120,
+      "transactions": 491520,
+      "sustained_tps": 6668.449387900464,
+      "median_block_tps": 6672.849152636944,
+      "block_latency_ms": {
+        "p50": 613.7655,
+        "p95": 638.9272,
+        "p99": 645.3519
+      },
+      "median_stage_ms": {
+        "admission": 192.08495,
+        "production": 184.2187,
+        "publication": 235.5407
+      }
+    }
+  },
+  {
+    "kind": "reference_node",
+    "size": 4096,
+    "shape": "ring",
+    "mode": "default",
+    "median_sustained_tps": 6535.50775388492,
+    "sustained_tps_range": [
+      6421.453927067506,
+      6826.441991394625
+    ],
+    "pooled": {
+      "samples": 120,
+      "transactions": 491520,
+      "sustained_tps": 6590.111997097776,
+      "median_block_tps": 6580.8510409264345,
+      "block_latency_ms": {
+        "p50": 622.3569,
+        "p95": 647.9441,
+        "p99": 777.9923
+      },
+      "median_stage_ms": {
+        "admission": 192.0555,
+        "production": 185.7968,
+        "publication": 238.71575
+      }
+    }
+  }
+]

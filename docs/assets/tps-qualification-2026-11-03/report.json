@@ -1,0 +1,3283 @@
+{
+  "schema": 1,
+  "started_utc": "2026-11-02T21:02:17Z",
+  "revision": "fd4a1da9006c8b75e4b1aeff608e3d360f57abf7",
+  "dirty_status": " M .github/workflows/ci.yml\n M CHANGELOG.md\n M apps/daemon/src/network.rs\n M apps/daemon/src/network/peers/tests.rs\n M apps/daemon/src/network/role.rs\n M apps/daemon/src/status.rs\n M crates/execution/Cargo.toml\n M crates/execution/src/lib.rs\n M crates/execution/src/parallel_payment.rs\n M crates/execution/src/snapshot_cache.rs\n M crates/mempool/src/lib.rs\n M crates/node/src/full_service.rs\n M crates/node/src/network.rs\n M crates/node/src/network_wire.rs\n M crates/node/src/observer.rs\n M crates/node/src/producer.rs\n M crates/node/src/producer/potb.rs\n M crates/node/src/producer/rotation.rs\n M crates/node/tests/network.rs\n M crates/rpc/src/client.rs\n M crates/rpc/src/lib.rs\n M crates/rpc/src/server.rs\n M crates/rpc/tests/client.rs\n M crates/state/src/database.rs\n M crates/state/src/lib.rs\n M crates/state/src/memory.rs\n M crates/state/src/tree.rs\n M docs/56-performance-measurement.md\n M docs/62-original-architecture-proposals.md\n M docs/63-incremental-state.md\n M docs/README.md\n?? crates/execution/examples/\n?? crates/execution/src/fold.rs\n?? crates/execution/tests/fold.rs\n?? crates/node/examples/\n?? crates/node/tests/throughput.rs\n?? crates/state/tests/seals.rs\n?? docs/65-guarded-throughput.md\n?? tools/local-tps.py\n?? tools/test_local_tps.py\n",
+  "diff_sha256": "844b4f43f6dde771ad72f88df0438bbd0530551714be54cec8392f75bf65ecec",
+  "rustc": "rustc 1.99.0 (b940084d7 2026-09-28)\nbinary: rustc\ncommit-hash: b940084d7eb6a299eb4bfeb8e34901bc051e7ac4\ncommit-date: 2026-09-28\nhost: x86_64-pc-windows-msvc\nrelease: 1.99.0\nLLVM version: 23.1.1\n",
+  "host": {
+    "platform": "Windows-10-10.0.26200-SP0",
+    "processor": "AMD64 Family 25 Model 97 Stepping 2, AuthenticAMD",
+    "logical_cpus": 8,
+    "windows_hardware": {
+      "logical_cpus": 8,
+      "physical_cores": 8,
+      "cpu": "AMD Ryzen 7 7800X3D 8-Core Processor           ",
+      "ram_bytes": 33346736128
+    }
+  },
+  "config": {
+    "sizes": [
+      256,
+      4096
+    ],
+    "rounds": 40,
+    "repeats": 3,
+    "workers": 8,
+    "warmup_blocks": 3
+  },
+  "binaries": {
+    "execution": {
+      "path": "D:\\actual\\astrolune-network\\astrolune\\target\\release\\examples\\local_tps.exe",
+      "sha256": "145e0b2f5df9b0dd8176fe786cacc7f690d4b1ea100e8b110aceddb617bda8e8"
+    },
+    "node": {
+      "path": "D:\\actual\\astrolune-network\\astrolune\\target\\release\\examples\\certified_tps.exe",
+      "sha256": "9589d560f09ae15a9881a7f5f654b68eb96d66668855c0419194dcee2c796e9e"
+    },
+    "reference_node": {
+      "path": "D:\\actual\\astrolune-network\\astrolune\\target\\tps-reference-build\\release\\examples\\certified_tps.exe",
+      "sha256": "5961f2d45c56e3d5d5bfca3894c470d0aaa02eb91f88751d61864e782976ba33"
+    }
+  },
+  "source_sha256": {
+    "crates/execution/benches/execution.rs": "ab156c00adec2e1e4d3d2dfcf9fd49222077676e905e6baf2378ab98333aa36e",
+    "crates/execution/examples/local_tps.rs": "d1526286984c364eef5b5fb658ece7de18171be175b41e9b1a41aa9c821d3c1f",
+    "crates/execution/src/contract.rs": "6ca6ad95111967f3a999e22ff11a102c3766bd3cdf97d7a9cabda594b1b5e0ed",
+    "crates/execution/src/error.rs": "00878bd6e50bd48fd808f238d378927b81075390a4d25fe554ab6f17fed1ffcc",
+    "crates/execution/src/executor.rs": "25c0391528bda353c1837b79766a89b4296ffb1df9e12c5e24c40a82759ca755",
+    "crates/execution/src/fold.rs": "d689964ab873c8bafed62401f3f2fb4190903e6562ac10859d9692b777513049",
+    "crates/execution/src/lib.rs": "5d8aac20ceea9a4d2398ad8bfd071232c5b65033785bb0ae97ed990a9231979a",
+    "crates/execution/src/parallel_payment.rs": "53ac04446eb44ba8a38a4334ca80087f05c86f2e1c2e34b7ed8d7bfe81445398",
+    "crates/execution/src/payment.rs": "284769df0cad3da1416a1d6bb616d35cdf68717a84d96f886bee62bfb679977d",
+    "crates/execution/src/prefetch.rs": "bde39aaacf3a87375e3db4827bbb24f2f9a5f066bc13ee4a5950f6de7fc39a50",
+    "crates/execution/src/scheduler.rs": "547bb8df68f8ed8cee834d5c9b000a8b5513376140bb4aa3932260bf7cc3b8fc",
+    "crates/execution/src/signed.rs": "80cc6081eabfe125e18e9fdc88f90490dbbb03bd78b3430e4a35677642e0627e",
+    "crates/execution/src/snapshot_cache.rs": "5dab3f6e481759782f9661146a78bda20f6f428aeb60bb31349f854a9776fbec",
+    "crates/execution/src/wave.rs": "5453c4f0186e0b01b40c4c24cc729e377fd7a6d6c82acfb1b8b5268b1901d206",
+    "crates/execution/src/worker_pool.rs": "4843341ebdc75f3a1b001669e113bce9a3392c91f3b80fe72d8011286aabe2d9",
+    "crates/execution/tests/contracts.rs": "aacf9deb8edc2b4bec316c0337e94e5babb3f3111d27f8bfbe62ec6f7a7a4fe1",
+    "crates/execution/tests/fold.rs": "72a2544622245866d82763bb5326e5cfa28642b7148f845b9e00ab5ab3a49a91",
+    "crates/execution/tests/payments.rs": "e80d01ca9b776f81c155239b3351c92d3cf78eb01e182d6289a2db973c66f71a",
+    "crates/execution/tests/prefetch.rs": "4d37d2b3811d45ffff25b273e302534ebe1d7da3c0941aea555d82b03e8c2b70",
+    "crates/execution/tests/scheduling.rs": "4748767768102ef5e9d56f8f79dd73276667edbde367fab7846dfe99727cec32",
+    "crates/state/benches/state.rs": "d3252f5c9397af306fb1e72a48ffbcf5ada421f6243e2c0280cd57339ae8dce4",
+    "crates/state/src/absence.rs": "309dc7a4e813d5d86a803329e649e71f0c8b2c202c877658d8275dec305ff23c",
+    "crates/state/src/account.rs": "b078297f3f95b5745470ef9f88d2681cc8b90533642fba5ce44aff6fdeefa092",
+    "crates/state/src/commitment.rs": "29a60040cd5c55c36f7b2fbc3c1df3754b4d22ba89dfc24005ba5e773bc74753",
+    "crates/state/src/database.rs": "94509c64ba3300280d9f7267b579899a50391222116496b21ce287f4ed636e54",
+    "crates/state/src/diff.rs": "fdcfeaead4105a382947c821cf2f8b09021e74910677daf15645b0358936d7c0",
+    "crates/state/src/lease.rs": "ac672c34b195060e0c6ec1e8a6ac0836d0fc20bb4f2a3bb9f0531a7cc5276c4c",
+    "crates/state/src/lib.rs": "4f23084b99839cbda72d357b9f700363c968f56947756c59721dc613da666d2d",
+    "crates/state/src/memory.rs": "182fe2ee59e8832b2b7dcba48407c1f18fa4276d5d8409c37b907a27b937b18b",
+    "crates/state/src/persistent.rs": "0109f86f0c5fb747b9729d5af6892326d1c234685a5f6949d4ce706bc4a0a4c1",
+    "crates/state/src/snapshot.rs": "0fd14a5f818d9322bade01635097e29c0f531003268dd01114a6077b75cb9bcf",
+    "crates/state/src/tree.rs": "0691af0ad324b36dbd7158d758f724906c0a3ff3b1e290de84c8479d40de1721",
+    "crates/state/src/tree_tests.rs": "39860dce420bc4fa6041e7611f4a6048c2ba58f2f0dce1b95c93b6f102804cc9",
+    "crates/state/src/value_proof.rs": "ab5ae335ec7115fce22fffc2c86a06fb07a41d450414578717ab64eea2772e8b",
+    "crates/state/tests/absence.rs": "f2a0928c7fafd2f5ea76e22c3f4fe343a9d6f1f4e87bf39cb2a16840efc97009",
+    "crates/state/tests/commitments.rs": "429245cc2df58b0c112d9cf8b06219c4ae6bf82665ec75f83397edc630a98b75",
+    "crates/state/tests/recovery.rs": "a587b822c947f1e1a6ca7161c85eb7c625444384f747909009915ea6238583b0",
+    "crates/state/tests/seals.rs": "57762f68baa2830e758b2bf9a0307baf31a736bbe92b6a21fda2ce139ac5dc2a",
+    "crates/state/tests/value_proof.rs": "29dc990da1a75d0d36a7358540a5d706fe33ca58521430477077611e24293e5f",
+    "crates/node/examples/certified_tps.rs": "af84c755041528f213b7993bd4355cae6232b7ce9153099a925dac28c15c49cb",
+    "crates/node/src/capacity.rs": "1ea025e34f9ac37390c4074d86171dc819edd31cf371783b55b17fafd60f13d1",
+    "crates/node/src/compact_wire.rs": "16c641b605f4e515144a84a772c4ef83a78eb42c71174b5623762826da5aa7ba",
+    "crates/node/src/evidence.rs": "3487124615a5aeffb995e46d4ea10ececfd53ba7685efc99552e3543831c4fd8",
+    "crates/node/src/execution_pipeline.rs": "5e854c3aa9c73bd6957a90da7f26d91ae7bf6685ee79973c7757a6dce1601376",
+    "crates/node/src/full_service.rs": "4bd9398f993d338b493a7d3c2322e0a3e0b63ad33070b23947db7cffdc484933",
+    "crates/node/src/handoff.rs": "0b1cb67c01eef7c3a3444e7d7b611703e3ff18a3c4fa9f1b4c8a9ac05514776b",
+    "crates/node/src/lib.rs": "1fc3898d3962392af95856aba6ff060cc246e67ad48b5a3a69db7fd271eb9a9e",
+    "crates/node/src/network/checkpoint.rs": "2c162036d4cbdf30d0d48b59eace688ebdec4d6b3c17dc28f4965af1dd0b9be7",
+    "crates/node/src/network/potb.rs": "0e3a682e2dabf008407c9c3f211c5aea294e82dc173da998e8a432527dbf6742",
+    "crates/node/src/network/rotation.rs": "8b7ce0ffa6ec4ca1770dfda63da96d0d751921642ea64d8fae292e3f30bf7a89",
+    "crates/node/src/network.rs": "89eafdb21ca51fa2962743c8ec300968adf2e76865b8813f98c911f48bac0dbf",
+    "crates/node/src/network_background.rs": "bdb5de1a135e5ec6df2fb78fb17422dabffc0306e0124704408e2314df6fa212",
+    "crates/node/src/network_wire.rs": "fcf11d6d5b8839933d9e7d02e75307133bcc8d936bd7a4a02e33468a8a89bd94",
+    "crates/node/src/observer.rs": "d8d152db8ad99ba7bc76f245ad66fdd2dea0d2d674cc813f838ddb879dda3050",
+    "crates/node/src/pipeline.rs": "b6bdf2e1aa69c8726415a9345d92a262ab18ab898b4165930ba8c062e76180d3",
+    "crates/node/src/producer/pipeline.rs": "a0fd429e4de464e0a1704d724b62fb08291dba4568a6b5bed24187a6a26df76f",
+    "crates/node/src/producer/potb.rs": "0902a3843c42c7651c91fb788aae30c5f1192b0bbc7e01fc112510dcb06699e7",
+    "crates/node/src/producer/rotation.rs": "c3008fbfc6c871a5b5c69191a967043d8f5e15aeeab6baea62bacdeacd2ed0ad",
+    "crates/node/src/producer.rs": "d5c054e101d8cb2bf5cc38c579b5b353ed577c44b89660027da5576cfd966af8",
+    "crates/node/src/service.rs": "5a3c4e10c6a7c696f641c8d4cb06962eca20bc790b783617ab3489311d2dec3e",
+    "crates/node/src/validator.rs": "77af3591327e147decdf039fdd0f54fc99cef58b6c476252d382c649a0cf3a20",
+    "crates/node/tests/adversarial_rotation.rs": "603a2802d8123d228b80c7cc5a31fd45c60e8daf260a146b6ac6a6e6d963e2c4",
+    "crates/node/tests/compact_transport.rs": "68e078a941e68a94d4c289294753525d261107463253425221d8f258aa600e1f",
+    "crates/node/tests/execution_pipeline.rs": "70aec0e7ce37795407b259bbc3432d62083a810afe03c8eddb62e3cd69e5a242",
+    "crates/node/tests/genesis.rs": "e5c57be2a35e1ed898187e39209771fa38f8e780183ce224406026909e5cdda8",
+    "crates/node/tests/network.rs": "8198a02179ffcda66104085be27249d9a2ec15dd7a1fc5fcba179aa9f3512441",
+    "crates/node/tests/potb.rs": "eb6d696db143c7639a3c734a1ddfc614dd05355ee0576122a5c7933447d43786",
+    "crates/node/tests/potb_network.rs": "501a20d735c90a683a0548f4cd4c54ad396fec602c2dda0c172f41833bf8b70b",
+    "crates/node/tests/rotation.rs": "5c005bda5a9560b554c909ef74cccaad5b347c57436965f7f4588a4e814d2def",
+    "crates/node/tests/support/hostile.rs": "e513967f1f481cc1ba4ccd4ada06260d385a08380d3a7a252770f4e7662cd88d",
+    "crates/node/tests/throughput.rs": "3e4c073f6b60d686ad0009ff75464652271c69a20822c4a63b8e7eb758051a68",
+    "crates/node/tests/trocto.rs": "bb6b81f76292ac6a35cb1c9bf33933391d9e53aebb366c9dc1a001d7024f3201",
+    "crates/mempool/src/lib.rs": "cb957a8503ddb4c9631084d677bb9e7df2b60f24313ff0275c49f805f66d1c21",
+    "crates/rpc/src/block.rs": "16be656dd216b9761b69034a20ea88db85f1a7b289a8db873daf700bfd0b12fa",
+    "crates/rpc/src/client/potb.rs": "24fd43a1dc93f23fe43fea793a1ee44dc0902218f7a8c181ce5d079a90722275",
+    "crates/rpc/src/client.rs": "36773540bdd742570dca26850f2b9b4a750cfd76956f5804d7612f055b5e1400",
+    "crates/rpc/src/json.rs": "4dc2cd6157112be49d3f4734176581741a92118a56d09b7a7d6645bfca357b87",
+    "crates/rpc/src/lib.rs": "4af4bf18a377a8e9f19dbd7b123773fa87ba817dc627a73f79a97d8a25167db1",
+    "crates/rpc/src/proof.rs": "3e30de8c175288d1dc73dc318012d3b259d6dea6486cd7098d9af171b1d04899",
+    "crates/rpc/src/receipt.rs": "a511a5b56dc29a6bbe653e988839644ce746bb1273e852c209281f266bd3a034",
+    "crates/rpc/src/server.rs": "0dae4bde3132eb11917eb4bf2241da893c6276b2a0e773a9d66d6338b9e00a67",
+    "crates/rpc/tests/client.rs": "579c91af8ef5175424d8ceee254a331926748c9d0b1b5bf23f72490a1b4dfd1d",
+    "crates/rpc/tests/handoff_client.rs": "f67d38475a59c017e7b3248e96e9b3039fd9260040da447321627dda2f57ce18",
+    "crates/rpc/tests/json_bounds.rs": "13d45e139b19f6bf6c2e248303f4f3a4cdcf2ec4207aaa6ca9a3097769303fba",
+    "crates/rpc/tests/potb_client.rs": "b499a85388c955e28254475f2bd207805317957021e9c0804128d6619a635fbb",
+    "crates/rpc/tests/proofs.rs": "b5996a2f6cf61d9c861be42fe9172a4182d7905ac87909b7b7254c455c686adc",
+    "crates/rpc/tests/rotation.rs": "5610fb54666a1b5d0740bf5a04d9b06956c710110c298d764afcf97ae174af07",
+    "apps/daemon/src/main.rs": "5d85c95aa73de2bc09625e34011a7a8e9d5b0ced49bdbb46d181939f376a1235",
+    "apps/daemon/src/network/metrics.rs": "cd59c6434586f647234b3ff1ab700ddd56c79899a8ea024c3e88a8ceb3473798",
+    "apps/daemon/src/network/peers/tests.rs": "80cdfa571cd04bb4190dba58a12d738bc03319f79d18c61324331751871fa6a0",
+    "apps/daemon/src/network/peers.rs": "6f446a6577dd7cf51af57c63c5eb464b8ffc710f88cfc2680ef8c8ac6737999b",
+    "apps/daemon/src/network/role.rs": "072f99275b70080a0c408915f474385548422c6b89e827c61ba1abf86bc37cfd",
+    "apps/daemon/src/network.rs": "9361bbebe16891dc35166a794b31dfef5d890aefa612bda04dc34f85e8a9deff",
+    "apps/daemon/src/options.rs": "e8f9a01652a153b78245172416b3fad3e48b7f62833866dae08018aaa8b7140d",
+    "apps/daemon/src/status.rs": "9427addb03a286b3c181f926ac1bfc25df19b5663a81c733d8a0dcb414848482",
+    "apps/daemon/tests/network.rs": "38e0c358afe2cf99b62022af1150ace9423791a1a13b06f0997e80dba1035073",
+    "apps/daemon/tests/payments_rpc.rs": "89aff9e1bb2acb32c2f25dfd4616f3cbe7f3399e9154bd925912a18d5801d54c",
+    "apps/daemon/tests/restart.rs": "c2226982ec199b58ccff93d1f87c970edbdf6094d4395db3cab604888509d2a3"
+  },
+  "build_input_sha256": {
+    "Cargo.toml": "a11197dcca218bca1764ee4233ec7879de8ce2406939ba2fb5f320942f89f818",
+    "Cargo.lock": "7e47eddbf2720e5e62daaa7d643c2f874ba21a53eaaf6960ea90b65473e72e43",
+    "rust-toolchain.toml": "dc99559c1a8ec082b3aed46677edc72ef66bf748a4164dfed6e48fc894614498",
+    "crates/codec/Cargo.toml": "9ab8210ba5c6d2183f2d31405f41eeb3aa327512c4db409422e081bd0e3f570e",
+    "crates/codec/fuzz/Cargo.toml": "8b19620c2dc9f6a8f0c2dca43dc660ee32af40bf27a5289354c057f6ccc06094",
+    "crates/config/Cargo.toml": "ee6c36647fd63b040bd4c3d193579a33a8aa44ff5887c07ce822f6347e252ef8",
+    "crates/consensus/Cargo.toml": "7996130feaa663dd940880c718e54ea14127b763d116bb77df479b5d63637b64",
+    "crates/contract-abi/Cargo.toml": "6e10679f5c0dee5ff4dacde8d31cc3a260a3f552d3249569a4200a3ce4e39978",
+    "crates/contract-sdk/Cargo.toml": "a7ef14b88b9a97a0421283b1452bf15b3b62fef5bb349288bc986a5c4d8023ad",
+    "crates/crypto/Cargo.toml": "164c7073b6c06bfb4bffda38633eee3a393325b136b086b09248a55872ba8df4",
+    "crates/execution/Cargo.toml": "f872fa8364f2e8e79aa76599d8c484ed786a1c007eaff3dd853c97c201b4a1a8",
+    "crates/genesis/Cargo.toml": "d3e91861a5d932b7648ed0dfe7fd2edfe64cf6ea1276bff58792af3f8d6ce780",
+    "crates/keystore/Cargo.toml": "c276faf325fcfbf68ce23615419d5c44bd22eb3ea982a7c1f20086193c588c2f",
+    "crates/mempool/Cargo.toml": "1c9d6062bd64da5405facea4ab203fa41190b0ef8f87e29ebb0942536bbf9f0a",
+    "crates/node/Cargo.toml": "ac64af6d1a6e621cb562c7c47169f45c25579e568609ff263a808e477e70693a",
+    "crates/p2p/Cargo.toml": "c49a53a25c246db2696646dba9ac75d814c101561fbb2b2121bd0bfd17ba0c4c",
+    "crates/rpc/Cargo.toml": "fea5da6a519df5efb3c94e2a5089d82dc4b5f7a2a4765d93c16ac691eb129487",
+    "crates/runtime/Cargo.toml": "a0bcb91307171954f8134a7fb1f2be12288a105d57ecb470274f4088d6daae61",
+    "crates/state/Cargo.toml": "660f9dde85e0af20b28e6d55dadbca72b598ae4866215f22c126634c28599bf5",
+    "crates/storage/Cargo.toml": "49d1b59db907ca9b8937cbd977376e3b0a566034ddadd84e15efc3d482452885",
+    "crates/sync/Cargo.toml": "d3ec12e5c5e9378e1f78b1749088bfeb0c12c725b1503692fe9eda618ce80e21",
+    "crates/telemetry/Cargo.toml": "1041ad104f01dca90aff6780f4e72547ee1bfbb958975d90660bf0729070d233",
+    "crates/testkit/Cargo.toml": "7ee625b2a90e3e18d1098367ed369e1d90525932bbff0195498970eb72f592fc",
+    "crates/transaction/Cargo.toml": "e222159622ae50de2e8893649fcb085e7de27b14227f30cf99808f5479809a4a",
+    "crates/trocto-compiler/Cargo.toml": "79f7770fa21476ff0c7467da0b1bba03312449b99b4996adb751ae6a57670ad7",
+    "crates/trocto-runtime/Cargo.toml": "6a54201cfb7d20eb0e417aa86c740b2882c7bdfc24fe522223039c7dee1c1f61",
+    "crates/types/Cargo.toml": "c1d7cdebb0e52c91ad7876fdef1e87817b265b2a7f1814e38eba5207e116932c"
+  },
+  "runs": [
+    {
+      "name": "execution-sender-256-waves-0",
+      "kind": "execution",
+      "shape": "sender",
+      "size": 256,
+      "mode": "waves",
+      "repeat": 0,
+      "command": [
+        "D:\\actual\\astrolune-network\\astrolune\\target\\release\\examples\\local_tps.exe",
+        "256",
+        "40",
+        "8",
+        "sender",
+        "waves"
+      ],
+      "csv_sha256": "fe4c37270f5f1fa633c1c432ea44b33ad5a6f3101d75f5c2acf16dde4c26044e",
+      "samples": 40,
+      "transactions": 10240,
+      "sustained_tps": 24992.507129210284,
+      "median_block_tps": 25320.462098433298,
+      "block_latency_ms": {
+        "p50": 10.0825,
+        "p95": 10.9265,
+        "p99": 11.0669
+      },
+      "median_stage_ms": {}
+    },
+    {
+      "name": "execution-sender-256-fold-0",
+      "kind": "execution",
+      "shape": "sender",
+      "size": 256,
+      "mode": "fold",
+      "repeat": 0,
+      "command": [
+        "D:\\actual\\astrolune-network\\astrolune\\target\\release\\examples\\local_tps.exe",
+        "256",
+        "40",
+        "8",
+        "sender",
+        "fold"
+      ],
+      "csv_sha256": "869375c8afe96e62d2d35a812923bce461ea8c1e9b9858e6156b9846a511184c",
+      "samples": 40,
+      "transactions": 10240,
+      "sustained_tps": 91093.63963569661,
+      "median_block_tps": 83691.58343822024,
+      "block_latency_ms": {
+        "p50": 3.0581,
+        "p95": 3.2064,
+        "p99": 3.2463
+      },
+      "median_stage_ms": {}
+    },
+    {
+      "name": "execution-sender-256-seal-0",
+      "kind": "execution",
+      "shape": "sender",
+      "size": 256,
+      "mode": "seal",
+      "repeat": 0,
+      "command": [
+        "D:\\actual\\astrolune-network\\astrolune\\target\\release\\examples\\local_tps.exe",
+        "256",
+        "40",
+        "8",
+        "sender",
+        "seal"
+      ],
+      "csv_sha256": "aecf6364252d3548128352a99fee86030db7d03e9702648eabddbfe5d0138711",
+      "samples": 40,
+      "transactions": 10240,
+      "sustained_tps": 122260.18974208353,
+      "median_block_tps": 134619.93531932795,
+      "block_latency_ms": {
+        "p50": 1.901,
+        "p95": 3.1733,
+        "p99": 3.3663
+      },
+      "median_stage_ms": {}
+    },
+    {
+      "name": "execution-recipient-256-waves-0",
+      "kind": "execution",
+      "shape": "recipient",
+      "size": 256,
+      "mode": "waves",
+      "repeat": 0,
+      "command": [
+        "D:\\actual\\astrolune-network\\astrolune\\target\\release\\examples\\local_tps.exe",
+        "256",
+        "40",
+        "8",
+        "recipient",
+        "waves"
+      ],
+      "csv_sha256": "3ad6e9bc0de45c8f4fb19beffafec3717b00d65ad9a7d3ffad73e62b2656718e",
+      "samples": 40,
+      "transactions": 10240,
+      "sustained_tps": 23190.24379196721,
+      "median_block_tps": 23152.335130051008,
+      "block_latency_ms": {
+        "p50": 11.0398,
+        "p95": 11.6861,
+        "p99": 11.8722
+      },
+      "median_stage_ms": {}
+    },
+    {
+      "name": "execution-recipient-256-fold-0",
+      "kind": "execution",
+      "shape": "recipient",
+      "size": 256,
+      "mode": "fold",
+      "repeat": 0,
+      "command": [
+        "D:\\actual\\astrolune-network\\astrolune\\target\\release\\examples\\local_tps.exe",
+        "256",
+        "40",
+        "8",
+        "recipient",
+        "fold"
+      ],
+      "csv_sha256": "b0129e3662fe14f2e10eda56ca991151f0551482c2a8580428f4c094452f26c0",
+      "samples": 40,
+      "transactions": 10240,
+      "sustained_tps": 87735.90806236447,
+      "median_block_tps": 96737.01513405256,
+      "block_latency_ms": {
+        "p50": 2.6349,
+        "p95": 3.7451,
+        "p99": 3.9742
+      },
+      "median_stage_ms": {}
+    },
+    {
+      "name": "execution-recipient-256-seal-0",
+      "kind": "execution",
+      "shape": "recipient",
+      "size": 256,
+      "mode": "seal",
+      "repeat": 0,
+      "command": [
+        "D:\\actual\\astrolune-network\\astrolune\\target\\release\\examples\\local_tps.exe",
+        "256",
+        "40",
+        "8",
+        "recipient",
+        "seal"
+      ],
+      "csv_sha256": "06338c9ae80ba0dff7aaf73930f3d953ed731bb3a211b6a061c3694dd637c048",
+      "samples": 40,
+      "transactions": 10240,
+      "sustained_tps": 79937.86080351601,
+      "median_block_tps": 71969.75021436303,
+      "block_latency_ms": {
+        "p50": 3.5359,
+        "p95": 3.8407,
+        "p99": 3.89
+      },
+      "median_stage_ms": {}
+    },
+    {
+      "name": "execution-ring-256-waves-0",
+      "kind": "execution",
+      "shape": "ring",
+      "size": 256,
+      "mode": "waves",
+      "repeat": 0,
+      "command": [
+        "D:\\actual\\astrolune-network\\astrolune\\target\\release\\examples\\local_tps.exe",
+        "256",
+        "40",
+        "8",
+        "ring",
+        "waves"
+      ],
+      "csv_sha256": "a482c4987d931730e284b4a9fc20cea480f531a8781e9b2b8af85dc12642e797",
+      "samples": 40,
+      "transactions": 10240,
+      "sustained_tps": 23077.309663465665,
+      "median_block_tps": 23125.460137939757,
+      "block_latency_ms": {
+        "p50": 11.0608,
+        "p95": 11.5293,
+        "p99": 11.8382
+      },
+      "median_stage_ms": {}
+    },
+    {
+      "name": "execution-ring-256-fold-0",
+      "kind": "execution",
+      "shape": "ring",
+      "size": 256,
+      "mode": "fold",
+      "repeat": 0,
+      "command": [
+        "D:\\actual\\astrolune-network\\astrolune\\target\\release\\examples\\local_tps.exe",
+        "256",
+        "40",
+        "8",
+        "ring",
+        "fold"
+      ],
+      "csv_sha256": "9ce3ba76441704856b6624318644f72e6ac05b7ff852feb5df8c42c66f6dec99",
+      "samples": 40,
+      "transactions": 10240,
+      "sustained_tps": 77207.15191562707,
+      "median_block_tps": 70963.27096327096,
+      "block_latency_ms": {
+        "p50": 3.5978,
+        "p95": 3.7457,
+        "p99": 3.8175
+      },
+      "median_stage_ms": {}
+    },
+    {
+      "name": "execution-ring-256-seal-0",
+      "kind": "execution",
+      "shape": "ring",
+      "size": 256,
+      "mode": "seal",
+      "repeat": 0,
+      "command": [
+        "D:\\actual\\astrolune-network\\astrolune\\target\\release\\examples\\local_tps.exe",
+        "256",
+        "40",
+        "8",
+        "ring",
+        "seal"
+      ],
+      "csv_sha256": "d36a7fa9983fb947a964ceba657c06de4770dbead702455b3dc194657a6f567d",
+      "samples": 40,
+      "transactions": 10240,
+      "sustained_tps": 86451.80354165347,
+      "median_block_tps": 96583.72790552904,
+      "block_latency_ms": {
+        "p50": 2.6486,
+        "p95": 3.7506,
+        "p99": 3.9379
+      },
+      "median_stage_ms": {}
+    },
+    {
+      "name": "execution-independent-256-waves-0",
+      "kind": "execution",
+      "shape": "independent",
+      "size": 256,
+      "mode": "waves",
+      "repeat": 0,
+      "command": [
+        "D:\\actual\\astrolune-network\\astrolune\\target\\release\\examples\\local_tps.exe",
+        "256",
+        "40",
+        "8",
+        "independent",
+        "waves"
+      ],
+      "csv_sha256": "51e3b7748f8ea711ad0cd4c2d754c124fd853cd2550cdec34b83e66951181608",
+      "samples": 40,
+      "transactions": 10240,
+      "sustained_tps": 70488.46302109148,
+      "median_block_tps": 65947.93719489418,
+      "block_latency_ms": {
+        "p50": 3.8552,
+        "p95": 4.2339,
+        "p99": 4.378
+      },
+      "median_stage_ms": {}
+    },
+    {
+      "name": "execution-independent-256-fold-0",
+      "kind": "execution",
+      "shape": "independent",
+      "size": 256,
+      "mode": "fold",
+      "repeat": 0,
+      "command": [
+        "D:\\actual\\astrolune-network\\astrolune\\target\\release\\examples\\local_tps.exe",
+        "256",
+        "40",
+        "8",
+        "independent",
+        "fold"
+      ],
+      "csv_sha256": "9edacfa27463b46470e956deb1d8193ed14761aaa03b16125b0004b949a438b4",
+      "samples": 40,
+      "transactions": 10240,
+      "sustained_tps": 64243.160361970055,
+      "median_block_tps": 64421.96386330465,
+      "block_latency_ms": {
+        "p50": 3.9716,
+        "p95": 4.2424,
+        "p99": 4.2691
+      },
+      "median_stage_ms": {}
+    },
+    {
+      "name": "execution-independent-256-seal-0",
+      "kind": "execution",
+      "shape": "independent",
+      "size": 256,
+      "mode": "seal",
+      "repeat": 0,
+      "command": [
+        "D:\\actual\\astrolune-network\\astrolune\\target\\release\\examples\\local_tps.exe",
+        "256",
+        "40",
+        "8",
+        "independent",
+        "seal"
+      ],
+      "csv_sha256": "2612e0b4b298832a1e196cfcb0b33ac1e1499e9a52d1cc42a1c8df2e5b7f627b",
+      "samples": 40,
+      "transactions": 10240,
+      "sustained_tps": 58669.54208536991,
+      "median_block_tps": 55051.39563889725,
+      "block_latency_ms": {
+        "p50": 4.6498,
+        "p95": 4.7866,
+        "p99": 4.9667
+      },
+      "median_stage_ms": {}
+    },
+    {
+      "name": "execution-sender-4096-waves-0",
+      "kind": "execution",
+      "shape": "sender",
+      "size": 4096,
+      "mode": "waves",
+      "repeat": 0,
+      "command": [
+        "D:\\actual\\astrolune-network\\astrolune\\target\\release\\examples\\local_tps.exe",
+        "4096",
+        "40",
+        "8",
+        "sender",
+        "waves"
+      ],
+      "csv_sha256": "bb5c6ecadba112e20ffc519719d0ff6fb0e61857bac1422c9a366a54d47a8c20",
+      "samples": 40,
+      "transactions": 163840,
+      "sustained_tps": 25306.121982458488,
+      "median_block_tps": 25321.11169324116,
+      "block_latency_ms": {
+        "p50": 161.7329,
+        "p95": 163.9083,
+        "p99": 164.8187
+      },
+      "median_stage_ms": {}
+    },
+    {
+      "name": "execution-sender-4096-fold-0",
+      "kind": "execution",
+      "shape": "sender",
+      "size": 4096,
+      "mode": "fold",
+      "repeat": 0,
+      "command": [
+        "D:\\actual\\astrolune-network\\astrolune\\target\\release\\examples\\local_tps.exe",
+        "4096",
+        "40",
+        "8",
+        "sender",
+        "fold"
+      ],
+      "csv_sha256": "e903e38951ee875d524317612db41a9ba40dca33f75eef4c451639b1c23ef7bb",
+      "samples": 40,
+      "transactions": 163840,
+      "sustained_tps": 168742.40561332158,
+      "median_block_tps": 170925.9042881704,
+      "block_latency_ms": {
+        "p50": 23.8549,
+        "p95": 26.2996,
+        "p99": 31.1793
+      },
+      "median_stage_ms": {}
+    },
+    {
+      "name": "execution-sender-4096-seal-0",
+      "kind": "execution",
+      "shape": "sender",
+      "size": 4096,
+      "mode": "seal",
+      "repeat": 0,
+      "command": [
+        "D:\\actual\\astrolune-network\\astrolune\\target\\release\\examples\\local_tps.exe",
+        "4096",
+        "40",
+        "8",
+        "sender",
+        "seal"
+      ],
+      "csv_sha256": "2849a3585b8cfef542e503944407cf13f146cc7736c12db3ed7d993ae3b6575a",
+      "samples": 40,
+      "transactions": 163840,
+      "sustained_tps": 168285.35872185297,
+      "median_block_tps": 170067.885984762,
+      "block_latency_ms": {
+        "p50": 24.0641,
+        "p95": 27.1341,
+        "p99": 30.0458
+      },
+      "median_stage_ms": {}
+    },
+    {
+      "name": "execution-recipient-4096-waves-0",
+      "kind": "execution",
+      "shape": "recipient",
+      "size": 4096,
+      "mode": "waves",
+      "repeat": 0,
+      "command": [
+        "D:\\actual\\astrolune-network\\astrolune\\target\\release\\examples\\local_tps.exe",
+        "4096",
+        "40",
+        "8",
+        "recipient",
+        "waves"
+      ],
+      "csv_sha256": "5220a30fdc89295b5fa0231645099a9ba0a5e46db32d4a14fa35f15330359f58",
+      "samples": 40,
+      "transactions": 163840,
+      "sustained_tps": 23067.88705701181,
+      "median_block_tps": 23081.06265302615,
+      "block_latency_ms": {
+        "p50": 177.395,
+        "p95": 180.3613,
+        "p99": 181.375
+      },
+      "median_stage_ms": {}
+    },
+    {
+      "name": "execution-recipient-4096-fold-0",
+      "kind": "execution",
+      "shape": "recipient",
+      "size": 4096,
+      "mode": "fold",
+      "repeat": 0,
+      "command": [
+        "D:\\actual\\astrolune-network\\astrolune\\target\\release\\examples\\local_tps.exe",
+        "4096",
+        "40",
+        "8",
+        "recipient",
+        "fold"
+      ],
+      "csv_sha256": "ee17d9c15cefd331b290cd8c27b27a685484edb3d15fee5f2a2acc43fccd7f75",
+      "samples": 40,
+      "transactions": 163840,
+      "sustained_tps": 116758.02640168068,
+      "median_block_tps": 118359.60978316149,
+      "block_latency_ms": {
+        "p50": 34.5854,
+        "p95": 39.4982,
+        "p99": 47.8708
+      },
+      "median_stage_ms": {}
+    },
+    {
+      "name": "execution-recipient-4096-seal-0",
+      "kind": "execution",
+      "shape": "recipient",
+      "size": 4096,
+      "mode": "seal",
+      "repeat": 0,
+      "command": [
+        "D:\\actual\\astrolune-network\\astrolune\\target\\release\\examples\\local_tps.exe",
+        "4096",
+        "40",
+        "8",
+        "recipient",
+        "seal"
+      ],
+      "csv_sha256": "ea6b664ebbc5d7ca15e9936d705f9bb7361dee5b7153e6e70c742827f29d1370",
+      "samples": 40,
+      "transactions": 163840,
+      "sustained_tps": 98434.6286583073,
+      "median_block_tps": 99991.6999077225,
+      "block_latency_ms": {
+        "p50": 40.9426,
+        "p95": 45.3139,
+        "p99": 47.8366
+      },
+      "median_stage_ms": {}
+    },
+    {
+      "name": "execution-ring-4096-waves-0",
+      "kind": "execution",
+      "shape": "ring",
+      "size": 4096,
+      "mode": "waves",
+      "repeat": 0,
+      "command": [
+        "D:\\actual\\astrolune-network\\astrolune\\target\\release\\examples\\local_tps.exe",
+        "4096",
+        "40",
+        "8",
+        "ring",
+        "waves"
+      ],
+      "csv_sha256": "fc4a4cda8218edc92772807afb63a2124c67a61374573f5a054a36aa0ecf8176",
+      "samples": 40,
+      "transactions": 163840,
+      "sustained_tps": 22748.030064887284,
+      "median_block_tps": 22789.423170545117,
+      "block_latency_ms": {
+        "p50": 179.5033,
+        "p95": 183.7569,
+        "p99": 187.3932
+      },
+      "median_stage_ms": {}
+    },
+    {
+      "name": "execution-ring-4096-fold-0",
+      "kind": "execution",
+      "shape": "ring",
+      "size": 4096,
+      "mode": "fold",
+      "repeat": 0,
+      "command": [
+        "D:\\actual\\astrolune-network\\astrolune\\target\\release\\examples\\local_tps.exe",
+        "4096",
+        "40",
+        "8",
+        "ring",
+        "fold"
+      ],
+      "csv_sha256": "946578a7e3a87776115dce462f5bd2bc1a3a2d1500668a27024b8c5f91560783",
+      "samples": 40,
+      "transactions": 163840,
+      "sustained_tps": 116784.75822048084,
+      "median_block_tps": 118095.30948842184,
+      "block_latency_ms": {
+        "p50": 34.6434,
+        "p95": 36.5558,
+        "p99": 48.7979
+      },
+      "median_stage_ms": {}
+    },
+    {
+      "name": "execution-ring-4096-seal-0",
+      "kind": "execution",
+      "shape": "ring",
+      "size": 4096,
+      "mode": "seal",
+      "repeat": 0,
+      "command": [
+        "D:\\actual\\astrolune-network\\astrolune\\target\\release\\examples\\local_tps.exe",
+        "4096",
+        "40",
+        "8",
+        "ring",
+        "seal"
+      ],
+      "csv_sha256": "82522b429fcaaacdf2da5a73cccd69ec78affc6ba30d735f7d994cfe845e753e",
+      "samples": 40,
+      "transactions": 163840,
+      "sustained_tps": 97388.37012621257,
+      "median_block_tps": 97405.06810744996,
+      "block_latency_ms": {
+        "p50": 41.9019,
+        "p95": 43.9815,
+        "p99": 44.9118
+      },
+      "median_stage_ms": {}
+    },
+    {
+      "name": "execution-independent-4096-waves-0",
+      "kind": "execution",
+      "shape": "independent",
+      "size": 4096,
+      "mode": "waves",
+      "repeat": 0,
+      "command": [
+        "D:\\actual\\astrolune-network\\astrolune\\target\\release\\examples\\local_tps.exe",
+        "4096",
+        "40",
+        "8",
+        "independent",
+        "waves"
+      ],
+      "csv_sha256": "df1a61eb7d1d83cad75357467b61c7ebf1975d7ed0e52414b74fd9820b05cc92",
+      "samples": 40,
+      "transactions": 163840,
+      "sustained_tps": 91796.15561017158,
+      "median_block_tps": 92237.19099921748,
+      "block_latency_ms": {
+        "p50": 44.3583,
+        "p95": 47.2161,
+        "p99": 52.2683
+      },
+      "median_stage_ms": {}
+    },
+    {
+      "name": "execution-independent-4096-fold-0",
+      "kind": "execution",
+      "shape": "independent",
+      "size": 4096,
+      "mode": "fold",
+      "repeat": 0,
+      "command": [
+        "D:\\actual\\astrolune-network\\astrolune\\target\\release\\examples\\local_tps.exe",
+        "4096",
+        "40",
+        "8",
+        "independent",
+        "fold"
+      ],
+      "csv_sha256": "6556dfa2f78959372f0151b9246e2708f4af68241941a02a2897323976898db1",
+      "samples": 40,
+      "transactions": 163840,
+      "sustained_tps": 99079.42730349388,
+      "median_block_tps": 101149.91350645214,
+      "block_latency_ms": {
+        "p50": 40.4807,
+        "p95": 45.0847,
+        "p99": 53.818
+      },
+      "median_stage_ms": {}
+    },
+    {
+      "name": "execution-independent-4096-seal-0",
+      "kind": "execution",
+      "shape": "independent",
+      "size": 4096,
+      "mode": "seal",
+      "repeat": 0,
+      "command": [
+        "D:\\actual\\astrolune-network\\astrolune\\target\\release\\examples\\local_tps.exe",
+        "4096",
+        "40",
+        "8",
+        "independent",
+        "seal"
+      ],
+      "csv_sha256": "ef08f5e79cb40ac2f8154a259bded490c46f37e9d55ce00982d2124d50ae31e4",
+      "samples": 40,
+      "transactions": 163840,
+      "sustained_tps": 81577.63904334484,
+      "median_block_tps": 81404.46551986272,
+      "block_latency_ms": {
+        "p50": 50.2385,
+        "p95": 52.2602,
+        "p99": 52.6679
+      },
+      "median_stage_ms": {}
+    },
+    {
+      "name": "node-recipient-256-default-0",
+      "kind": "node",
+      "shape": "recipient",
+      "size": 256,
+      "mode": "default",
+      "repeat": 0,
+      "command": [
+        "D:\\actual\\astrolune-network\\astrolune\\target\\release\\examples\\certified_tps.exe",
+        "256",
+        "40",
+        "D:\\actual\\astrolune-network\\astrolune\\target\\tps-frozen-2026-11-03\\node-recipient-256-default-0",
+        "recipient"
+      ],
+      "csv_sha256": "8879dcbafe47e8b5f3019020d1fe33c1f68d3cba95711ae12a4ce6ee108c08e7",
+      "samples": 40,
+      "transactions": 10240,
+      "sustained_tps": 20482.21617579022,
+      "median_block_tps": 20524.332558325983,
+      "block_latency_ms": {
+        "p50": 12.4648,
+        "p95": 13.2017,
+        "p99": 13.4937
+      },
+      "median_stage_ms": {
+        "admission": 3.3611,
+        "production": 4.3416,
+        "publication": 4.67425
+      }
+    },
+    {
+      "name": "reference_node-recipient-256-default-0",
+      "kind": "reference_node",
+      "shape": "recipient",
+      "size": 256,
+      "mode": "default",
+      "repeat": 0,
+      "command": [
+        "D:\\actual\\astrolune-network\\astrolune\\target\\tps-reference-build\\release\\examples\\certified_tps.exe",
+        "256",
+        "40",
+        "D:\\actual\\astrolune-network\\astrolune\\target\\tps-frozen-2026-11-03\\reference_node-recipient-256-default-0",
+        "recipient"
+      ],
+      "csv_sha256": "221edabec022fff9c28b43617fadafbabdf4601a3fc12488eb10339fe12afff7",
+      "samples": 40,
+      "transactions": 10240,
+      "sustained_tps": 6862.568422119264,
+      "median_block_tps": 6872.38175006812,
+      "block_latency_ms": {
+        "p50": 37.2416,
+        "p95": 38.0978,
+        "p99": 38.5922
+      },
+      "median_stage_ms": {
+        "admission": 10.60145,
+        "production": 10.81635,
+        "publication": 15.57365
+      }
+    },
+    {
+      "name": "node-ring-256-default-0",
+      "kind": "node",
+      "shape": "ring",
+      "size": 256,
+      "mode": "default",
+      "repeat": 0,
+      "command": [
+        "D:\\actual\\astrolune-network\\astrolune\\target\\release\\examples\\certified_tps.exe",
+        "256",
+        "40",
+        "D:\\actual\\astrolune-network\\astrolune\\target\\tps-frozen-2026-11-03\\node-ring-256-default-0",
+        "ring"
+      ],
+      "csv_sha256": "6fda7cace5ef666482684aad362dad9d9572f83218f79640483ce0f3d106c912",
+      "samples": 40,
+      "transactions": 10240,
+      "sustained_tps": 20319.72209605077,
+      "median_block_tps": 20249.159580779116,
+      "block_latency_ms": {
+        "p50": 12.6113,
+        "p95": 13.1542,
+        "p99": 13.2628
+      },
+      "median_stage_ms": {
+        "admission": 3.3866,
+        "production": 4.34975,
+        "publication": 4.7561
+      }
+    },
+    {
+      "name": "reference_node-ring-256-default-0",
+      "kind": "reference_node",
+      "shape": "ring",
+      "size": 256,
+      "mode": "default",
+      "repeat": 0,
+      "command": [
+        "D:\\actual\\astrolune-network\\astrolune\\target\\tps-reference-build\\release\\examples\\certified_tps.exe",
+        "256",
+        "40",
+        "D:\\actual\\astrolune-network\\astrolune\\target\\tps-frozen-2026-11-03\\reference_node-ring-256-default-0",
+        "ring"
+      ],
+      "csv_sha256": "db0817f0a98fd236029efe0577a61c4c4b12cefa69f725507b5a3a9c896ee38f",
+      "samples": 40,
+      "transactions": 10240,
+      "sustained_tps": 6803.275192348654,
+      "median_block_tps": 6849.6632694834125,
+      "block_latency_ms": {
+        "p50": 37.3422,
+        "p95": 38.6179,
+        "p99": 40.9827
+      },
+      "median_stage_ms": {
+        "admission": 10.65385,
+        "production": 10.8376,
+        "publication": 15.62565
+      }
+    },
+    {
+      "name": "node-independent-256-default-0",
+      "kind": "node",
+      "shape": "independent",
+      "size": 256,
+      "mode": "default",
+      "repeat": 0,
+      "command": [
+        "D:\\actual\\astrolune-network\\astrolune\\target\\release\\examples\\certified_tps.exe",
+        "256",
+        "40",
+        "D:\\actual\\astrolune-network\\astrolune\\target\\tps-frozen-2026-11-03\\node-independent-256-default-0",
+        "independent"
+      ],
+      "csv_sha256": "6ea3d1037a470dc5a33e68fb58f5e8d0db27ada3214697ef083b180db41a763f",
+      "samples": 40,
+      "transactions": 10240,
+      "sustained_tps": 19270.139695339843,
+      "median_block_tps": 19298.32496570024,
+      "block_latency_ms": {
+        "p50": 13.2635,
+        "p95": 13.729,
+        "p99": 17.1058
+      },
+      "median_stage_ms": {
+        "admission": 3.38875,
+        "production": 4.6297,
+        "publication": 5.08035
+      }
+    },
+    {
+      "name": "reference_node-independent-256-default-0",
+      "kind": "reference_node",
+      "shape": "independent",
+      "size": 256,
+      "mode": "default",
+      "repeat": 0,
+      "command": [
+        "D:\\actual\\astrolune-network\\astrolune\\target\\tps-reference-build\\release\\examples\\certified_tps.exe",
+        "256",
+        "40",
+        "D:\\actual\\astrolune-network\\astrolune\\target\\tps-frozen-2026-11-03\\reference_node-independent-256-default-0",
+        "independent"
+      ],
+      "csv_sha256": "dff9f428cd20b1f2eee9341fa0baaabfbf4b4c58df141842b46e22f2644e5eb5",
+      "samples": 40,
+      "transactions": 10240,
+      "sustained_tps": 8305.889695027035,
+      "median_block_tps": 8251.888908945562,
+      "block_latency_ms": {
+        "p50": 31.0016,
+        "p95": 31.9642,
+        "p99": 32.3453
+      },
+      "median_stage_ms": {
+        "admission": 10.6969,
+        "production": 11.0779,
+        "publication": 8.94045
+      }
+    },
+    {
+      "name": "node-recipient-4096-default-0",
+      "kind": "node",
+      "shape": "recipient",
+      "size": 4096,
+      "mode": "default",
+      "repeat": 0,
+      "command": [
+        "D:\\actual\\astrolune-network\\astrolune\\target\\release\\examples\\certified_tps.exe",
+        "4096",
+        "40",
+        "D:\\actual\\astrolune-network\\astrolune\\target\\tps-frozen-2026-11-03\\node-recipient-4096-default-0",
+        "recipient"
+      ],
+      "csv_sha256": "a0ba253073463eba8540b61305b18aa6ed3a4f74778de4e58c0b680c86548453",
+      "samples": 40,
+      "transactions": 163840,
+      "sustained_tps": 32129.739511627566,
+      "median_block_tps": 32273.18748941233,
+      "block_latency_ms": {
+        "p50": 126.8806,
+        "p95": 130.801,
+        "p99": 149.337
+      },
+      "median_stage_ms": {
+        "admission": 30.17145,
+        "production": 46.25545,
+        "publication": 48.80015
+      }
+    },
+    {
+      "name": "reference_node-recipient-4096-default-0",
+      "kind": "reference_node",
+      "shape": "recipient",
+      "size": 4096,
+      "mode": "default",
+      "repeat": 0,
+      "command": [
+        "D:\\actual\\astrolune-network\\astrolune\\target\\tps-reference-build\\release\\examples\\certified_tps.exe",
+        "4096",
+        "40",
+        "D:\\actual\\astrolune-network\\astrolune\\target\\tps-frozen-2026-11-03\\reference_node-recipient-4096-default-0",
+        "recipient"
+      ],
+      "csv_sha256": "4c652c5e73aea5d0169d1aba9bc6fbea1d28268957fbbe9364f5f10915481f37",
+      "samples": 40,
+      "transactions": 163840,
+      "sustained_tps": 6861.9524271694045,
+      "median_block_tps": 6862.830926134509,
+      "block_latency_ms": {
+        "p50": 596.7082,
+        "p95": 601.8952,
+        "p99": 606.2483
+      },
+      "median_stage_ms": {
+        "admission": 187.5103,
+        "production": 178.65265,
+        "publication": 229.51475
+      }
+    },
+    {
+      "name": "node-ring-4096-default-0",
+      "kind": "node",
+      "shape": "ring",
+      "size": 4096,
+      "mode": "default",
+      "repeat": 0,
+      "command": [
+        "D:\\actual\\astrolune-network\\astrolune\\target\\release\\examples\\certified_tps.exe",
+        "4096",
+        "40",
+        "D:\\actual\\astrolune-network\\astrolune\\target\\tps-frozen-2026-11-03\\node-ring-4096-default-0",
+        "ring"
+      ],
+      "csv_sha256": "8e4e678b932e3f8482c54862c08812ea31abcc667543d24768ab5cce54b1fd5f",
+      "samples": 40,
+      "transactions": 163840,
+      "sustained_tps": 31485.147730949728,
+      "median_block_tps": 31725.89323958084,
+      "block_latency_ms": {
+        "p50": 129.0944,
+        "p95": 137.3649,
+        "p99": 151.2483
+      },
+      "median_stage_ms": {
+        "admission": 30.3428,
+        "production": 47.18645,
+        "publication": 50.5232
+      }
+    },
+    {
+      "name": "reference_node-ring-4096-default-0",
+      "kind": "reference_node",
+      "shape": "ring",
+      "size": 4096,
+      "mode": "default",
+      "repeat": 0,
+      "command": [
+        "D:\\actual\\astrolune-network\\astrolune\\target\\tps-reference-build\\release\\examples\\certified_tps.exe",
+        "4096",
+        "40",
+        "D:\\actual\\astrolune-network\\astrolune\\target\\tps-frozen-2026-11-03\\reference_node-ring-4096-default-0",
+        "ring"
+      ],
+      "csv_sha256": "92e9d8b08bc449362bffe5157c0f92a2743585ed7f9a5035b5d843443e77d9db",
+      "samples": 40,
+      "transactions": 163840,
+      "sustained_tps": 6826.441991394625,
+      "median_block_tps": 6828.4762128630755,
+      "block_latency_ms": {
+        "p50": 599.8128,
+        "p95": 606.8253,
+        "p99": 608.6126
+      },
+      "median_stage_ms": {
+        "admission": 186.96425,
+        "production": 178.2827,
+        "publication": 233.5738
+      }
+    },
+    {
+      "name": "node-independent-4096-default-0",
+      "kind": "node",
+      "shape": "independent",
+      "size": 4096,
+      "mode": "default",
+      "repeat": 0,
+      "command": [
+        "D:\\actual\\astrolune-network\\astrolune\\target\\release\\examples\\certified_tps.exe",
+        "4096",
+        "40",
+        "D:\\actual\\astrolune-network\\astrolune\\target\\tps-frozen-2026-11-03\\node-independent-4096-default-0",
+        "independent"
+      ],
+      "csv_sha256": "4a2b0607a6ada0f36ceacc56f33eabebe34dbb6938e2adae77f296bb78d9b7e2",
+      "samples": 40,
+      "transactions": 163840,
+      "sustained_tps": 28840.453918890307,
+      "median_block_tps": 29135.55394718825,
+      "block_latency_ms": {
+        "p50": 140.3648,
+        "p95": 154.3744,
+        "p99": 165.1656
+      },
+      "median_stage_ms": {
+        "admission": 30.67705,
+        "production": 52.58075,
+        "publication": 55.5175
+      }
+    },
+    {
+      "name": "reference_node-independent-4096-default-0",
+      "kind": "reference_node",
+      "shape": "independent",
+      "size": 4096,
+      "mode": "default",
+      "repeat": 0,
+      "command": [
+        "D:\\actual\\astrolune-network\\astrolune\\target\\tps-reference-build\\release\\examples\\certified_tps.exe",
+        "4096",
+        "40",
+        "D:\\actual\\astrolune-network\\astrolune\\target\\tps-frozen-2026-11-03\\reference_node-independent-4096-default-0",
+        "independent"
+      ],
+      "csv_sha256": "d120dbfac3001fda55011d18a520f211fa737718ad06bf4b8cb1b8bbe3d391bd",
+      "samples": 40,
+      "transactions": 163840,
+      "sustained_tps": 8460.278214059643,
+      "median_block_tps": 8543.746914859456,
+      "block_latency_ms": {
+        "p50": 479.2012,
+        "p95": 516.2284,
+        "p99": 525.8525
+      },
+      "median_stage_ms": {
+        "admission": 190.9955,
+        "production": 184.2774,
+        "publication": 102.40505
+      }
+    },
+    {
+      "name": "reference_node-independent-4096-default-1",
+      "kind": "reference_node",
+      "shape": "independent",
+      "size": 4096,
+      "mode": "default",
+      "repeat": 1,
+      "command": [
+        "D:\\actual\\astrolune-network\\astrolune\\target\\tps-reference-build\\release\\examples\\certified_tps.exe",
+        "4096",
+        "40",
+        "D:\\actual\\astrolune-network\\astrolune\\target\\tps-frozen-2026-11-03\\reference_node-independent-4096-default-1",
+        "independent"
+      ],
+      "csv_sha256": "b0baedc970a7eb5b266fd85ab8188bf24f1dfe969fb556f04091ab7346ee658a",
+      "samples": 40,
+      "transactions": 163840,
+      "sustained_tps": 8574.197601845495,
+      "median_block_tps": 8622.938236731232,
+      "block_latency_ms": {
+        "p50": 474.9753,
+        "p95": 488.933,
+        "p99": 517.6109
+      },
+      "median_stage_ms": {
+        "admission": 187.9703,
+        "production": 184.11205,
+        "publication": 101.38225
+      }
+    },
+    {
+      "name": "node-independent-4096-default-1",
+      "kind": "node",
+      "shape": "independent",
+      "size": 4096,
+      "mode": "default",
+      "repeat": 1,
+      "command": [
+        "D:\\actual\\astrolune-network\\astrolune\\target\\release\\examples\\certified_tps.exe",
+        "4096",
+        "40",
+        "D:\\actual\\astrolune-network\\astrolune\\target\\tps-frozen-2026-11-03\\node-independent-4096-default-1",
+        "independent"
+      ],
+      "csv_sha256": "a6f8b91de712ff204d96304f5af2e64bae44aaa7ef59fc63dcfef788c8f59b2e",
+      "samples": 40,
+      "transactions": 163840,
+      "sustained_tps": 29147.1291002916,
+      "median_block_tps": 29324.8413480263,
+      "block_latency_ms": {
+        "p50": 139.6271,
+        "p95": 144.0997,
+        "p99": 164.2886
+      },
+      "median_stage_ms": {
+        "admission": 30.2756,
+        "production": 52.29505,
+        "publication": 55.4576
+      }
+    },
+    {
+      "name": "reference_node-ring-4096-default-1",
+      "kind": "reference_node",
+      "shape": "ring",
+      "size": 4096,
+      "mode": "default",
+      "repeat": 1,
+      "command": [
+        "D:\\actual\\astrolune-network\\astrolune\\target\\tps-reference-build\\release\\examples\\certified_tps.exe",
+        "4096",
+        "40",
+        "D:\\actual\\astrolune-network\\astrolune\\target\\tps-frozen-2026-11-03\\reference_node-ring-4096-default-1",
+        "ring"
+      ],
+      "csv_sha256": "e701e965f3ebab9485c1399c11c235912444c4f170a43539c092de6472c602cf",
+      "samples": 40,
+      "transactions": 163840,
+      "sustained_tps": 6421.453927067506,
+      "median_block_tps": 6522.627434081811,
+      "block_latency_ms": {
+        "p50": 627.8244,
+        "p95": 669.8863,
+        "p99": 824.8851
+      },
+      "median_stage_ms": {
+        "admission": 195.5755,
+        "production": 189.1025,
+        "publication": 242.35875
+      }
+    },
+    {
+      "name": "node-ring-4096-default-1",
+      "kind": "node",
+      "shape": "ring",
+      "size": 4096,
+      "mode": "default",
+      "repeat": 1,
+      "command": [
+        "D:\\actual\\astrolune-network\\astrolune\\target\\release\\examples\\certified_tps.exe",
+        "4096",
+        "40",
+        "D:\\actual\\astrolune-network\\astrolune\\target\\tps-frozen-2026-11-03\\node-ring-4096-default-1",
+        "ring"
+      ],
+      "csv_sha256": "6d53e543cd270f5922bc88cb161ea464da6684d0a45345147e877c83267d0fc6",
+      "samples": 40,
+      "transactions": 163840,
+      "sustained_tps": 30661.09237627209,
+      "median_block_tps": 30919.531466435776,
+      "block_latency_ms": {
+        "p50": 132.4416,
+        "p95": 142.6675,
+        "p99": 155.0527
+      },
+      "median_stage_ms": {
+        "admission": 30.80135,
+        "production": 48.51645,
+        "publication": 51.88555
+      }
+    },
+    {
+      "name": "reference_node-recipient-4096-default-1",
+      "kind": "reference_node",
+      "shape": "recipient",
+      "size": 4096,
+      "mode": "default",
+      "repeat": 1,
+      "command": [
+        "D:\\actual\\astrolune-network\\astrolune\\target\\tps-reference-build\\release\\examples\\certified_tps.exe",
+        "4096",
+        "40",
+        "D:\\actual\\astrolune-network\\astrolune\\target\\tps-frozen-2026-11-03\\reference_node-recipient-4096-default-1",
+        "recipient"
+      ],
+      "csv_sha256": "bcffdf6b8c5297f9bbcf8fd02ecb892a1c4514a8242444bc332c4649bb1bbc1e",
+      "samples": 40,
+      "transactions": 163840,
+      "sustained_tps": 6533.887470585642,
+      "median_block_tps": 6534.92371082835,
+      "block_latency_ms": {
+        "p50": 626.5906,
+        "p95": 641.8799,
+        "p99": 646.8145
+      },
+      "median_stage_ms": {
+        "admission": 198.96365,
+        "production": 187.54915,
+        "publication": 237.2176
+      }
+    },
+    {
+      "name": "node-recipient-4096-default-1",
+      "kind": "node",
+      "shape": "recipient",
+      "size": 4096,
+      "mode": "default",
+      "repeat": 1,
+      "command": [
+        "D:\\actual\\astrolune-network\\astrolune\\target\\release\\examples\\certified_tps.exe",
+        "4096",
+        "40",
+        "D:\\actual\\astrolune-network\\astrolune\\target\\tps-frozen-2026-11-03\\node-recipient-4096-default-1",
+        "recipient"
+      ],
+      "csv_sha256": "355034dd31af2520f22d8a804241a2b8a4d8c51e55281020bb509881fb9be7b3",
+      "samples": 40,
+      "transactions": 163840,
+      "sustained_tps": 30316.465672977152,
+      "median_block_tps": 30538.983989773616,
+      "block_latency_ms": {
+        "p50": 134.0707,
+        "p95": 146.8084,
+        "p99": 155.0986
+      },
+      "median_stage_ms": {
+        "admission": 31.40485,
+        "production": 48.23955,
+        "publication": 52.07305
+      }
+    },
+    {
+      "name": "reference_node-independent-256-default-1",
+      "kind": "reference_node",
+      "shape": "independent",
+      "size": 256,
+      "mode": "default",
+      "repeat": 1,
+      "command": [
+        "D:\\actual\\astrolune-network\\astrolune\\target\\tps-reference-build\\release\\examples\\certified_tps.exe",
+        "256",
+        "40",
+        "D:\\actual\\astrolune-network\\astrolune\\target\\tps-frozen-2026-11-03\\reference_node-independent-256-default-1",
+        "independent"
+      ],
+      "csv_sha256": "68b937fd93d150851a4dd2b225cce2293c4158e5804f3560eaff84278d75bb72",
+      "samples": 40,
+      "transactions": 10240,
+      "sustained_tps": 8179.946684960777,
+      "median_block_tps": 8162.133122478228,
+      "block_latency_ms": {
+        "p50": 31.3556,
+        "p95": 32.9806,
+        "p99": 34.1641
+      },
+      "median_stage_ms": {
+        "admission": 10.8031,
+        "production": 11.1959,
+        "publication": 9.05655
+      }
+    },
+    {
+      "name": "node-independent-256-default-1",
+      "kind": "node",
+      "shape": "independent",
+      "size": 256,
+      "mode": "default",
+      "repeat": 1,
+      "command": [
+        "D:\\actual\\astrolune-network\\astrolune\\target\\release\\examples\\certified_tps.exe",
+        "256",
+        "40",
+        "D:\\actual\\astrolune-network\\astrolune\\target\\tps-frozen-2026-11-03\\node-independent-256-default-1",
+        "independent"
+      ],
+      "csv_sha256": "fdce0604252a8ff082224037a7c92f09ad4e21c7a77962fd8fed02328fc7b1b4",
+      "samples": 40,
+      "transactions": 10240,
+      "sustained_tps": 19049.103715486755,
+      "median_block_tps": 19111.608809257184,
+      "block_latency_ms": {
+        "p50": 13.3871,
+        "p95": 14.1209,
+        "p99": 14.5362
+      },
+      "median_stage_ms": {
+        "admission": 3.36185,
+        "production": 4.7792,
+        "publication": 5.13005
+      }
+    },
+    {
+      "name": "reference_node-ring-256-default-1",
+      "kind": "reference_node",
+      "shape": "ring",
+      "size": 256,
+      "mode": "default",
+      "repeat": 1,
+      "command": [
+        "D:\\actual\\astrolune-network\\astrolune\\target\\tps-reference-build\\release\\examples\\certified_tps.exe",
+        "256",
+        "40",
+        "D:\\actual\\astrolune-network\\astrolune\\target\\tps-frozen-2026-11-03\\reference_node-ring-256-default-1",
+        "ring"
+      ],
+      "csv_sha256": "34487640d108287ffd94ecaf134f5d122329d718bb73995728ba28293b80eb3d",
+      "samples": 40,
+      "transactions": 10240,
+      "sustained_tps": 6598.993898315046,
+      "median_block_tps": 6709.667950065393,
+      "block_latency_ms": {
+        "p50": 38.0421,
+        "p95": 41.137,
+        "p99": 44.0914
+      },
+      "median_stage_ms": {
+        "admission": 11.15155,
+        "production": 10.9375,
+        "publication": 15.9866
+      }
+    },
+    {
+      "name": "node-ring-256-default-1",
+      "kind": "node",
+      "shape": "ring",
+      "size": 256,
+      "mode": "default",
+      "repeat": 1,
+      "command": [
+        "D:\\actual\\astrolune-network\\astrolune\\target\\release\\examples\\certified_tps.exe",
+        "256",
+        "40",
+        "D:\\actual\\astrolune-network\\astrolune\\target\\tps-frozen-2026-11-03\\node-ring-256-default-1",
+        "ring"
+      ],
+      "csv_sha256": "cd3c356c1ae314aaf8afc916919b994af375cb3ce994bb4886ce8afad83156c2",
+      "samples": 40,
+      "transactions": 10240,
+      "sustained_tps": 19723.0339033945,
+      "median_block_tps": 19703.44771851778,
+      "block_latency_ms": {
+        "p50": 12.9906,
+        "p95": 13.796,
+        "p99": 16.8186
+      },
+      "median_stage_ms": {
+        "admission": 3.34285,
+        "production": 4.47535,
+        "publication": 4.87545
+      }
+    },
+    {
+      "name": "reference_node-recipient-256-default-1",
+      "kind": "reference_node",
+      "shape": "recipient",
+      "size": 256,
+      "mode": "default",
+      "repeat": 1,
+      "command": [
+        "D:\\actual\\astrolune-network\\astrolune\\target\\tps-reference-build\\release\\examples\\certified_tps.exe",
+        "256",
+        "40",
+        "D:\\actual\\astrolune-network\\astrolune\\target\\tps-frozen-2026-11-03\\reference_node-recipient-256-default-1",
+        "recipient"
+      ],
+      "csv_sha256": "13429111c85a39b907a8fa03f242aa1cf3eb721cb9aba424f9ee8b9f59624865",
+      "samples": 40,
+      "transactions": 10240,
+      "sustained_tps": 6727.644706775868,
+      "median_block_tps": 6788.335200567462,
+      "block_latency_ms": {
+        "p50": 37.6427,
+        "p95": 40.3535,
+        "p99": 40.6473
+      },
+      "median_stage_ms": {
+        "admission": 10.68925,
+        "production": 10.914,
+        "publication": 15.88655
+      }
+    },
+    {
+      "name": "node-recipient-256-default-1",
+      "kind": "node",
+      "shape": "recipient",
+      "size": 256,
+      "mode": "default",
+      "repeat": 1,
+      "command": [
+        "D:\\actual\\astrolune-network\\astrolune\\target\\release\\examples\\certified_tps.exe",
+        "256",
+        "40",
+        "D:\\actual\\astrolune-network\\astrolune\\target\\tps-frozen-2026-11-03\\node-recipient-256-default-1",
+        "recipient"
+      ],
+      "csv_sha256": "ba225eac965aebb82033191d02430a8b5e6c275b728751d021e24231a95efbe2",
+      "samples": 40,
+      "transactions": 10240,
+      "sustained_tps": 19952.635871799637,
+      "median_block_tps": 19875.853555332124,
+      "block_latency_ms": {
+        "p50": 12.8788,
+        "p95": 13.3095,
+        "p99": 13.9594
+      },
+      "median_stage_ms": {
+        "admission": 3.37485,
+        "production": 4.4556,
+        "publication": 4.8386
+      }
+    },
+    {
+      "name": "execution-independent-4096-seal-1",
+      "kind": "execution",
+      "shape": "independent",
+      "size": 4096,
+      "mode": "seal",
+      "repeat": 1,
+      "command": [
+        "D:\\actual\\astrolune-network\\astrolune\\target\\release\\examples\\local_tps.exe",
+        "4096",
+        "40",
+        "8",
+        "independent",
+        "seal"
+      ],
+      "csv_sha256": "13ca75b101732c6e4d143519db9b6a0b9e2d7aa87a8d2f0498a68c0f2027d25f",
+      "samples": 40,
+      "transactions": 163840,
+      "sustained_tps": 79035.80943493835,
+      "median_block_tps": 79773.37816690671,
+      "block_latency_ms": {
+        "p50": 51.2783,
+        "p95": 56.1685,
+        "p99": 60.6058
+      },
+      "median_stage_ms": {}
+    },
+    {
+      "name": "execution-independent-4096-fold-1",
+      "kind": "execution",
+      "shape": "independent",
+      "size": 4096,
+      "mode": "fold",
+      "repeat": 1,
+      "command": [
+        "D:\\actual\\astrolune-network\\astrolune\\target\\release\\examples\\local_tps.exe",
+        "4096",
+        "40",
+        "8",
+        "independent",
+        "fold"
+      ],
+      "csv_sha256": "cbf1aa4ea051a90bd6687039904803ecb7de2467904d915582fe6fe7e0ddc694",
+      "samples": 40,
+      "transactions": 163840,
+      "sustained_tps": 97876.7133353318,
+      "median_block_tps": 98649.94562933294,
+      "block_latency_ms": {
+        "p50": 41.5027,
+        "p95": 45.2382,
+        "p99": 53.7146
+      },
+      "median_stage_ms": {}
+    },
+    {
+      "name": "execution-independent-4096-waves-1",
+      "kind": "execution",
+      "shape": "independent",
+      "size": 4096,
+      "mode": "waves",
+      "repeat": 1,
+      "command": [
+        "D:\\actual\\astrolune-network\\astrolune\\target\\release\\examples\\local_tps.exe",
+        "4096",
+        "40",
+        "8",
+        "independent",
+        "waves"
+      ],
+      "csv_sha256": "20ce6b77078bbfbf1db6684a4f7e8445756d92ca153b9135a05add5d012fefe1",
+      "samples": 40,
+      "transactions": 163840,
+      "sustained_tps": 91810.80563421575,
+      "median_block_tps": 91709.63690059043,
+      "block_latency_ms": {
+        "p50": 44.6616,
+        "p95": 45.9589,
+        "p99": 48.8044
+      },
+      "median_stage_ms": {}
+    },
+    {
+      "name": "execution-ring-4096-seal-1",
+      "kind": "execution",
+      "shape": "ring",
+      "size": 4096,
+      "mode": "seal",
+      "repeat": 1,
+      "command": [
+        "D:\\actual\\astrolune-network\\astrolune\\target\\release\\examples\\local_tps.exe",
+        "4096",
+        "40",
+        "8",
+        "ring",
+        "seal"
+      ],
+      "csv_sha256": "24c70b999e686d8a7dfe6f4e01b23c4f0321d9e1208d786556b0ebeaf4fd7bdf",
+      "samples": 40,
+      "transactions": 163840,
+      "sustained_tps": 89168.90595782611,
+      "median_block_tps": 93537.76450223567,
+      "block_latency_ms": {
+        "p50": 43.7263,
+        "p95": 60.9686,
+        "p99": 64.3571
+      },
+      "median_stage_ms": {}
+    },
+    {
+      "name": "execution-ring-4096-fold-1",
+      "kind": "execution",
+      "shape": "ring",
+      "size": 4096,
+      "mode": "fold",
+      "repeat": 1,
+      "command": [
+        "D:\\actual\\astrolune-network\\astrolune\\target\\release\\examples\\local_tps.exe",
+        "4096",
+        "40",
+        "8",
+        "ring",
+        "fold"
+      ],
+      "csv_sha256": "be189b95f375d3bf4bf5a93e84fe5dea1dd4ac14c244a810ad81a7afc259df54",
+      "samples": 40,
+      "transactions": 163840,
+      "sustained_tps": 116018.0952539436,
+      "median_block_tps": 116531.3156573308,
+      "block_latency_ms": {
+        "p50": 35.1474,
+        "p95": 36.5048,
+        "p99": 36.9648
+      },
+      "median_stage_ms": {}
+    },
+    {
+      "name": "execution-ring-4096-waves-1",
+      "kind": "execution",
+      "shape": "ring",
+      "size": 4096,
+      "mode": "waves",
+      "repeat": 1,
+      "command": [
+        "D:\\actual\\astrolune-network\\astrolune\\target\\release\\examples\\local_tps.exe",
+        "4096",
+        "40",
+        "8",
+        "ring",
+        "waves"
+      ],
+      "csv_sha256": "508baca4f410eccdd8479e1157261b0fcf27c6fdf4a247813974aed5989475c9",
+      "samples": 40,
+      "transactions": 163840,
+      "sustained_tps": 22260.00517534251,
+      "median_block_tps": 22288.37269032249,
+      "block_latency_ms": {
+        "p50": 183.6173,
+        "p95": 188.2416,
+        "p99": 190.9775
+      },
+      "median_stage_ms": {}
+    },
+    {
+      "name": "execution-recipient-4096-seal-1",
+      "kind": "execution",
+      "shape": "recipient",
+      "size": 4096,
+      "mode": "seal",
+      "repeat": 1,
+      "command": [
+        "D:\\actual\\astrolune-network\\astrolune\\target\\release\\examples\\local_tps.exe",
+        "4096",
+        "40",
+        "8",
+        "recipient",
+        "seal"
+      ],
+      "csv_sha256": "f21b9ef93ca4ccbc4d9381c03637d6716e3891799a871df1025a5c27b81ba2b5",
+      "samples": 40,
+      "transactions": 163840,
+      "sustained_tps": 97589.07221585387,
+      "median_block_tps": 97750.26430277762,
+      "block_latency_ms": {
+        "p50": 41.8703,
+        "p95": 43.6943,
+        "p99": 44.0878
+      },
+      "median_stage_ms": {}
+    },
+    {
+      "name": "execution-recipient-4096-fold-1",
+      "kind": "execution",
+      "shape": "recipient",
+      "size": 4096,
+      "mode": "fold",
+      "repeat": 1,
+      "command": [
+        "D:\\actual\\astrolune-network\\astrolune\\target\\release\\examples\\local_tps.exe",
+        "4096",
+        "40",
+        "8",
+        "recipient",
+        "fold"
+      ],
+      "csv_sha256": "e19de4ae87ae622da972cdb90da2efee181ca767eb68d79511c51d54cdc1b320",
+      "samples": 40,
+      "transactions": 163840,
+      "sustained_tps": 116266.42013038388,
+      "median_block_tps": 116826.96147220225,
+      "block_latency_ms": {
+        "p50": 34.9139,
+        "p95": 36.8048,
+        "p99": 40.312
+      },
+      "median_stage_ms": {}
+    },
+    {
+      "name": "execution-recipient-4096-waves-1",
+      "kind": "execution",
+      "shape": "recipient",
+      "size": 4096,
+      "mode": "waves",
+      "repeat": 1,
+      "command": [
+        "D:\\actual\\astrolune-network\\astrolune\\target\\release\\examples\\local_tps.exe",
+        "4096",
+        "40",
+        "8",
+        "recipient",
+        "waves"
+      ],
+      "csv_sha256": "ab9a5d0d30ee7d3ac583e0f1832b8c3aeccd9b744b4ca03935bc10badac1fb9c",
+      "samples": 40,
+      "transactions": 163840,
+      "sustained_tps": 22549.562793926063,
+      "median_block_tps": 22633.291770814714,
+      "block_latency_ms": {
+        "p50": 180.9215,
+        "p95": 186.4039,
+        "p99": 188.0094
+      },
+      "median_stage_ms": {}
+    },
+    {
+      "name": "execution-sender-4096-seal-1",
+      "kind": "execution",
+      "shape": "sender",
+      "size": 4096,
+      "mode": "seal",
+      "repeat": 1,
+      "command": [
+        "D:\\actual\\astrolune-network\\astrolune\\target\\release\\examples\\local_tps.exe",
+        "4096",
+        "40",
+        "8",
+        "sender",
+        "seal"
+      ],
+      "csv_sha256": "2e1db8d54ddf1840c5f5b1203b58c849a553e651e807a2bdc5aa49fc6b7e664e",
+      "samples": 40,
+      "transactions": 163840,
+      "sustained_tps": 160244.51372333273,
+      "median_block_tps": 165801.0953558692,
+      "block_latency_ms": {
+        "p50": 24.6904,
+        "p95": 28.7077,
+        "p99": 41.8728
+      },
+      "median_stage_ms": {}
+    },
+    {
+      "name": "execution-sender-4096-fold-1",
+      "kind": "execution",
+      "shape": "sender",
+      "size": 4096,
+      "mode": "fold",
+      "repeat": 1,
+      "command": [
+        "D:\\actual\\astrolune-network\\astrolune\\target\\release\\examples\\local_tps.exe",
+        "4096",
+        "40",
+        "8",
+        "sender",
+        "fold"
+      ],
+      "csv_sha256": "2b3cdb2eb99c498d45b51538e1f23b17b2d80331f7d731251bf2ebc636e9920e",
+      "samples": 40,
+      "transactions": 163840,
+      "sustained_tps": 165307.41741363914,
+      "median_block_tps": 166881.58374534262,
+      "block_latency_ms": {
+        "p50": 24.5265,
+        "p95": 26.3255,
+        "p99": 30.577
+      },
+      "median_stage_ms": {}
+    },
+    {
+      "name": "execution-sender-4096-waves-1",
+      "kind": "execution",
+      "shape": "sender",
+      "size": 4096,
+      "mode": "waves",
+      "repeat": 1,
+      "command": [
+        "D:\\actual\\astrolune-network\\astrolune\\target\\release\\examples\\local_tps.exe",
+        "4096",
+        "40",
+        "8",
+        "sender",
+        "waves"
+      ],
+      "csv_sha256": "10f8e504a6009ef88eceb36117dcd1e35e93416a0fe79c1a85d55f02cf51ece3",
+      "samples": 40,
+      "transactions": 163840,
+      "sustained_tps": 24541.781394202066,
+      "median_block_tps": 24512.260768324126,
+      "block_latency_ms": {
+        "p50": 167.0212,
+        "p95": 170.4595,
+        "p99": 172.668
+      },
+      "median_stage_ms": {}
+    },
+    {
+      "name": "execution-independent-256-seal-1",
+      "kind": "execution",
+      "shape": "independent",
+      "size": 256,
+      "mode": "seal",
+      "repeat": 1,
+      "command": [
+        "D:\\actual\\astrolune-network\\astrolune\\target\\release\\examples\\local_tps.exe",
+        "256",
+        "40",
+        "8",
+        "independent",
+        "seal"
+      ],
+      "csv_sha256": "7f0f6c94789d65b39a39b2d828d1e8ca61ccd49e0199cc31fec81653648dfc86",
+      "samples": 40,
+      "transactions": 10240,
+      "sustained_tps": 58821.53580502499,
+      "median_block_tps": 55326.23025220981,
+      "block_latency_ms": {
+        "p50": 4.6022,
+        "p95": 5.0355,
+        "p99": 5.1565
+      },
+      "median_stage_ms": {}
+    },
+    {
+      "name": "execution-independent-256-fold-1",
+      "kind": "execution",
+      "shape": "independent",
+      "size": 256,
+      "mode": "fold",
+      "repeat": 1,
+      "command": [
+        "D:\\actual\\astrolune-network\\astrolune\\target\\release\\examples\\local_tps.exe",
+        "256",
+        "40",
+        "8",
+        "independent",
+        "fold"
+      ],
+      "csv_sha256": "a5c0d96d5982b0238c5fe086dcd8512d6d174f365c5b4e7fd923e3105feff954",
+      "samples": 40,
+      "transactions": 10240,
+      "sustained_tps": 72005.78296444433,
+      "median_block_tps": 76347.26074378933,
+      "block_latency_ms": {
+        "p50": 3.3467,
+        "p95": 4.2913,
+        "p99": 6.082
+      },
+      "median_stage_ms": {}
+    },
+    {
+      "name": "execution-independent-256-waves-1",
+      "kind": "execution",
+      "shape": "independent",
+      "size": 256,
+      "mode": "waves",
+      "repeat": 1,
+      "command": [
+        "D:\\actual\\astrolune-network\\astrolune\\target\\release\\examples\\local_tps.exe",
+        "256",
+        "40",
+        "8",
+        "independent",
+        "waves"
+      ],
+      "csv_sha256": "87a6ad7a08b7ec112a75a6ca8bcd38eecbe2309f2b063976a0996912657db746",
+      "samples": 40,
+      "transactions": 10240,
+      "sustained_tps": 76729.69641565916,
+      "median_block_tps": 84142.71393120676,
+      "block_latency_ms": {
+        "p50": 3.0404,
+        "p95": 4.2391,
+        "p99": 4.4045
+      },
+      "median_stage_ms": {}
+    },
+    {
+      "name": "execution-ring-256-seal-1",
+      "kind": "execution",
+      "shape": "ring",
+      "size": 256,
+      "mode": "seal",
+      "repeat": 1,
+      "command": [
+        "D:\\actual\\astrolune-network\\astrolune\\target\\release\\examples\\local_tps.exe",
+        "256",
+        "40",
+        "8",
+        "ring",
+        "seal"
+      ],
+      "csv_sha256": "2389736549e719e8e646e2adf4d7c3de17f36547bf37c8c518967ebaaf302988",
+      "samples": 40,
+      "transactions": 10240,
+      "sustained_tps": 69357.66270095266,
+      "median_block_tps": 69034.32839845751,
+      "block_latency_ms": {
+        "p50": 3.7058,
+        "p95": 3.9666,
+        "p99": 4.074
+      },
+      "median_stage_ms": {}
+    },
+    {
+      "name": "execution-ring-256-fold-1",
+      "kind": "execution",
+      "shape": "ring",
+      "size": 256,
+      "mode": "fold",
+      "repeat": 1,
+      "command": [
+        "D:\\actual\\astrolune-network\\astrolune\\target\\release\\examples\\local_tps.exe",
+        "256",
+        "40",
+        "8",
+        "ring",
+        "fold"
+      ],
+      "csv_sha256": "4a1853b4917f2ec47bd0e881645cbfeaddc0a037a9a59580d4c67d79dc819869",
+      "samples": 40,
+      "transactions": 10240,
+      "sustained_tps": 77891.57249697257,
+      "median_block_tps": 71466.45822283019,
+      "block_latency_ms": {
+        "p50": 3.5704,
+        "p95": 3.7839,
+        "p99": 3.9432
+      },
+      "median_stage_ms": {}
+    },
+    {
+      "name": "execution-ring-256-waves-1",
+      "kind": "execution",
+      "shape": "ring",
+      "size": 256,
+      "mode": "waves",
+      "repeat": 1,
+      "command": [
+        "D:\\actual\\astrolune-network\\astrolune\\target\\release\\examples\\local_tps.exe",
+        "256",
+        "40",
+        "8",
+        "ring",
+        "waves"
+      ],
+      "csv_sha256": "0794d2d27fc34426896edb9cea8c6d3a7620fffeed64800bdbd75c0316fb9a0e",
+      "samples": 40,
+      "transactions": 10240,
+      "sustained_tps": 23149.561085226105,
+      "median_block_tps": 23596.971107536745,
+      "block_latency_ms": {
+        "p50": 10.8452,
+        "p95": 11.8222,
+        "p99": 12.1218
+      },
+      "median_stage_ms": {}
+    },
+    {
+      "name": "execution-recipient-256-seal-1",
+      "kind": "execution",
+      "shape": "recipient",
+      "size": 256,
+      "mode": "seal",
+      "repeat": 1,
+      "command": [
+        "D:\\actual\\astrolune-network\\astrolune\\target\\release\\examples\\local_tps.exe",
+        "256",
+        "40",
+        "8",
+        "recipient",
+        "seal"
+      ],
+      "csv_sha256": "380172d12870e0835d504630798470288fb84e15e0b7afb77e9e0f31991c29bc",
+      "samples": 40,
+      "transactions": 10240,
+      "sustained_tps": 79556.47266489323,
+      "median_block_tps": 72766.55012648873,
+      "block_latency_ms": {
+        "p50": 3.5164,
+        "p95": 3.8904,
+        "p99": 4.0394
+      },
+      "median_stage_ms": {}
+    },
+    {
+      "name": "execution-recipient-256-fold-1",
+      "kind": "execution",
+      "shape": "recipient",
+      "size": 256,
+      "mode": "fold",
+      "repeat": 1,
+      "command": [
+        "D:\\actual\\astrolune-network\\astrolune\\target\\release\\examples\\local_tps.exe",
+        "256",
+        "40",
+        "8",
+        "recipient",
+        "fold"
+      ],
+      "csv_sha256": "4696ce6edb9270163ab738b364e0d034c75ab4bde31ba7e4313661627e8b37fa",
+      "samples": 40,
+      "transactions": 10240,
+      "sustained_tps": 96913.072570288,
+      "median_block_tps": 98580.97310202746,
+      "block_latency_ms": {
+        "p50": 2.5962,
+        "p95": 3.1284,
+        "p99": 3.982
+      },
+      "median_stage_ms": {}
+    },
+    {
+      "name": "execution-recipient-256-waves-1",
+      "kind": "execution",
+      "shape": "recipient",
+      "size": 256,
+      "mode": "waves",
+      "repeat": 1,
+      "command": [
+        "D:\\actual\\astrolune-network\\astrolune\\target\\release\\examples\\local_tps.exe",
+        "256",
+        "40",
+        "8",
+        "recipient",
+        "waves"
+      ],
+      "csv_sha256": "d105db4869c2f05d88d9d1f3f4365325c3a0682e05f88c5edff2d72b47ac4b79",
+      "samples": 40,
+      "transactions": 10240,
+      "sustained_tps": 22624.624340649072,
+      "median_block_tps": 22584.216632040476,
+      "block_latency_ms": {
+        "p50": 11.3236,
+        "p95": 12.1277,
+        "p99": 12.6243
+      },
+      "median_stage_ms": {}
+    },
+    {
+      "name": "execution-sender-256-seal-1",
+      "kind": "execution",
+      "shape": "sender",
+      "size": 256,
+      "mode": "seal",
+      "repeat": 1,
+      "command": [
+        "D:\\actual\\astrolune-network\\astrolune\\target\\release\\examples\\local_tps.exe",
+        "256",
+        "40",
+        "8",
+        "sender",
+        "seal"
+      ],
+      "csv_sha256": "ac389962e17db5d6be9e79ccb40294a71f835e520f405a6d56beafd68af74a28",
+      "samples": 40,
+      "transactions": 10240,
+      "sustained_tps": 114516.152480941,
+      "median_block_tps": 125027.47185660912,
+      "block_latency_ms": {
+        "p50": 2.0203,
+        "p95": 3.1719,
+        "p99": 3.334
+      },
+      "median_stage_ms": {}
+    },
+    {
+      "name": "execution-sender-256-fold-1",
+      "kind": "execution",
+      "shape": "sender",
+      "size": 256,
+      "mode": "fold",
+      "repeat": 1,
+      "command": [
+        "D:\\actual\\astrolune-network\\astrolune\\target\\release\\examples\\local_tps.exe",
+        "256",
+        "40",
+        "8",
+        "sender",
+        "fold"
+      ],
+      "csv_sha256": "e5735f738dad82001c54634499031b1d5f5c6fe5d9d3437a801628fafbaffecf",
+      "samples": 40,
+      "transactions": 10240,
+      "sustained_tps": 81793.71051097105,
+      "median_block_tps": 81844.04872278526,
+      "block_latency_ms": {
+        "p50": 3.1147,
+        "p95": 3.3729,
+        "p99": 3.3971
+      },
+      "median_stage_ms": {}
+    },
+    {
+      "name": "execution-sender-256-waves-1",
+      "kind": "execution",
+      "shape": "sender",
+      "size": 256,
+      "mode": "waves",
+      "repeat": 1,
+      "command": [
+        "D:\\actual\\astrolune-network\\astrolune\\target\\release\\examples\\local_tps.exe",
+        "256",
+        "40",
+        "8",
+        "sender",
+        "waves"
+      ],
+      "csv_sha256": "e79e5260be9781a8222963a97e3812349892541858c143defc66d6480266f4e0",
+      "samples": 40,
+      "transactions": 10240,
+      "sustained_tps": 23417.13649583591,
+      "median_block_tps": 23438.179512650666,
+      "block_latency_ms": {
+        "p50": 10.9124,
+        "p95": 11.6309,
+        "p99": 11.9821
+      },
+      "median_stage_ms": {}
+    },
+    {
+      "name": "execution-sender-256-waves-2",
+      "kind": "execution",
+      "shape": "sender",
+      "size": 256,
+      "mode": "waves",
+      "repeat": 2,
+      "command": [
+        "D:\\actual\\astrolune-network\\astrolune\\target\\release\\examples\\local_tps.exe",
+        "256",
+        "40",
+        "8",
+        "sender",
+        "waves"
+      ],
+      "csv_sha256": "ddf6c17299804f2c84ee6cf813b7fb95abe34807ff994173605f80f40d2abc15",
+      "samples": 40,
+      "transactions": 10240,
+      "sustained_tps": 24078.08447551395,
+      "median_block_tps": 24099.44787788358,
+      "block_latency_ms": {
+        "p50": 10.6211,
+        "p95": 11.3238,
+        "p99": 11.5443
+      },
+      "median_stage_ms": {}
+    },
+    {
+      "name": "execution-sender-256-fold-2",
+      "kind": "execution",
+      "shape": "sender",
+      "size": 256,
+      "mode": "fold",
+      "repeat": 2,
+      "command": [
+        "D:\\actual\\astrolune-network\\astrolune\\target\\release\\examples\\local_tps.exe",
+        "256",
+        "40",
+        "8",
+        "sender",
+        "fold"
+      ],
+      "csv_sha256": "56669a937e18b2b98184de80a7c35fb0c81965c1d8f095965064a6ba45606acd",
+      "samples": 40,
+      "transactions": 10240,
+      "sustained_tps": 89909.66010811988,
+      "median_block_tps": 84839.84821620905,
+      "block_latency_ms": {
+        "p50": 3.0137,
+        "p95": 3.2324,
+        "p99": 3.5153
+      },
+      "median_stage_ms": {}
+    },
+    {
+      "name": "execution-sender-256-seal-2",
+      "kind": "execution",
+      "shape": "sender",
+      "size": 256,
+      "mode": "seal",
+      "repeat": 2,
+      "command": [
+        "D:\\actual\\astrolune-network\\astrolune\\target\\release\\examples\\local_tps.exe",
+        "256",
+        "40",
+        "8",
+        "sender",
+        "seal"
+      ],
+      "csv_sha256": "a56513bc83e197b92ff97ea3f1776df329cbec13971c66ff798d9d6ec8a52a11",
+      "samples": 40,
+      "transactions": 10240,
+      "sustained_tps": 127524.1754204624,
+      "median_block_tps": 134256.34571009022,
+      "block_latency_ms": {
+        "p50": 1.9032,
+        "p95": 2.4822,
+        "p99": 3.0432
+      },
+      "median_stage_ms": {}
+    },
+    {
+      "name": "execution-recipient-256-waves-2",
+      "kind": "execution",
+      "shape": "recipient",
+      "size": 256,
+      "mode": "waves",
+      "repeat": 2,
+      "command": [
+        "D:\\actual\\astrolune-network\\astrolune\\target\\release\\examples\\local_tps.exe",
+        "256",
+        "40",
+        "8",
+        "recipient",
+        "waves"
+      ],
+      "csv_sha256": "3c33e82f3ce077cd07c5ee89036fa19d5c0794620e872c5bf626b95367f2670e",
+      "samples": 40,
+      "transactions": 10240,
+      "sustained_tps": 22847.682488612416,
+      "median_block_tps": 22953.97996009953,
+      "block_latency_ms": {
+        "p50": 11.1513,
+        "p95": 11.9545,
+        "p99": 12.2324
+      },
+      "median_stage_ms": {}
+    },
+    {
+      "name": "execution-recipient-256-fold-2",
+      "kind": "execution",
+      "shape": "recipient",
+      "size": 256,
+      "mode": "fold",
+      "repeat": 2,
+      "command": [
+        "D:\\actual\\astrolune-network\\astrolune\\target\\release\\examples\\local_tps.exe",
+        "256",
+        "40",
+        "8",
+        "recipient",
+        "fold"
+      ],
+      "csv_sha256": "96ce1ca7d0034aad7332b908eabbb3e856db99ea12073fddaff0fbb187e90bc8",
+      "samples": 40,
+      "transactions": 10240,
+      "sustained_tps": 87235.13190480125,
+      "median_block_tps": 95666.95939759712,
+      "block_latency_ms": {
+        "p50": 2.6691,
+        "p95": 3.8306,
+        "p99": 3.9552
+      },
+      "median_stage_ms": {}
+    },
+    {
+      "name": "execution-recipient-256-seal-2",
+      "kind": "execution",
+      "shape": "recipient",
+      "size": 256,
+      "mode": "seal",
+      "repeat": 2,
+      "command": [
+        "D:\\actual\\astrolune-network\\astrolune\\target\\release\\examples\\local_tps.exe",
+        "256",
+        "40",
+        "8",
+        "recipient",
+        "seal"
+      ],
+      "csv_sha256": "09cd9fe6cb52944a701e0aeebda74f424b5d621ecb8d6f4a14847a27565b7d51",
+      "samples": 40,
+      "transactions": 10240,
+      "sustained_tps": 69040.19298891447,
+      "median_block_tps": 68718.37545465527,
+      "block_latency_ms": {
+        "p50": 3.7136,
+        "p95": 3.9286,
+        "p99": 3.9442
+      },
+      "median_stage_ms": {}
+    },
+    {
+      "name": "execution-ring-256-waves-2",
+      "kind": "execution",
+      "shape": "ring",
+      "size": 256,
+      "mode": "waves",
+      "repeat": 2,
+      "command": [
+        "D:\\actual\\astrolune-network\\astrolune\\target\\release\\examples\\local_tps.exe",
+        "256",
+        "40",
+        "8",
+        "ring",
+        "waves"
+      ],
+      "csv_sha256": "0aafbbbc89e0bc0fde9d5a2a34c4040a95d27ff0e5262dd9d7b268f36ff28d0e",
+      "samples": 40,
+      "transactions": 10240,
+      "sustained_tps": 22848.86014534017,
+      "median_block_tps": 23347.11968590828,
+      "block_latency_ms": {
+        "p50": 10.9452,
+        "p95": 12.0404,
+        "p99": 12.4245
+      },
+      "median_stage_ms": {}
+    },
+    {
+      "name": "execution-ring-256-fold-2",
+      "kind": "execution",
+      "shape": "ring",
+      "size": 256,
+      "mode": "fold",
+      "repeat": 2,
+      "command": [
+        "D:\\actual\\astrolune-network\\astrolune\\target\\release\\examples\\local_tps.exe",
+        "256",
+        "40",
+        "8",
+        "ring",
+        "fold"
+      ],
+      "csv_sha256": "c9dd3df41b66cea98973930d57c7aff5bbfe824ea8199d3f5b51fd7d99cbef03",
+      "samples": 40,
+      "transactions": 10240,
+      "sustained_tps": 78836.36296446281,
+      "median_block_tps": 72366.468318469,
+      "block_latency_ms": {
+        "p50": 3.5358,
+        "p95": 3.7908,
+        "p99": 3.9839
+      },
+      "median_stage_ms": {}
+    },
+    {
+      "name": "execution-ring-256-seal-2",
+      "kind": "execution",
+      "shape": "ring",
+      "size": 256,
+      "mode": "seal",
+      "repeat": 2,
+      "command": [
+        "D:\\actual\\astrolune-network\\astrolune\\target\\release\\examples\\local_tps.exe",
+        "256",
+        "40",
+        "8",
+        "ring",
+        "seal"
+      ],
+      "csv_sha256": "edf4edd1732065662f65b6909cdca42f8320dd9164fcd032c1ba2d0f56efe37f",
+      "samples": 40,
+      "transactions": 10240,
+      "sustained_tps": 89487.02263392467,
+      "median_block_tps": 95633.00833053158,
+      "block_latency_ms": {
+        "p50": 2.6546,
+        "p95": 3.6851,
+        "p99": 3.798
+      },
+      "median_stage_ms": {}
+    },
+    {
+      "name": "execution-independent-256-waves-2",
+      "kind": "execution",
+      "shape": "independent",
+      "size": 256,
+      "mode": "waves",
+      "repeat": 2,
+      "command": [
+        "D:\\actual\\astrolune-network\\astrolune\\target\\release\\examples\\local_tps.exe",
+        "256",
+        "40",
+        "8",
+        "independent",
+        "waves"
+      ],
+      "csv_sha256": "9b4a78f0b263d56afccd935c10147b177fc91611d767731d338081529dd448fe",
+      "samples": 40,
+      "transactions": 10240,
+      "sustained_tps": 62439.44319138726,
+      "median_block_tps": 63130.379028877214,
+      "block_latency_ms": {
+        "p50": 4.0533,
+        "p95": 4.4052,
+        "p99": 4.8762
+      },
+      "median_stage_ms": {}
+    },
+    {
+      "name": "execution-independent-256-fold-2",
+      "kind": "execution",
+      "shape": "independent",
+      "size": 256,
+      "mode": "fold",
+      "repeat": 2,
+      "command": [
+        "D:\\actual\\astrolune-network\\astrolune\\target\\release\\examples\\local_tps.exe",
+        "256",
+        "40",
+        "8",
+        "independent",
+        "fold"
+      ],
+      "csv_sha256": "346638e2c6cbeb0e638b36f312302eb3c099215d774c4cb7e34f13bc886c2e13",
+      "samples": 40,
+      "transactions": 10240,
+      "sustained_tps": 75326.96241817204,
+      "median_block_tps": 80527.20152246741,
+      "block_latency_ms": {
+        "p50": 3.1586,
+        "p95": 4.073,
+        "p99": 4.2719
+      },
+      "median_stage_ms": {}
+    },
+    {
+      "name": "execution-independent-256-seal-2",
+      "kind": "execution",
+      "shape": "independent",
+      "size": 256,
+      "mode": "seal",
+      "repeat": 2,
+      "command": [
+        "D:\\actual\\astrolune-network\\astrolune\\target\\release\\examples\\local_tps.exe",
+        "256",
+        "40",
+        "8",
+        "independent",
+        "seal"
+      ],
+      "csv_sha256": "aab8df8dc0b3e2c570ef9009053b54cd7c08411132d2d9cbab744a5898f94d0a",
+      "samples": 40,
+      "transactions": 10240,
+      "sustained_tps": 63365.3563527792,
+      "median_block_tps": 67633.6160207128,
+      "block_latency_ms": {
+        "p50": 3.7813,
+        "p95": 4.9409,
+        "p99": 5.014
+      },
+      "median_stage_ms": {}
+    },
+    {
+      "name": "execution-sender-4096-waves-2",
+      "kind": "execution",
+      "shape": "sender",
+      "size": 4096,
+      "mode": "waves",
+      "repeat": 2,
+      "command": [
+        "D:\\actual\\astrolune-network\\astrolune\\target\\release\\examples\\local_tps.exe",
+        "4096",
+        "40",
+        "8",
+        "sender",
+        "waves"
+      ],
+      "csv_sha256": "3fa4cb347fa12b029bf4296ed187cffca45f0ffdbc8335bdb597e67f9d0fc439",
+      "samples": 40,
+      "transactions": 163840,
+      "sustained_tps": 24821.474829798903,
+      "median_block_tps": 24795.689811731943,
+      "block_latency_ms": {
+        "p50": 165.0205,
+        "p95": 168.9957,
+        "p99": 177.1556
+      },
+      "median_stage_ms": {}
+    },
+    {
+      "name": "execution-sender-4096-fold-2",
+      "kind": "execution",
+      "shape": "sender",
+      "size": 4096,
+      "mode": "fold",
+      "repeat": 2,
+      "command": [
+        "D:\\actual\\astrolune-network\\astrolune\\target\\release\\examples\\local_tps.exe",
+        "4096",
+        "40",
+        "8",
+        "sender",
+        "fold"
+      ],
+      "csv_sha256": "e21b093dcd76b4194cc4550e614450f62020cdc3c9be248bd57886ec564c261e",
+      "samples": 40,
+      "transactions": 163840,
+      "sustained_tps": 165845.01649593085,
+      "median_block_tps": 167942.4993747258,
+      "block_latency_ms": {
+        "p50": 24.3464,
+        "p95": 27.7342,
+        "p99": 29.6883
+      },
+      "median_stage_ms": {}
+    },
+    {
+      "name": "execution-sender-4096-seal-2",
+      "kind": "execution",
+      "shape": "sender",
+      "size": 4096,
+      "mode": "seal",
+      "repeat": 2,
+      "command": [
+        "D:\\actual\\astrolune-network\\astrolune\\target\\release\\examples\\local_tps.exe",
+        "4096",
+        "40",
+        "8",
+        "sender",
+        "seal"
+      ],
+      "csv_sha256": "b29a06a2ec9a8507c6249d560d26473d23de80823b2933782a04b82464832a05",
+      "samples": 40,
+      "transactions": 163840,
+      "sustained_tps": 162631.75986642437,
+      "median_block_tps": 164806.42487546976,
+      "block_latency_ms": {
+        "p50": 24.8531,
+        "p95": 27.4652,
+        "p99": 35.2666
+      },
+      "median_stage_ms": {}
+    },
+    {
+      "name": "execution-recipient-4096-waves-2",
+      "kind": "execution",
+      "shape": "recipient",
+      "size": 4096,
+      "mode": "waves",
+      "repeat": 2,
+      "command": [
+        "D:\\actual\\astrolune-network\\astrolune\\target\\release\\examples\\local_tps.exe",
+        "4096",
+        "40",
+        "8",
+        "recipient",
+        "waves"
+      ],
+      "csv_sha256": "8cb282703339dc3fc780566c36aed3a817f777aaf2d5e385a089b05cf94085e5",
+      "samples": 40,
+      "transactions": 163840,
+      "sustained_tps": 22562.583420208368,
+      "median_block_tps": 22573.531377125946,
+      "block_latency_ms": {
+        "p50": 181.4323,
+        "p95": 184.9299,
+        "p99": 187.4172
+      },
+      "median_stage_ms": {}
+    },
+    {
+      "name": "execution-recipient-4096-fold-2",
+      "kind": "execution",
+      "shape": "recipient",
+      "size": 4096,
+      "mode": "fold",
+      "repeat": 2,
+      "command": [
+        "D:\\actual\\astrolune-network\\astrolune\\target\\release\\examples\\local_tps.exe",
+        "4096",
+        "40",
+        "8",
+        "recipient",
+        "fold"
+      ],
+      "csv_sha256": "8cdd777b1e32f1134452628136764e419537d481ae468d6c89bb3e83521d2adc",
+      "samples": 40,
+      "transactions": 163840,
+      "sustained_tps": 116932.46129770338,
+      "median_block_tps": 117674.09790852678,
+      "block_latency_ms": {
+        "p50": 34.7473,
+        "p95": 36.8931,
+        "p99": 40.0595
+      },
+      "median_stage_ms": {}
+    },
+    {
+      "name": "execution-recipient-4096-seal-2",
+      "kind": "execution",
+      "shape": "recipient",
+      "size": 4096,
+      "mode": "seal",
+      "repeat": 2,
+      "command": [
+        "D:\\actual\\astrolune-network\\astrolune\\target\\release\\examples\\local_tps.exe",
+        "4096",
+        "40",
+        "8",
+        "recipient",
+        "seal"
+      ],
+      "csv_sha256": "de350def4af6830621337f2de1881fad7a179b71fff779858fbe87579a462327",
+      "samples": 40,
+      "transactions": 163840,
+      "sustained_tps": 95657.07871432076,
+      "median_block_tps": 96181.39209415257,
+      "block_latency_ms": {
+        "p50": 42.5173,
+        "p95": 43.8085,
+        "p99": 55.5135
+      },
+      "median_stage_ms": {}
+    },
+    {
+      "name": "execution-ring-4096-waves-2",
+      "kind": "execution",
+      "shape": "ring",
+      "size": 4096,
+      "mode": "waves",
+      "repeat": 2,
+      "command": [
+        "D:\\actual\\astrolune-network\\astrolune\\target\\release\\examples\\local_tps.exe",
+        "4096",
+        "40",
+        "8",
+        "ring",
+        "waves"
+      ],
+      "csv_sha256": "4de94ea4f4ccf98f18d72def086ee71e613ee34caaba4d9ec0996b49dacbc624",
+      "samples": 40,
+      "transactions": 163840,
+      "sustained_tps": 22282.726922148704,
+      "median_block_tps": 22319.202742384852,
+      "block_latency_ms": {
+        "p50": 183.4493,
+        "p95": 188.3721,
+        "p99": 189.2362
+      },
+      "median_stage_ms": {}
+    },
+    {
+      "name": "execution-ring-4096-fold-2",
+      "kind": "execution",
+      "shape": "ring",
+      "size": 4096,
+      "mode": "fold",
+      "repeat": 2,
+      "command": [
+        "D:\\actual\\astrolune-network\\astrolune\\target\\release\\examples\\local_tps.exe",
+        "4096",
+        "40",
+        "8",
+        "ring",
+        "fold"
+      ],
+      "csv_sha256": "dc7e5add0897b156c8275043e5ba1719ee4f20392bca367fc0a33beaf22a2cec",
+      "samples": 40,
+      "transactions": 163840,
+      "sustained_tps": 106745.92690731627,
+      "median_block_tps": 113021.163875169,
+      "block_latency_ms": {
+        "p50": 36.2193,
+        "p95": 51.6883,
+        "p99": 54.9292
+      },
+      "median_stage_ms": {}
+    },
+    {
+      "name": "execution-ring-4096-seal-2",
+      "kind": "execution",
+      "shape": "ring",
+      "size": 4096,
+      "mode": "seal",
+      "repeat": 2,
+      "command": [
+        "D:\\actual\\astrolune-network\\astrolune\\target\\release\\examples\\local_tps.exe",
+        "4096",
+        "40",
+        "8",
+        "ring",
+        "seal"
+      ],
+      "csv_sha256": "ec53e35583cc688b2410e7bf673f99179c2e6b27b770cc9099396361bdef59a5",
+      "samples": 40,
+      "transactions": 163840,
+      "sustained_tps": 93095.25177282418,
+      "median_block_tps": 94303.8929135091,
+      "block_latency_ms": {
+        "p50": 43.4185,
+        "p95": 46.4643,
+        "p99": 58.5796
+      },
+      "median_stage_ms": {}
+    },
+    {
+      "name": "execution-independent-4096-waves-2",
+      "kind": "execution",
+      "shape": "independent",
+      "size": 4096,
+      "mode": "waves",
+      "repeat": 2,
+      "command": [
+        "D:\\actual\\astrolune-network\\astrolune\\target\\release\\examples\\local_tps.exe",
+        "4096",
+        "40",
+        "8",
+        "independent",
+        "waves"
+      ],
+      "csv_sha256": "b32c1d1df442427774d15be9806d4a76936dc4026d147ddfd8d63a495935bbb1",
+      "samples": 40,
+      "transactions": 163840,
+      "sustained_tps": 89345.55363541626,
+      "median_block_tps": 89312.6783228143,
+      "block_latency_ms": {
+        "p50": 45.836,
+        "p95": 48.2879,
+        "p99": 48.68
+      },
+      "median_stage_ms": {}
+    },
+    {
+      "name": "execution-independent-4096-fold-2",
+      "kind": "execution",
+      "shape": "independent",
+      "size": 4096,
+      "mode": "fold",
+      "repeat": 2,
+      "command": [
+        "D:\\actual\\astrolune-network\\astrolune\\target\\release\\examples\\local_tps.exe",
+        "4096",
+        "40",
+        "8",
+        "independent",
+        "fold"
+      ],
+      "csv_sha256": "546270bb185779ffae9445e74dbd3b3c74c50af2238ae5760fb91112be90385b",
+      "samples": 40,
+      "transactions": 163840,
+      "sustained_tps": 96842.44224061162,
+      "median_block_tps": 98183.97990296662,
+      "block_latency_ms": {
+        "p50": 41.6958,
+        "p95": 44.8157,
+        "p99": 52.9768
+      },
+      "median_stage_ms": {}
+    },
+    {
+      "name": "execution-independent-4096-seal-2",
+      "kind": "execution",
+      "shape": "independent",
+      "size": 4096,
+      "mode": "seal",
+      "repeat": 2,
+      "command": [
+        "D:\\actual\\astrolune-network\\astrolune\\target\\release\\examples\\local_tps.exe",
+        "4096",
+        "40",
+        "8",
+        "independent",
+        "seal"
+      ],
+      "csv_sha256": "0fd8d98c04d9a4835b7f490cd968c84d3bbe4d9483f184245e4bd613c46f2f03",
+      "samples": 40,
+      "transactions": 163840,
+      "sustained_tps": 77983.2718647074,
+      "median_block_tps": 78879.3584889673,
+      "block_latency_ms": {
+        "p50": 51.8675,
+        "p95": 55.7426,
+        "p99": 67.5831
+      },
+      "median_stage_ms": {}
+    },
+    {
+      "name": "node-recipient-256-default-2",
+      "kind": "node",
+      "shape": "recipient",
+      "size": 256,
+      "mode": "default",
+      "repeat": 2,
+      "command": [
+        "D:\\actual\\astrolune-network\\astrolune\\target\\release\\examples\\certified_tps.exe",
+        "256",
+        "40",
+        "D:\\actual\\astrolune-network\\astrolune\\target\\tps-frozen-2026-11-03\\node-recipient-256-default-2",
+        "recipient"
+      ],
+      "csv_sha256": "8b9227cd0b7c08077b46e1e84ac231d15134f129c72e9d06b9cf1ec19eb68f46",
+      "samples": 40,
+      "transactions": 10240,
+      "sustained_tps": 20296.96601982641,
+      "median_block_tps": 20022.916854055617,
+      "block_latency_ms": {
+        "p50": 12.7509,
+        "p95": 13.5707,
+        "p99": 13.609
+      },
+      "median_stage_ms": {
+        "admission": 3.2537,
+        "production": 4.52225,
+        "publication": 4.8546
+      }
+    },
+    {
+      "name": "reference_node-recipient-256-default-2",
+      "kind": "reference_node",
+      "shape": "recipient",
+      "size": 256,
+      "mode": "default",
+      "repeat": 2,
+      "command": [
+        "D:\\actual\\astrolune-network\\astrolune\\target\\tps-reference-build\\release\\examples\\certified_tps.exe",
+        "256",
+        "40",
+        "D:\\actual\\astrolune-network\\astrolune\\target\\tps-frozen-2026-11-03\\reference_node-recipient-256-default-2",
+        "recipient"
+      ],
+      "csv_sha256": "6703b36f9d49f24fe6b76cf0ffea1e22a2453ab75bcb80e83cb03e8a7006d4fa",
+      "samples": 40,
+      "transactions": 10240,
+      "sustained_tps": 6689.214458240586,
+      "median_block_tps": 6739.289531461425,
+      "block_latency_ms": {
+        "p50": 37.9187,
+        "p95": 39.7193,
+        "p99": 41.0686
+      },
+      "median_stage_ms": {
+        "admission": 10.98125,
+        "production": 10.998,
+        "publication": 15.71605
+      }
+    },
+    {
+      "name": "node-ring-256-default-2",
+      "kind": "node",
+      "shape": "ring",
+      "size": 256,
+      "mode": "default",
+      "repeat": 2,
+      "command": [
+        "D:\\actual\\astrolune-network\\astrolune\\target\\release\\examples\\certified_tps.exe",
+        "256",
+        "40",
+        "D:\\actual\\astrolune-network\\astrolune\\target\\tps-frozen-2026-11-03\\node-ring-256-default-2",
+        "ring"
+      ],
+      "csv_sha256": "2940f77f29feee123425ac174cf3b502dd81bf77d2f18b53de79b3767b3ee801",
+      "samples": 40,
+      "transactions": 10240,
+      "sustained_tps": 19929.747639570513,
+      "median_block_tps": 19818.152963626722,
+      "block_latency_ms": {
+        "p50": 12.9151,
+        "p95": 13.3678,
+        "p99": 13.6163
+      },
+      "median_stage_ms": {
+        "admission": 3.3456,
+        "production": 4.49605,
+        "publication": 4.88385
+      }
+    },
+    {
+      "name": "reference_node-ring-256-default-2",
+      "kind": "reference_node",
+      "shape": "ring",
+      "size": 256,
+      "mode": "default",
+      "repeat": 2,
+      "command": [
+        "D:\\actual\\astrolune-network\\astrolune\\target\\tps-reference-build\\release\\examples\\certified_tps.exe",
+        "256",
+        "40",
+        "D:\\actual\\astrolune-network\\astrolune\\target\\tps-frozen-2026-11-03\\reference_node-ring-256-default-2",
+        "ring"
+      ],
+      "csv_sha256": "3d1fce9bf5770194568f101e62534c921780d4553dad1bcbd905b02767b689b5",
+      "samples": 40,
+      "transactions": 10240,
+      "sustained_tps": 6641.074748992992,
+      "median_block_tps": 6791.486765222812,
+      "block_latency_ms": {
+        "p50": 37.6538,
+        "p95": 40.4596,
+        "p99": 43.6864
+      },
+      "median_stage_ms": {
+        "admission": 11.02385,
+        "production": 10.9458,
+        "publication": 15.7496
+      }
+    },
+    {
+      "name": "node-independent-256-default-2",
+      "kind": "node",
+      "shape": "independent",
+      "size": 256,
+      "mode": "default",
+      "repeat": 2,
+      "command": [
+        "D:\\actual\\astrolune-network\\astrolune\\target\\release\\examples\\certified_tps.exe",
+        "256",
+        "40",
+        "D:\\actual\\astrolune-network\\astrolune\\target\\tps-frozen-2026-11-03\\node-independent-256-default-2",
+        "independent"
+      ],
+      "csv_sha256": "24e91b0cb47c0c66a806f6f4d7f92475419efb0ab9519ee292d1b36f94517482",
+      "samples": 40,
+      "transactions": 10240,
+      "sustained_tps": 19077.484395213934,
+      "median_block_tps": 19044.076622652035,
+      "block_latency_ms": {
+        "p50": 13.4231,
+        "p95": 14.2594,
+        "p99": 14.4752
+      },
+      "median_stage_ms": {
+        "admission": 3.36055,
+        "production": 4.7334,
+        "publication": 5.13485
+      }
+    },
+    {
+      "name": "reference_node-independent-256-default-2",
+      "kind": "reference_node",
+      "shape": "independent",
+      "size": 256,
+      "mode": "default",
+      "repeat": 2,
+      "command": [
+        "D:\\actual\\astrolune-network\\astrolune\\target\\tps-reference-build\\release\\examples\\certified_tps.exe",
+        "256",
+        "40",
+        "D:\\actual\\astrolune-network\\astrolune\\target\\tps-frozen-2026-11-03\\reference_node-independent-256-default-2",
+        "independent"
+      ],
+      "csv_sha256": "c4901f979c5d3ea3700e8de5cb8da42c52067273d32c02b57c56a00b1c6d9533",
+      "samples": 40,
+      "transactions": 10240,
+      "sustained_tps": 8139.223322562904,
+      "median_block_tps": 8139.581097730615,
+      "block_latency_ms": {
+        "p50": 31.424,
+        "p95": 32.7779,
+        "p99": 33.8441
+      },
+      "median_stage_ms": {
+        "admission": 10.84195,
+        "production": 11.43245,
+        "publication": 8.966
+      }
+    },
+    {
+      "name": "node-recipient-4096-default-2",
+      "kind": "node",
+      "shape": "recipient",
+      "size": 4096,
+      "mode": "default",
+      "repeat": 2,
+      "command": [
+        "D:\\actual\\astrolune-network\\astrolune\\target\\release\\examples\\certified_tps.exe",
+        "4096",
+        "40",
+        "D:\\actual\\astrolune-network\\astrolune\\target\\tps-frozen-2026-11-03\\node-recipient-4096-default-2",
+        "recipient"
+      ],
+      "csv_sha256": "2b25199f2140d3f51c75f93150002998b4c0a429ade41957b88f3b895a98fed9",
+      "samples": 40,
+      "transactions": 163840,
+      "sustained_tps": 30457.27025674304,
+      "median_block_tps": 30822.438373935776,
+      "block_latency_ms": {
+        "p50": 132.7498,
+        "p95": 139.5359,
+        "p99": 172.75
+      },
+      "median_stage_ms": {
+        "admission": 31.15825,
+        "production": 48.4233,
+        "publication": 52.06655
+      }
+    },
+    {
+      "name": "reference_node-recipient-4096-default-2",
+      "kind": "reference_node",
+      "shape": "recipient",
+      "size": 4096,
+      "mode": "default",
+      "repeat": 2,
+      "command": [
+        "D:\\actual\\astrolune-network\\astrolune\\target\\tps-reference-build\\release\\examples\\certified_tps.exe",
+        "4096",
+        "40",
+        "D:\\actual\\astrolune-network\\astrolune\\target\\tps-frozen-2026-11-03\\reference_node-recipient-4096-default-2",
+        "recipient"
+      ],
+      "csv_sha256": "37528b9e35eb2252e77fb241529e8de6ca81d8cbfd3999c1d95a6c59009b5342",
+      "samples": 40,
+      "transactions": 163840,
+      "sustained_tps": 6618.118929600697,
+      "median_block_tps": 6644.354978882355,
+      "block_latency_ms": {
+        "p50": 616.2322,
+        "p95": 635.3179,
+        "p99": 639.3512
+      },
+      "median_stage_ms": {
+        "admission": 192.188,
+        "production": 185.9448,
+        "publication": 237.4612
+      }
+    },
+    {
+      "name": "node-ring-4096-default-2",
+      "kind": "node",
+      "shape": "ring",
+      "size": 4096,
+      "mode": "default",
+      "repeat": 2,
+      "command": [
+        "D:\\actual\\astrolune-network\\astrolune\\target\\release\\examples\\certified_tps.exe",
+        "4096",
+        "40",
+        "D:\\actual\\astrolune-network\\astrolune\\target\\tps-frozen-2026-11-03\\node-ring-4096-default-2",
+        "ring"
+      ],
+      "csv_sha256": "41ad64174b14ba1c61f3011fac47d3309f44dbb596f1da1cbee859acbebcf2db",
+      "samples": 40,
+      "transactions": 163840,
+      "sustained_tps": 30142.77471857928,
+      "median_block_tps": 30422.995506369072,
+      "block_latency_ms": {
+        "p50": 134.5297,
+        "p95": 151.9599,
+        "p99": 160.6585
+      },
+      "median_stage_ms": {
+        "admission": 30.96645,
+        "production": 48.81945,
+        "publication": 52.06365
+      }
+    },
+    {
+      "name": "reference_node-ring-4096-default-2",
+      "kind": "reference_node",
+      "shape": "ring",
+      "size": 4096,
+      "mode": "default",
+      "repeat": 2,
+      "command": [
+        "D:\\actual\\astrolune-network\\astrolune\\target\\tps-reference-build\\release\\examples\\certified_tps.exe",
+        "4096",
+        "40",
+        "D:\\actual\\astrolune-network\\astrolune\\target\\tps-frozen-2026-11-03\\reference_node-ring-4096-default-2",
+        "ring"
+      ],
+      "csv_sha256": "aea2a004513f7ff552d6648941550958ab2cdf07663f9c93ac656a40d401b30b",
+      "samples": 40,
+      "transactions": 163840,
+      "sustained_tps": 6535.50775388492,
+      "median_block_tps": 6548.540335794952,
+      "block_latency_ms": {
+        "p50": 625.2098,
+        "p95": 637.7898,
+        "p99": 673.0873
+      },
+      "median_stage_ms": {
+        "admission": 193.2882,
+        "production": 188.3747,
+        "publication": 243.4147
+      }
+    },
+    {
+      "name": "node-independent-4096-default-2",
+      "kind": "node",
+      "shape": "independent",
+      "size": 4096,
+      "mode": "default",
+      "repeat": 2,
+      "command": [
+        "D:\\actual\\astrolune-network\\astrolune\\target\\release\\examples\\certified_tps.exe",
+        "4096",
+        "40",
+        "D:\\actual\\astrolune-network\\astrolune\\target\\tps-frozen-2026-11-03\\node-independent-4096-default-2",
+        "independent"
+      ],
+      "csv_sha256": "da3a35e99a5a9b8b9e551381f17bb5757ce68863c8a6f2f69c467f46ae690547",
+      "samples": 40,
+      "transactions": 163840,
+      "sustained_tps": 27830.691688152616,
+      "median_block_tps": 28048.483611735304,
+      "block_latency_ms": {
+        "p50": 145.5698,
+        "p95": 152.0782,
+        "p99": 167.94
+      },
+      "median_stage_ms": {
+        "admission": 30.9104,
+        "production": 54.9125,
+        "publication": 58.83465
+      }
+    },
+    {
+      "name": "reference_node-independent-4096-default-2",
+      "kind": "reference_node",
+      "shape": "independent",
+      "size": 4096,
+      "mode": "default",
+      "repeat": 2,
+      "command": [
+        "D:\\actual\\astrolune-network\\astrolune\\target\\tps-reference-build\\release\\examples\\certified_tps.exe",
+        "4096",
+        "40",
+        "D:\\actual\\astrolune-network\\astrolune\\target\\tps-frozen-2026-11-03\\reference_node-independent-4096-default-2",
+        "independent"
+      ],
+      "csv_sha256": "2b7400f1760e60908550af79652b66d01ac5f528b7868993adfc86bef3b3f46f",
+      "samples": 40,
+      "transactions": 163840,
+      "sustained_tps": 8172.094330907831,
+      "median_block_tps": 8205.95504715319,
+      "block_latency_ms": {
+        "p50": 498.7959,
+        "p95": 513.5645,
+        "p99": 538.488
+      },
+      "median_stage_ms": {
+        "admission": 195.80275,
+        "production": 193.71395,
+        "publication": 107.60455
+      }
+    }
+  ],
+  "scope": {
+    "execution": "pre-signed transactions, advancing state and atomic RAM commit; excludes transport, signing, consensus and disk",
+    "node": "pre-signed transactions over TCP loopback; admission, production, three locally generated quorum signatures, certificate verification, synchronized append log and durable acknowledgement; excludes distributed agreement, PoTB transitions and TLS",
+    "validation": "three warmups advance state; all final account balances/nonces checked; node additionally reopens log and checks every certificate and successful receipt"
+  },
+  "runner_sha256": "98b90b41a147bbbbb609ca70351c1bb6a63f8d1e817abd5349b6d68ac7642e24",
+  "reference": {
+    "revision": "fd4a1da9006c8b75e4b1aeff608e3d360f57abf7",
+    "fixture": "same pre-signed loopback/certificate/durable-recovery workload; scalar admission on the reference API",
+    "source_sha256": {
+      "crates/execution/benches/execution.rs": "ab156c00adec2e1e4d3d2dfcf9fd49222077676e905e6baf2378ab98333aa36e",
+      "crates/execution/src/contract.rs": "6ca6ad95111967f3a999e22ff11a102c3766bd3cdf97d7a9cabda594b1b5e0ed",
+      "crates/execution/src/error.rs": "00878bd6e50bd48fd808f238d378927b81075390a4d25fe554ab6f17fed1ffcc",
+      "crates/execution/src/executor.rs": "25c0391528bda353c1837b79766a89b4296ffb1df9e12c5e24c40a82759ca755",
+      "crates/execution/src/lib.rs": "7f1b8e4e17d23cb2eaf2c4dd91321af8092c59f01d362fb7b5e12bf8ab182fae",
+      "crates/execution/src/parallel_payment.rs": "c4db8b416765934c78a0d750a911ec960cb43d28fd810697d2711d0d89961403",
+      "crates/execution/src/payment.rs": "7cf6b3fde9ef8d7154d893b63a1a6ab741f157be66536c059e34aedc13080fda",
+      "crates/execution/src/prefetch.rs": "bde39aaacf3a87375e3db4827bbb24f2f9a5f066bc13ee4a5950f6de7fc39a50",
+      "crates/execution/src/scheduler.rs": "547bb8df68f8ed8cee834d5c9b000a8b5513376140bb4aa3932260bf7cc3b8fc",
+      "crates/execution/src/signed.rs": "80cc6081eabfe125e18e9fdc88f90490dbbb03bd78b3430e4a35677642e0627e",
+      "crates/execution/src/snapshot_cache.rs": "7a3bba789708b61d050d58127245a7b2c234232bdafb1bddea0a5cd959cd73e3",
+      "crates/execution/src/wave.rs": "5453c4f0186e0b01b40c4c24cc729e377fd7a6d6c82acfb1b8b5268b1901d206",
+      "crates/execution/src/worker_pool.rs": "4843341ebdc75f3a1b001669e113bce9a3392c91f3b80fe72d8011286aabe2d9",
+      "crates/execution/tests/contracts.rs": "aacf9deb8edc2b4bec316c0337e94e5babb3f3111d27f8bfbe62ec6f7a7a4fe1",
+      "crates/execution/tests/payments.rs": "e80d01ca9b776f81c155239b3351c92d3cf78eb01e182d6289a2db973c66f71a",
+      "crates/execution/tests/prefetch.rs": "4d37d2b3811d45ffff25b273e302534ebe1d7da3c0941aea555d82b03e8c2b70",
+      "crates/execution/tests/scheduling.rs": "4748767768102ef5e9d56f8f79dd73276667edbde367fab7846dfe99727cec32",
+      "crates/state/benches/state.rs": "d3252f5c9397af306fb1e72a48ffbcf5ada421f6243e2c0280cd57339ae8dce4",
+      "crates/state/src/absence.rs": "309dc7a4e813d5d86a803329e649e71f0c8b2c202c877658d8275dec305ff23c",
+      "crates/state/src/account.rs": "b078297f3f95b5745470ef9f88d2681cc8b90533642fba5ce44aff6fdeefa092",
+      "crates/state/src/commitment.rs": "29a60040cd5c55c36f7b2fbc3c1df3754b4d22ba89dfc24005ba5e773bc74753",
+      "crates/state/src/database.rs": "b1aa9427fced36aa657e33cdc843cb2726ec793a329a64fc30aceffaa3add88e",
+      "crates/state/src/diff.rs": "fdcfeaead4105a382947c821cf2f8b09021e74910677daf15645b0358936d7c0",
+      "crates/state/src/lease.rs": "ac672c34b195060e0c6ec1e8a6ac0836d0fc20bb4f2a3bb9f0531a7cc5276c4c",
+      "crates/state/src/lib.rs": "6d7afea9bab0b10eb0390f092e664b6a53bbf16a979bdfb2686dca1301f87a36",
+      "crates/state/src/memory.rs": "80e7fbdb91edafb4c264dee4d77d048f5d42bbd8cc286f46c815a3c255732325",
+      "crates/state/src/persistent.rs": "0109f86f0c5fb747b9729d5af6892326d1c234685a5f6949d4ce706bc4a0a4c1",
+      "crates/state/src/snapshot.rs": "0fd14a5f818d9322bade01635097e29c0f531003268dd01114a6077b75cb9bcf",
+      "crates/state/src/tree.rs": "74fdc528e631dd4c69484b37596cb56e9f4d789fbcf80e16e41c256587c68907",
+      "crates/state/src/tree_tests.rs": "39860dce420bc4fa6041e7611f4a6048c2ba58f2f0dce1b95c93b6f102804cc9",
+      "crates/state/src/value_proof.rs": "ab5ae335ec7115fce22fffc2c86a06fb07a41d450414578717ab64eea2772e8b",
+      "crates/state/tests/absence.rs": "f2a0928c7fafd2f5ea76e22c3f4fe343a9d6f1f4e87bf39cb2a16840efc97009",
+      "crates/state/tests/commitments.rs": "429245cc2df58b0c112d9cf8b06219c4ae6bf82665ec75f83397edc630a98b75",
+      "crates/state/tests/recovery.rs": "a587b822c947f1e1a6ca7161c85eb7c625444384f747909009915ea6238583b0",
+      "crates/state/tests/value_proof.rs": "29dc990da1a75d0d36a7358540a5d706fe33ca58521430477077611e24293e5f",
+      "crates/node/examples/certified_tps.rs": "4fcb656ad8f2064475b53c86f88a4e95c95b2d3fe6bfb118df6cdefca6caf7e0",
+      "crates/node/src/capacity.rs": "1ea025e34f9ac37390c4074d86171dc819edd31cf371783b55b17fafd60f13d1",
+      "crates/node/src/compact_wire.rs": "16c641b605f4e515144a84a772c4ef83a78eb42c71174b5623762826da5aa7ba",
+      "crates/node/src/evidence.rs": "3487124615a5aeffb995e46d4ea10ececfd53ba7685efc99552e3543831c4fd8",
+      "crates/node/src/execution_pipeline.rs": "5e854c3aa9c73bd6957a90da7f26d91ae7bf6685ee79973c7757a6dce1601376",
+      "crates/node/src/full_service.rs": "501719050e9494c209bcc581856935b1c8d8e36fea33218a8b95cc7052d02ad9",
+      "crates/node/src/handoff.rs": "00c3084731124b6a3d4ff49948131041ce7bfc128c67a22e383ddb51b5e91ee5",
+      "crates/node/src/lib.rs": "1fc3898d3962392af95856aba6ff060cc246e67ad48b5a3a69db7fd271eb9a9e",
+      "crates/node/src/network/checkpoint.rs": "2c162036d4cbdf30d0d48b59eace688ebdec4d6b3c17dc28f4965af1dd0b9be7",
+      "crates/node/src/network/potb.rs": "0e3a682e2dabf008407c9c3f211c5aea294e82dc173da998e8a432527dbf6742",
+      "crates/node/src/network/rotation.rs": "8b7ce0ffa6ec4ca1770dfda63da96d0d751921642ea64d8fae292e3f30bf7a89",
+      "crates/node/src/network.rs": "22190fad5a332393040c9a520f5e30e3b3bf1f37900619709dd5d7412d9d73ad",
+      "crates/node/src/network_background.rs": "bdb5de1a135e5ec6df2fb78fb17422dabffc0306e0124704408e2314df6fa212",
+      "crates/node/src/network_wire.rs": "74b6ea0a15ee335c4640136bd127e5638036bbc090d46aee945ca7ab2bb8f4f6",
+      "crates/node/src/observer.rs": "2a7013a14947cb78ad1122136336f9ac66cbdf6cfa4518eb811e188585e374ce",
+      "crates/node/src/pipeline.rs": "b6bdf2e1aa69c8726415a9345d92a262ab18ab898b4165930ba8c062e76180d3",
+      "crates/node/src/producer/pipeline.rs": "a0fd429e4de464e0a1704d724b62fb08291dba4568a6b5bed24187a6a26df76f",
+      "crates/node/src/producer/potb.rs": "0431747e0969c36383a9a0d8bdeef2f6d5f1c1b92a6853ffab31fd38fc245070",
+      "crates/node/src/producer/rotation.rs": "3eafa53ebf090166403c514f05136ae5788c150eac625ed453aafd3d08e0653e",
+      "crates/node/src/producer.rs": "6c43e13af058bf0304670cacc5e766cca3c3fe2a5f7117618330f0d7948319eb",
+      "crates/node/src/service.rs": "5a3c4e10c6a7c696f641c8d4cb06962eca20bc790b783617ab3489311d2dec3e",
+      "crates/node/src/validator.rs": "77af3591327e147decdf039fdd0f54fc99cef58b6c476252d382c649a0cf3a20",
+      "crates/node/tests/adversarial_rotation.rs": "603a2802d8123d228b80c7cc5a31fd45c60e8daf260a146b6ac6a6e6d963e2c4",
+      "crates/node/tests/compact_transport.rs": "68e078a941e68a94d4c289294753525d261107463253425221d8f258aa600e1f",
+      "crates/node/tests/execution_pipeline.rs": "70aec0e7ce37795407b259bbc3432d62083a810afe03c8eddb62e3cd69e5a242",
+      "crates/node/tests/genesis.rs": "e5c57be2a35e1ed898187e39209771fa38f8e780183ce224406026909e5cdda8",
+      "crates/node/tests/network.rs": "c42cfa4eb5f9a33d5c15b178331824736b7fd330f8081222ad7e7425bdf2f133",
+      "crates/node/tests/potb.rs": "eb6d696db143c7639a3c734a1ddfc614dd05355ee0576122a5c7933447d43786",
+      "crates/node/tests/potb_network.rs": "501a20d735c90a683a0548f4cd4c54ad396fec602c2dda0c172f41833bf8b70b",
+      "crates/node/tests/rotation.rs": "5c005bda5a9560b554c909ef74cccaad5b347c57436965f7f4588a4e814d2def",
+      "crates/node/tests/support/hostile.rs": "e513967f1f481cc1ba4ccd4ada06260d385a08380d3a7a252770f4e7662cd88d",
+      "crates/node/tests/trocto.rs": "bb6b81f76292ac6a35cb1c9bf33933391d9e53aebb366c9dc1a001d7024f3201",
+      "crates/mempool/src/lib.rs": "31914648b57565f22e8ad157039f1bfad8022be8f67556a9ebec21e030cdd5e9"
+    }
+  },
+  "finished_utc": "2026-11-02T21:15:22Z",
+  "source_unchanged": true,
+  "binaries_unchanged": true,
+  "build_inputs_unchanged": true,
+  "reference_unchanged": true
+}

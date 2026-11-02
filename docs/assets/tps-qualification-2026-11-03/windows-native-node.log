@@ -1,0 +1,10 @@
+   Compiling node v0.1.0 (D:\actual\astrolune-network\astrolune\crates\node)
+    Finished `release` profile [optimized] target(s) in 1.80s
+     Running tests\trocto.rs (target\release\deps\trocto-788e64aeb68edac0.exe)
+
+running 2 tests
+test native_contract_state_receipts_survive_restart_and_exact_replay ... ok
+test certified_nodes_and_restarted_observer_replay_native_state ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 1 filtered out; finished in 2.21s
+

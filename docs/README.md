@@ -74,6 +74,7 @@ For a concise source-tree map, read [`../ARCHITECTURE.md`](../ARCHITECTURE.md).
 - [VeyraFold and LuneSeal research proposals (non-normative)](62-original-architecture-proposals.md)
 - [Trocto language and native LLVM development runtime](64-trocto-native-llvm.md)
 - [Persistent version-1 state and incremental commitments](63-incremental-state.md)
+- [Guarded payment execution and reproducible local throughput](65-guarded-throughput.md)
 
 Legacy-shaped filenames such as `03-vm-and-gas.md`, `05-contract-languages.md`, and `06-deferred-services.md` are retained temporarily to preserve links. Their contents describe the current Rust architecture.
 

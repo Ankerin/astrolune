@@ -11,6 +11,10 @@ use types::{Block, BlockHeader, Hash256, Transaction};
 pub const MAX_EXCHANGE_BYTES: usize = 8 * 1024 * 1024;
 /// Fixed reference-network block-body bound.
 pub const MAX_BLOCK_BYTES: usize = 1024 * 1024;
+/// Frozen block codec transaction-count bound.
+pub const MAX_BLOCK_TRANSACTIONS: usize = 256;
+/// Header blob prefix, canonical fixed-width header and transaction count.
+pub const BLOCK_ENVELOPE_BYTES: usize = 208;
 /// Reference network transaction bound, including its signed envelope.
 pub const MAX_TRANSACTION_BYTES: usize = 64 * 1024;
 /// Maximum messages retained in a decoded exchange.
@@ -115,7 +119,7 @@ fn blob<'a>(reader: &mut Decoder<'a>, max: usize) -> Result<&'a [u8], DecodeErro
 
 /// Encodes a bounded block without trusting externally supplied execution outputs.
 pub fn encode_block(block: &Block) -> Result<Vec<u8>, DecodeError> {
-    if block.transactions.len() > 256 {
+    if block.transactions.len() > MAX_BLOCK_TRANSACTIONS {
         return Err(DecodeError::LimitExceeded);
     }
     let mut bytes = Vec::new();
@@ -145,7 +149,7 @@ fn decode_block(bytes: &[u8]) -> Result<Block, DecodeError> {
     let mut reader = Decoder::new(bytes);
     let header = BlockHeader::decode(blob(&mut reader, 256)?)?;
     let count = usize::try_from(reader.read_u32()?).map_err(|_| DecodeError::LimitExceeded)?;
-    if count > 256 || count > reader.remaining() / 4 {
+    if count > MAX_BLOCK_TRANSACTIONS || count > reader.remaining() / 4 {
         return Err(DecodeError::LimitExceeded);
     }
     let mut transactions = Vec::new();

@@ -1,0 +1,10 @@
+    Finished `release` profile [optimized] target(s) in 1.15s
+     Running tests\contracts.rs (target\release\deps\contracts-22108a987c7e50bc.exe)
+
+running 3 tests
+test native_state_events_replay_and_failure_rollback ... ok
+test native_disjoint_keys_share_code_and_enforce_access_at_use ... ok
+test native_dynamic_address_keys_are_isolated_and_bounds_are_atomic ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 11 filtered out; finished in 5.15s
+

@@ -8,6 +8,20 @@ All notable changes to AstroLune will be documented in this file. The format fol
 
 ### Added
 
+- Guarded native-payment prefix execution (VeyraFold), preserving complete strict
+  reference checks, canonical outputs/errors and atomic publication. Implement
+  opt-in final-writer Merkle subtree sealing (LuneSeal), with differential state
+  and execution tests; automatic sealing remains gated on measured benefit.
+- Bounded public batch RPC admission for validators/observers, parallel candidate
+  execution, a transaction-ID mempool index and exact static-production result reuse.
+  Add advancing signed-payment and durable certified-node loopback benchmarks,
+  raw evidence collection and Windows/Linux CI smoke/recovery qualification.
+- Select reference-network blocks by actual encoded bytes (up to the unchanged
+  256-transaction/1 MiB codec bounds) instead of the worst-case 15-transaction
+  estimate. Reserve system-envelope bytes on rotating/PoTB profiles; validate
+  matching receive budgets and real bulk-payment finalization/recovery. Clusters
+  must upgrade together before producing blocks above the old 15-transaction cap.
+
 - Native LLVM reproducibility qualification for both Trocto language profiles,
   with explicit x86-64 targets, source-path remapping and timestamp-free PE
   output. Real daemon tests cover signed native contracts over mutual TLS,

@@ -90,6 +90,46 @@ fn client(address: SocketAddr) -> TcpRpcClient {
 }
 
 #[test]
+fn batch_submission_preserves_results_and_rejects_ambiguous_responses() {
+    let reply = format!(
+        r#"[{{"id":"{}"}},{{"error":"invalid request"}}]"#,
+        "ab".repeat(32)
+    );
+    let (address, worker) = peer(response(&reply));
+    let results = client(address)
+        .submit_transactions(&[vec![1, 2], vec![3]])
+        .unwrap();
+    assert!(
+        results[0]
+            .as_ref()
+            .is_ok_and(|id| *id == Hash256([0xab; 32]))
+    );
+    assert!(matches!(results[1], Err(ClientError::Remote { .. })));
+    let request = worker.join().unwrap();
+    assert!(request.contains(r#""method":"submit_transactions""#));
+    assert!(request.contains(r#""data":["0102","03"]"#));
+    for reply in [
+        "[]",
+        "[{}]",
+        r#"[{"id":7}]"#,
+        r#"[{"id":"00","error":"bad"}]"#,
+    ] {
+        let (address, worker) = peer(response(reply));
+        assert!(client(address).submit_transactions(&[vec![1]]).is_err());
+        worker.join().unwrap();
+    }
+    let client = client("127.0.0.1:1".parse().unwrap());
+    assert!(matches!(
+        client.submit_transactions(&[]),
+        Err(ClientError::LimitExceeded)
+    ));
+    assert!(matches!(
+        client.submit_transactions(&vec![vec![0]; rpc::MAX_BATCH_TRANSACTIONS + 1]),
+        Err(ClientError::LimitExceeded)
+    ));
+}
+
+#[test]
 fn decodes_real_wire_types_and_sends_expected_methods() {
     let (address, peer) = peer(response(&format!(
         r#"{{"chain_id":42,"finalized_height":9,"finalized_block":"{}"}}"#,

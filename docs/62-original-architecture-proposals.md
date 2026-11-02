@@ -2,8 +2,11 @@
 
 # 62. VeyraFold and LuneSeal: Candidates for Original Architecture
 
-Date: October 15, 2026. Status: **planned / research hypothesis**.
-These are non-normative experiment designs, not implemented network properties.
+Date: October 15, 2026. Original status: **planned / research hypothesis**.
+Implementation update, November 2: VeyraFold is enabled for bounded existing-account
+payment batches; LuneSeal is an implemented explicit experiment, disabled by default.
+See [65](65-guarded-throughput.md) for actual algorithms, gates and measurements.
+The remaining text preserves the original non-normative experiment designs.
 For context, the baseline, and the development plan, see
 [document 61](61-network-architecture-research.md).
 

@@ -290,6 +290,7 @@ impl BlockProducer {
             &base,
             capacity,
             self.config.max_block_transactions - 1,
+            self.application_byte_budget(&transaction)?,
         )?;
         proposal.block.transactions.insert(0, transaction);
         proposal.outputs.insert(0, output);

@@ -12,6 +12,7 @@ authors.workspace = true
 repository.workspace = true
 
 [dependencies]
+crypto = { version = "0.1.0", path = "../crypto" }
 runtime = { version = "0.1.0", path = "../runtime" }
 genesis = { version = "0.1.0", path = "../genesis" }
 trocto-compiler = { version = "0.1.0", path = "../trocto-compiler" }

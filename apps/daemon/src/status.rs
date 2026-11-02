@@ -97,6 +97,7 @@ impl RpcService for ChainStatus {
             | RpcRequest::SubmitGovernance(_)
             | RpcRequest::Account(_)
             | RpcRequest::SubmitTransaction(_)
+            | RpcRequest::SubmitTransactions(_)
             | RpcRequest::StateProof(_)
             | RpcRequest::StateProofAt { .. } => Err(RpcError::Unavailable),
         }

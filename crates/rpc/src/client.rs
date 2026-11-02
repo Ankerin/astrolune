@@ -143,6 +143,55 @@ impl TcpRpcClient {
         self.call_bounded(method, params, MAX_RESPONSE_BYTES)
     }
 
+    /// Submits a bounded batch once and returns per-entry admission results in
+    /// input order. A transport error leaves acceptance ambiguous; no retry occurs.
+    pub fn submit_transactions(
+        &self,
+        batch: &[Vec<u8>],
+    ) -> Result<Vec<Result<Hash256, ClientError>>, ClientError> {
+        if batch.is_empty()
+            || batch.len() > crate::MAX_BATCH_TRANSACTIONS
+            || batch
+                .iter()
+                .any(|bytes| bytes.is_empty() || bytes.len() > MAX_TRANSACTION_BYTES)
+            || batch
+                .iter()
+                .try_fold(0usize, |sum, bytes| sum.checked_add(bytes.len()))
+                .is_none_or(|sum| sum > crate::MAX_BATCH_TRANSACTION_BYTES)
+        {
+            return Err(ClientError::LimitExceeded);
+        }
+        let data = batch
+            .iter()
+            .map(|bytes| JsonValue::String(crate::proof::hex(bytes)))
+            .collect();
+        let response = self.call_bounded(
+            "submit_transactions",
+            JsonValue::Object(vec![("data".into(), JsonValue::Array(data))]),
+            crate::MAX_BATCH_TRANSACTIONS * 128,
+        )?;
+        let results = response
+            .as_array()
+            .filter(|r| r.len() == batch.len())
+            .ok_or(ClientError::Protocol("invalid batch result count"))?;
+        results
+            .iter()
+            .map(|result| match (result.get("id"), result.get("error")) {
+                (Some(id), None) => hash_value(Some(id)).map(Ok),
+                (None, Some(error)) => error
+                    .as_str()
+                    .map(|message| {
+                        Err(ClientError::Remote {
+                            code: -32600,
+                            message: message.into(),
+                        })
+                    })
+                    .ok_or(ClientError::Protocol("invalid batch error")),
+                _ => Err(ClientError::Protocol("invalid batch result")),
+            })
+            .collect()
+    }
+
     /// Fetches one untrusted handoff, with bounded framing and an exact-height check.
     /// Decoding does not establish authority; use `HandoffVerifier::apply` to authenticate it.
     pub fn committee_handoff(

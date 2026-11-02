@@ -467,7 +467,8 @@ impl StaticNetwork {
             chain_id: self.chain_id(),
             block_capacity: self.genesis.capacity,
             max_transaction_bytes: MAX_TRANSACTION_BYTES,
-            max_block_transactions: 15,
+            max_block_transactions: crate::network_wire::MAX_BLOCK_TRANSACTIONS,
+            max_block_bytes: crate::network_wire::MAX_BLOCK_BYTES,
             ..ProducerConfig::default()
         }
     }
@@ -627,6 +628,19 @@ impl NetworkNode {
         let id = crate::hash_transaction(&tx);
         self.producer_mut().submit_transaction(tx)?;
         Ok(id)
+    }
+
+    /// Admits a bounded ordered batch using concurrent strict finalized-state checks.
+    pub fn submit_transactions(
+        &mut self,
+        transactions: Vec<Transaction>,
+    ) -> Result<Vec<Result<Hash256, NetworkNodeError>>, NetworkNodeError> {
+        Ok(self
+            .producer_mut()
+            .submit_transactions(transactions)?
+            .into_iter()
+            .map(|result| result.map_err(NetworkNodeError::from))
+            .collect())
     }
 
     /// Bounded response. Untrusted requests select a height, never committee or state authority.

@@ -3,7 +3,13 @@
 
 //! Persistent representation of the unchanged, sorted version-1 Merkle tree.
 
-use std::{collections::BTreeMap, sync::Arc};
+use std::{
+    collections::BTreeMap,
+    sync::{
+        Arc, OnceLock,
+        atomic::{AtomicUsize, Ordering},
+    },
+};
 
 use types::{Hash256, StateKey};
 
@@ -52,8 +58,35 @@ impl Node {
     }
 
     fn replace(node: &Arc<Self>, writes: &[(&StateKey, &Vec<u8>)]) -> Arc<Self> {
+        Self::replace_sealed(node, writes, None)
+    }
+
+    fn replace_sealed(
+        node: &Arc<Self>,
+        writes: &[(&StateKey, &Vec<u8>)],
+        seals: Option<&CommitSeals>,
+    ) -> Arc<Self> {
         if writes.is_empty() {
             return Arc::clone(node);
+        }
+        if let Some(seals) = seals
+            && let Some(partition) = seals.partitions.get(&node.last_key)
+            && Arc::ptr_eq(node, &partition.base)
+        {
+            // Match actual final values after every ordered bounds check.
+            if let Some(result) = partition.result.get()
+                && partition.values.len() == writes.len()
+                && partition
+                    .values
+                    .iter()
+                    .zip(writes)
+                    .all(|((key, slot), (actual_key, value))| {
+                        key == *actual_key && slot.get().is_some_and(|v| v == *value)
+                    })
+            {
+                seals.reused.fetch_add(1, Ordering::Relaxed);
+                return Arc::clone(result);
+            }
         }
         match &node.kind {
             Kind::Leaf(value) => {
@@ -65,8 +98,8 @@ impl Node {
             }
             Kind::Branch(left, right) => {
                 let split = writes.partition_point(|(key, _)| *key <= left.last_key.as_ref());
-                let next_left = Self::replace(left, &writes[..split]);
-                let next_right = Self::replace(right, &writes[split..]);
+                let next_left = Self::replace_sealed(left, &writes[..split], seals);
+                let next_right = Self::replace_sealed(right, &writes[split..], seals);
                 if Arc::ptr_eq(left, &next_left) && Arc::ptr_eq(right, &next_right) {
                     Arc::clone(node)
                 } else {
@@ -74,6 +107,89 @@ impl Node {
                 }
             }
         }
+    }
+}
+
+struct Partition {
+    base: Arc<Node>,
+    remaining: AtomicUsize,
+    values: Vec<(StateKey, OnceLock<Vec<u8>>)>,
+    result: OnceLock<Arc<Node>>,
+}
+
+/// Private execution-driven subtree seals bound to one parent, ordered batch and layout.
+/// This is a local hash cache, not a finality or execution proof.
+pub struct CommitSeals {
+    parent: Hash256,
+    transaction_root: Hash256,
+    partitions: BTreeMap<Arc<StateKey>, Partition>,
+    writers: BTreeMap<StateKey, (usize, Arc<StateKey>, usize)>,
+    reused: AtomicUsize,
+}
+
+impl CommitSeals {
+    /// Number of subtrees whose complete final-writer set has finished successfully.
+    #[must_use]
+    pub fn ready_partitions(&self) -> usize {
+        self.partitions
+            .values()
+            .filter(|partition| partition.result.get().is_some())
+            .count()
+    }
+
+    /// Number of subtree replacements reused after matching actual final writes.
+    #[must_use]
+    pub fn reused_partitions(&self) -> usize {
+        self.reused.load(Ordering::Relaxed)
+    }
+    pub(crate) const fn parent(&self) -> Hash256 {
+        self.parent
+    }
+    /// Ordered transaction commitment associated with this private plan.
+    #[must_use]
+    pub const fn transaction_root(&self) -> Hash256 {
+        self.transaction_root
+    }
+
+    /// Records a complete successful transaction diff. Only its planned final
+    /// writes contribute values; a partition is sealed after every final writer.
+    /// Unsupported effects invalidate the speculative attempt without publication.
+    pub fn record(&self, index: usize, diff: &StateDiff) -> Result<(), StateError> {
+        for change in &diff.changes {
+            let StateChange::Put(key, value) = change else {
+                return Err(StateError::LeaseViolation);
+            };
+            let (last_writer, partition_key, slot) =
+                self.writers.get(key).ok_or(StateError::LeaseViolation)?;
+            if index > *last_writer || value.len() > MAX_STATE_VALUE_BYTES {
+                return Err(StateError::LeaseViolation);
+            }
+            if index != *last_writer {
+                continue;
+            }
+            let partition = &self.partitions[partition_key];
+            partition.values[*slot]
+                .1
+                .set(value.clone())
+                .map_err(|_| StateError::LeaseViolation)?;
+            if partition.remaining.fetch_sub(1, Ordering::AcqRel) == 1 {
+                let writes = partition
+                    .values
+                    .iter()
+                    .map(|(key, value)| {
+                        value
+                            .get()
+                            .map(|value| (key, value))
+                            .ok_or(StateError::Corrupt)
+                    })
+                    .collect::<Result<Vec<_>, _>>()?;
+                partition
+                    .result
+                    .set(Node::replace(&partition.base, &writes))
+                    .map_err(|_| StateError::Corrupt)?;
+            }
+        }
+        Ok(())
     }
 }
 
@@ -134,6 +250,14 @@ impl Tree {
     /// None requests the reference topology-changing path. Bounds are checked in
     /// operation order, before collapsing repeated writes into final values.
     pub(crate) fn prepare(&self, diffs: &[StateDiff]) -> Result<Option<Self>, StateError> {
+        self.prepare_sealed(diffs, None)
+    }
+
+    pub(crate) fn prepare_sealed(
+        &self,
+        diffs: &[StateDiff],
+        seals: Option<&CommitSeals>,
+    ) -> Result<Option<Self>, StateError> {
         let mut bytes = snapshot::HEADER_BYTES + self.root.as_ref().map_or(0, |node| node.bytes);
         let mut writes = BTreeMap::<&StateKey, &Vec<u8>>::new();
         for change in diffs.iter().flat_map(|diff| &diff.changes) {
@@ -165,8 +289,76 @@ impl Tree {
         }
         let writes: Vec<_> = writes.into_iter().collect();
         Ok(Some(Self {
-            root: self.root.as_ref().map(|root| Node::replace(root, &writes)),
+            root: self
+                .root
+                .as_ref()
+                .map(|root| Node::replace_sealed(root, &writes, seals)),
         }))
+    }
+
+    pub(crate) fn plan_seals(
+        &self,
+        transaction_root: Hash256,
+        writes: &[Vec<StateKey>],
+    ) -> Option<CommitSeals> {
+        fn partition(node: &Arc<Node>, keys: &[(StateKey, usize)], seals: &mut CommitSeals) {
+            if keys.is_empty() {
+                return;
+            }
+            if node.count <= 64 {
+                let partition_key = Arc::clone(&node.last_key);
+                for (slot, (key, writer)) in keys.iter().enumerate() {
+                    seals
+                        .writers
+                        .insert(key.clone(), (*writer, Arc::clone(&partition_key), slot));
+                }
+                seals.partitions.insert(
+                    partition_key,
+                    Partition {
+                        base: Arc::clone(node),
+                        remaining: AtomicUsize::new(keys.len()),
+                        values: keys
+                            .iter()
+                            .map(|(key, _)| (key.clone(), OnceLock::new()))
+                            .collect(),
+                        result: OnceLock::new(),
+                    },
+                );
+            } else if let Kind::Branch(left, right) = &node.kind {
+                let split = keys.partition_point(|(key, _)| key <= left.last_key.as_ref());
+                partition(left, &keys[..split], seals);
+                partition(right, &keys[split..], seals);
+            }
+        }
+        if writes.len() > 8192 {
+            return None;
+        }
+        let mut last = BTreeMap::new();
+        for (index, keys) in writes.iter().enumerate() {
+            if keys.len() > 2 {
+                return None;
+            }
+            for key in keys {
+                self.get(key)?;
+                last.insert(key.clone(), index);
+            }
+        }
+        if last.len() < 512 {
+            return None;
+        }
+        let mut seals = CommitSeals {
+            parent: self.hash(),
+            transaction_root,
+            partitions: BTreeMap::new(),
+            writers: BTreeMap::new(),
+            reused: AtomicUsize::new(0),
+        };
+        partition(
+            self.root.as_ref()?,
+            &last.into_iter().collect::<Vec<_>>(),
+            &mut seals,
+        );
+        Some(seals)
     }
 
     pub(crate) fn entries(&self) -> Entries<'_> {

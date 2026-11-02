@@ -19,6 +19,7 @@ pub mod memory;
 pub mod persistent;
 pub mod snapshot;
 mod tree;
+pub use tree::CommitSeals;
 mod value_proof;
 pub use value_proof::StateValueProof;
 

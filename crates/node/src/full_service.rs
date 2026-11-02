@@ -390,6 +390,7 @@ mod tests {
             chain_id: 7,
             max_block_transactions: 10,
             max_transaction_bytes: 1024,
+            max_block_bytes: usize::MAX,
             pool_limits: PoolLimits {
                 max_transactions: 100,
                 max_bytes: 1024 * 1024,

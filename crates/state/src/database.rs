@@ -6,10 +6,19 @@
 use types::{Hash256, StateKey};
 
 use crate::diff::StateDiff;
-use crate::{StateAbsenceProof, StateProof};
+use crate::{CommitSeals, StateAbsenceProof, StateProof};
 
 /// An immutable state view at a finalized or speculative root.
 pub trait StateSnapshot: Send + Sync {
+    /// Optionally plans local early hashing for fixed existing keys. Unsupported
+    /// backends use ordinary commit; a plan grants no authority to publish state.
+    fn plan_seals(
+        &self,
+        _transaction_root: Hash256,
+        _writes: &[Vec<StateKey>],
+    ) -> Option<CommitSeals> {
+        None
+    }
     /// Root identifying this snapshot.
     fn root(&self) -> Hash256;
 
@@ -26,6 +35,16 @@ pub trait StateSnapshot: Send + Sync {
 
 /// State database boundary for batching, snapshots, and sequential commits.
 pub trait StateDatabase {
+    /// Commits with optional private subtree reuse. The default retains the
+    /// backend's complete ordinary publication and durability semantics.
+    fn commit_sealed(
+        &mut self,
+        parent: Hash256,
+        diffs: &[StateDiff],
+        _seals: Option<&CommitSeals>,
+    ) -> Result<Hash256, StateError> {
+        self.commit(parent, diffs)
+    }
     /// Creates an immutable snapshot without a global execution lock.
     fn snapshot(&self) -> Result<Box<dyn StateSnapshot>, StateError>;
 

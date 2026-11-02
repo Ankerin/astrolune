@@ -49,6 +49,8 @@ pub struct ProducerConfig {
     pub max_block_transactions: usize,
     /// Maximum size in bytes for a single transaction.
     pub max_transaction_bytes: usize,
+    /// Complete canonical network block-body budget, including envelope framing.
+    pub max_block_bytes: usize,
     /// Maximum pool capacity.
     pub pool_limits: PoolLimits,
     /// Adaptive block capacity.
@@ -61,6 +63,7 @@ impl Default for ProducerConfig {
             chain_id: 7,
             max_block_transactions: MAX_BLOCK_TRANSACTIONS,
             max_transaction_bytes: MAX_TRANSACTION_BYTES,
+            max_block_bytes: usize::MAX,
             pool_limits: PoolLimits {
                 max_transactions: 10_000,
                 max_bytes: 10 * 1024 * 1024,
@@ -337,13 +340,16 @@ impl BlockProducer {
             self.validator.validate(tx, context)?
         };
 
-        let id = validated.id;
-        let sender = validated.transaction.sender;
-        let encoded_len = transaction::estimate_encoded_len(&validated.transaction);
+        self.admit_validated(validated.transaction, validated.id)
+    }
+
+    fn admit_validated(&mut self, tx: Transaction, id: Hash256) -> Result<Hash256, ProducerError> {
+        let sender = tx.sender;
+        let encoded_len = transaction::estimate_encoded_len(&tx);
 
         let entry = PoolEntry {
             id,
-            transaction: validated.transaction,
+            transaction: tx,
             priority: 0,
             sequence: self.admission_sequence,
         };
@@ -357,6 +363,77 @@ impl BlockProducer {
         }
         self.admission_sequence = next_sequence;
         Ok(id)
+    }
+
+    /// Validates a bounded batch against one finalized admission view concurrently,
+    /// then inserts in input order. Each result matches an individual submission;
+    /// duplicate/nonce/pool errors do not prevent later entries from being checked.
+    /// This does not admit future nonces or spend pending incoming transfers.
+    pub fn submit_transactions(
+        &mut self,
+        transactions: Vec<Transaction>,
+    ) -> Result<Vec<Result<Hash256, ProducerError>>, ProducerError> {
+        self.ensure_rotation_profile()?;
+        if transactions.len() > self.config.pool_limits.max_transactions.min(8192)
+            || transactions
+                .iter()
+                .try_fold(0usize, |bytes, tx| {
+                    bytes.checked_add(transaction::estimate_encoded_len(tx))
+                })
+                .is_none_or(|bytes| bytes > self.config.pool_limits.max_bytes)
+        {
+            return Err(MempoolError::CapacityExceeded.into());
+        }
+        let workers = std::thread::available_parallelism().map_or(1, |n| n.get().min(8));
+        if !self.account_execution || transactions.len() < 32 || workers == 1 {
+            return Ok(transactions
+                .into_iter()
+                .map(|tx| self.submit_transaction(tx))
+                .collect());
+        }
+        let snapshot = self.state.snapshot().map_err(ExecutionError::from)?;
+        let context = self.validation_context();
+        let capacity = self.admission_capacity()?;
+        let contracts = self.contracts_enabled();
+        let prices = self.current_prices();
+        let verify = |batch: &[Transaction]| {
+            batch
+                .iter()
+                .map(|tx| {
+                    SignedSession::new(snapshot.as_ref(), context, capacity, contracts)
+                        .with_prices(prices)
+                        .execute(tx)
+                        .map(|output| output.receipt.transaction)
+                })
+                .collect::<Vec<_>>()
+        };
+        let validation = std::thread::scope(|scope| {
+            let mut handles = Vec::new();
+            for batch in transactions.chunks(transactions.len().div_ceil(workers)) {
+                match std::thread::Builder::new().spawn_scoped(scope, || verify(batch)) {
+                    Ok(handle) => handles.push(handle),
+                    // No pool mutation has occurred; validate the whole batch locally.
+                    Err(_) => return verify(&transactions),
+                }
+            }
+            let mut results = Vec::with_capacity(transactions.len());
+            for handle in handles {
+                match handle.join() {
+                    Ok(batch) => results.extend(batch),
+                    Err(_) => return verify(&transactions),
+                }
+            }
+            results
+        });
+        Ok(transactions
+            .into_iter()
+            .zip(validation)
+            .map(|(tx, result)| {
+                result
+                    .map_err(ProducerError::from)
+                    .and_then(|id| self.admit_validated(tx, id))
+            })
+            .collect())
     }
 
     /// Assembles and executes a block from pending mempool transactions.
@@ -379,16 +456,26 @@ impl BlockProducer {
                 &self.state,
                 self.config.block_capacity,
                 self.config.max_block_transactions,
+                self.config.max_block_bytes,
             )
         }
     }
 
+    // Keep fast-attempt rollback, ordered selection and staging together so every
+    // path observes the same parent, resource budget and byte budget.
+    #[allow(clippy::too_many_lines)]
     fn produce_application_block(
         &self,
         base: &InMemoryState,
         capacity: Resources,
         maximum_transactions: usize,
+        maximum_bytes: usize,
     ) -> Result<BlockProposal, ProducerError> {
+        if maximum_bytes < crate::network_wire::BLOCK_ENVELOPE_BYTES {
+            return Err(ProducerError::Assembly(
+                "block byte budget cannot fit a header".into(),
+            ));
+        }
         // Select transactions from the mempool based on priority and capacity
         let selected = if self.account_execution {
             self.mempool.candidates()
@@ -404,7 +491,32 @@ impl BlockProducer {
         let parent_root = base.root();
         // Proposal execution must not publish state before storage accepts finalization.
         let mut staged = base.clone();
-        let (outputs, state_root) = if self.account_execution {
+        let prefix = &transactions[..transactions.len().min(maximum_transactions)];
+        let fast = if self.account_execution
+            && prefix.len() >= 64
+            && block_bytes(prefix).is_some_and(|bytes| bytes <= maximum_bytes)
+        {
+            match self.execute_application_transactions(&mut staged, prefix, capacity) {
+                Ok(result) => {
+                    transactions.truncate(maximum_transactions);
+                    Some(result)
+                }
+                Err(ExecutionError::State(error)) => {
+                    return Err(ExecutionError::State(error).into());
+                }
+                Err(ExecutionError::NativeUnavailable) => {
+                    return Err(ExecutionError::NativeUnavailable.into());
+                }
+                // Selection skips invalid candidates, unlike received-block execution.
+                // Rebuild the exact old selector from the unchanged parent on failure.
+                Err(_) => None,
+            }
+        } else {
+            None
+        };
+        let (outputs, state_root) = if let Some(result) = fast {
+            result
+        } else if self.account_execution {
             let snapshot = base.snapshot().map_err(ExecutionError::from)?;
             let mut session = SignedSession::new(
                 snapshot.as_ref(),
@@ -415,12 +527,21 @@ impl BlockProducer {
             .with_prices(self.current_prices());
             let mut accepted = Vec::new();
             let mut outputs = Vec::new();
+            let mut bytes = crate::network_wire::BLOCK_ENVELOPE_BYTES;
             for tx in transactions {
                 if accepted.len() == maximum_transactions {
                     break;
                 }
+                let Some(next_bytes) = bytes
+                    .checked_add(4)
+                    .and_then(|bytes| bytes.checked_add(transaction::estimate_encoded_len(&tx)))
+                    .filter(|bytes| *bytes <= maximum_bytes)
+                else {
+                    continue;
+                };
                 match session.execute(&tx) {
                     Ok(output) => {
+                        bytes = next_bytes;
                         accepted.push(tx);
                         outputs.push(output);
                     }
@@ -442,6 +563,19 @@ impl BlockProducer {
                 .map_err(ExecutionError::from)?;
             (outputs, root)
         } else {
+            let mut bytes = crate::network_wire::BLOCK_ENVELOPE_BYTES;
+            transactions.retain(|tx| {
+                if let Some(next) = bytes
+                    .checked_add(4)
+                    .and_then(|bytes| bytes.checked_add(transaction::estimate_encoded_len(tx)))
+                    .filter(|n| *n <= maximum_bytes)
+                {
+                    bytes = next;
+                    true
+                } else {
+                    false
+                }
+            });
             self.execute_application_transactions(&mut staged, &transactions, capacity)?
         };
         let transactions_root = compute_transactions_root(&transactions);
@@ -476,7 +610,30 @@ impl BlockProducer {
             resources_used,
         };
 
+        // This branch is a complete local application execution against the
+        // captured parent. Reuse it only on static committees; rotating/system
+        // production combines more effects after this application stage.
+        self.remember_static_production(&proposal, &staged);
+
         Ok(proposal)
+    }
+
+    fn application_byte_budget(&self, system: &Transaction) -> Result<usize, ProducerError> {
+        self.config
+            .max_block_bytes
+            .checked_sub(transaction::estimate_encoded_len(system))
+            .and_then(|bytes| bytes.checked_sub(4))
+            .filter(|bytes| *bytes >= crate::network_wire::BLOCK_ENVELOPE_BYTES)
+            .ok_or_else(|| {
+                ProducerError::Assembly("system envelope exceeds block byte budget".into())
+            })
+    }
+
+    fn remember_static_production(&self, proposal: &BlockProposal, staged: &InMemoryState) {
+        if self.account_execution && self.rotation.is_none() && self.potb.is_none() {
+            let diffs = proposal.outputs.iter().map(|o| o.diff.clone()).collect();
+            self.remember_execution(proposal, staged, diffs);
+        }
     }
 
     /// Prepares a proposal bound to independently trusted committee membership.
@@ -492,7 +649,12 @@ impl BlockProducer {
             return Ok(proposal);
         }
         let mut proposal = self.produce_block()?;
+        let execution = self.verified_for_proposal(&proposal);
         proposal.block.header.committee_root = committee.root();
+        if let Some(execution) = execution {
+            self.remember_execution(&proposal, &execution.staged, execution.diffs.clone());
+            self.mark_production_execution()?;
+        }
         Ok(proposal)
     }
 
@@ -660,6 +822,8 @@ impl BlockProducer {
             || header.parent != self.parent_hash
             || header.capacity != self.config.block_capacity
             || block.transactions.len() > self.config.max_block_transactions
+            || block_bytes(&block.transactions)
+                .is_none_or(|bytes| bytes > self.config.max_block_bytes)
             || block.transactions.iter().any(|tx| {
                 tx.chain_id != self.config.chain_id
                     || transaction::estimate_encoded_len(tx) > self.config.max_transaction_bytes
@@ -724,6 +888,8 @@ impl BlockProducer {
         let header = &proposal.block.header;
         self.check_rotation_committee(header.committee_root)?;
         if proposal.block.transactions.len() > self.config.max_block_transactions
+            || block_bytes(&proposal.block.transactions)
+                .is_none_or(|bytes| bytes > self.config.max_block_bytes)
             || proposal.block.transactions.iter().any(|tx| {
                 tx.chain_id != self.config.chain_id
                     || transaction::estimate_encoded_len(tx) > self.config.max_transaction_bytes
@@ -846,6 +1012,16 @@ impl BlockProducer {
     fn select_priority(entry: &PoolEntry) -> (std::cmp::Reverse<u64>, u64, Hash256) {
         (std::cmp::Reverse(entry.priority), entry.sequence, entry.id)
     }
+}
+
+fn block_bytes(transactions: &[Transaction]) -> Option<usize> {
+    transactions
+        .iter()
+        .try_fold(crate::network_wire::BLOCK_ENVELOPE_BYTES, |bytes, tx| {
+            bytes
+                .checked_add(4)?
+                .checked_add(transaction::estimate_encoded_len(tx))
+        })
 }
 
 fn checked_resources(receipts: &[types::ExecutionReceipt]) -> Result<Resources, ProducerError> {
@@ -1073,6 +1249,7 @@ mod tests {
             chain_id: 7,
             max_block_transactions: 10,
             max_transaction_bytes: 1024,
+            max_block_bytes: usize::MAX,
             pool_limits: PoolLimits {
                 max_transactions: 100,
                 max_bytes: 1024 * 1024,
