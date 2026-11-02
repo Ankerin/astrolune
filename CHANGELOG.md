@@ -8,6 +8,11 @@ All notable changes to AstroLune will be documented in this file. The format fol
 
 ### Added
 
+- Native LLVM reproducibility qualification for both Trocto language profiles,
+  with explicit x86-64 targets, source-path remapping and timestamp-free PE
+  output. Real daemon tests cover signed native contracts over mutual TLS,
+  authenticated receipts/state, atomic rollback and validator/observer restart.
+
 - Install the automated history retention policy from the daemon. `--retain-blocks`
   enables in-place retention and `--retention-interval`/`--retention-bytes` shape
   it; every bound is checked before a directory is opened, the two shaping flags
@@ -30,6 +35,13 @@ All notable changes to AstroLune will be documented in this file. The format fol
   the whole test and probed once before use.
 
 ### Fixed
+
+- Publish compiler completion without an existing placeholder. Windows could
+  refuse replacing a marker held by a polling reader with `ACCESS_DENIED`,
+  turning successful clang invocations into intermittent native CI failures.
+  Both platforms now publish complete status markers atomically; refusals retain
+  exit status and bounded stdout/stderr. Checkpoint-pin daemon tests prepare
+  certified history with virtual round time to avoid unrelated TLS timeouts.
 
 - Stop releasing a chosen peer port before the daemon that must bind it has
   started. Twelve sites in the daemon network tests bound port zero only to learn

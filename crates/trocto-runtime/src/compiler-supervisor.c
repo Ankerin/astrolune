@@ -4,6 +4,7 @@
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 #include <stdint.h>
+#include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -107,10 +108,11 @@ int wmain(int argc,wchar_t **argv) {
     memcpy(pending,argv[2],length*sizeof(wchar_t));
     memcpy(pending+length,L".pending",9*sizeof(wchar_t));
     FILE *completion=NULL;
-    if(_wfopen_s(&completion,pending,L"wb")!=0)return 125;
+    if(_wfopen_s(&completion,pending,L"wb")!=0){fprintf(stderr,"Trocto compiler completion open failed (errno %d)\n",errno);return 125;}
     int written=fprintf(completion,"%lu",status);
-    if(fclose(completion)!=0||written<1)return 125;
-    /* Readers never open a CRT-deny-shared writer or observe a partial status. */
-    if(!MoveFileExW(pending,argv[2],MOVEFILE_REPLACE_EXISTING|MOVEFILE_WRITE_THROUGH))return 125;
+    if(fclose(completion)!=0||written<1){fprintf(stderr,"Trocto compiler completion write failed (errno %d)\n",errno);return 125;}
+    /* The destination must not exist until publication. Replacing an empty
+       marker can fail with ACCESS_DENIED while a polling reader has it open. */
+    if(!MoveFileExW(pending,argv[2],MOVEFILE_WRITE_THROUGH)){fprintf(stderr,"Trocto compiler completion publish failed (Win32 %lu)\n",GetLastError());return 125;}
     return (int)status;
 }

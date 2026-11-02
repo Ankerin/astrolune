@@ -34,7 +34,8 @@ else
     compiler_status=125
     printf '%s\\n' 'Trocto compiler resource limits could not be established' >&2
 fi
-printf '%s' \"$compiler_status\" > \"$status_file\"
+printf '%s' \"$compiler_status\" > \"$status_file.pending\" &&
+    /bin/mv -- \"$status_file.pending\" \"$status_file\"
 IFS= read -r release";
 
 pub(crate) fn deadline(timeout: Duration) -> Result<Instant, NativeError> {
@@ -182,8 +183,17 @@ fn windows_path(path: &Path) -> PathBuf {
 #[derive(Debug)]
 pub(crate) struct Captured {
     pub(crate) success: bool,
+    pub(crate) status: String,
     pub(crate) stdout: String,
     pub(crate) stderr: String,
+}
+
+fn completion_status(path: &Path) -> Result<String, NativeError> {
+    match std::fs::read_to_string(path) {
+        Ok(value) => Ok(value),
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(String::new()),
+        Err(error) => Err(error.into()),
+    }
 }
 
 fn capture(mut stream: impl Read, maximum: usize) -> Result<Vec<u8>, NativeError> {
@@ -295,24 +305,34 @@ pub(crate) fn bounded_command(
         }
         if status.is_none() {
             if let Some(marker) = &supervised.status {
-                let value = std::fs::read_to_string(marker)?;
+                let value = completion_status(marker)?;
                 if let Ok(code) = value.parse::<u32>() {
                     terminate_tree(&mut child.0);
-                    status = Some(code == 0);
+                    status = Some((code == 0, format!("exit code {code} (0x{code:08x})")));
                 }
                 #[cfg(windows)]
-                if status.is_none() && child.0.try_wait()?.is_some() {
+                if status.is_none()
+                    && let Some(exit) = child.0.try_wait()?
+                {
                     // A bootstrap failure must not masquerade as a timeout.
                     // Re-read after exit to avoid racing the atomic publication.
-                    status = Some(std::fs::read_to_string(marker)?.parse::<u32>() == Ok(0));
+                    let completion = completion_status(marker)?;
+                    status = Some((
+                        completion.parse::<u32>() == Ok(0),
+                        format!("supervisor {exit}; completion {completion:?}"),
+                    ));
                 }
             } else {
-                status = child.0.try_wait()?.map(|status| status.success());
+                status = child
+                    .0
+                    .try_wait()?
+                    .map(|status| (status.success(), status.to_string()));
             }
         }
-        if let (Some(status), [Some(stdout), Some(stderr)]) = (status, &captured) {
+        if let (Some(status), [Some(stdout), Some(stderr)]) = (&status, &captured) {
             break Ok(Captured {
-                success: status,
+                success: status.0,
+                status: status.1.clone(),
                 stdout: String::from_utf8_lossy(stdout).into_owned(),
                 stderr: String::from_utf8_lossy(stderr).into_owned(),
             });
@@ -345,7 +365,6 @@ fn supervise(original: &Command) -> Result<Supervised, NativeError> {
     #[cfg(unix)]
     let (mut command, status) = {
         let status = directory.path.join("status");
-        std::fs::write(&status, [])?;
         let mut command = Command::new("/bin/sh");
         command
             .args(["-c", COMPILER_SUPERVISOR, "trocto-compiler-supervisor"])
@@ -364,7 +383,6 @@ fn supervise(original: &Command) -> Result<Supervised, NativeError> {
             include_bytes!(concat!(env!("OUT_DIR"), "/compiler-supervisor.exe")),
         )?;
         let status = directory.path.join("status");
-        std::fs::write(&status, [])?;
         let request = directory.path.join("arguments.bin");
         let mut bytes = Vec::new();
         for argument in std::iter::once(original.get_program()).chain(original.get_args()) {
@@ -449,6 +467,11 @@ mod tests {
         };
         match mode.as_str() {
             "complete" => {}
+            "reject" => {
+                println!("compiler stdout diagnostic");
+                eprintln!("compiler stderr diagnostic");
+                std::process::exit(7);
+            }
             "sleep" => std::thread::sleep(Duration::from_secs(30)),
             "flood" => {
                 use std::io::Write;
@@ -487,6 +510,19 @@ mod tests {
         }
     }
     #[test]
+    fn compiler_rejection_preserves_exit_status_and_both_diagnostics() {
+        let directory = BuildDirectory::new().unwrap();
+        let result = bounded_command(
+            fixture_command(&directory.path, "reject"),
+            Duration::from_secs(5),
+        )
+        .unwrap();
+        assert!(!result.success);
+        assert!(result.status.contains('7'), "{result:?}");
+        assert!(result.stdout.contains("compiler stdout diagnostic"));
+        assert!(result.stderr.contains("compiler stderr diagnostic"));
+    }
+    #[test]
     fn compiler_descendant_inherited_pipes_end_when_direct_compiler_exits() {
         let directory = BuildDirectory::new().unwrap();
         let command = fixture_command(&directory.path, "descendant");
@@ -509,6 +545,33 @@ mod tests {
                             Duration::from_secs(5),
                         )
                         .unwrap();
+                        assert!(result.success, "{result:?}");
+                    }
+                }));
+            }
+            for child in children {
+                child.join().unwrap();
+            }
+        });
+    }
+
+    #[test]
+    #[ignore = "requires pinned native clang 22.1.8"]
+    fn parallel_llvm_identity_queries_publish_success() {
+        let clang = std::env::var_os("ASTROLUNE_LLVM_CLANG")
+            .map_or_else(|| PathBuf::from("clang"), PathBuf::from);
+        let clang = resolve_compiler(&clang).unwrap();
+        std::thread::scope(|scope| {
+            let mut children = Vec::new();
+            for _ in 0..4 {
+                let clang = &clang;
+                children.push(scope.spawn(move || {
+                    for _ in 0..16 {
+                        let directory = BuildDirectory::new().unwrap();
+                        let mut command = Command::new(clang);
+                        configure(&mut command, &directory.path, clang).unwrap();
+                        command.args(["--no-default-config", "--version"]);
+                        let result = bounded_command(command, Duration::from_secs(5)).unwrap();
                         assert!(result.success, "{result:?}");
                     }
                 }));

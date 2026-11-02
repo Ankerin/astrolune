@@ -113,8 +113,13 @@ lld. Native Windows builds use MSVC to build and embed the fixed compiler
 supervisor; the ordinary Rust build does not require native LLVM. The supervisor
 assigns the compiler's job and exact inherited standard handles before resuming
 its first thread. Completion is published through an atomic status-file rename
-after closing the owned job. This removes PowerShell and dynamic `Add-Type`
-compilation from runtime startup. Linux establishes seccomp with pipe-only reads/writes, restricted syscalls
+after closing the owned job. The final status path does not exist before
+publication: replacing a placeholder while a polling reader held it open could
+fail with Windows `ACCESS_DENIED` despite successful compilation. Linux also
+publishes a complete marker by rename. Compiler refusals include exit status and
+bounded output, including failures to publish completion. This removes PowerShell
+and dynamic `Add-Type` compilation from runtime startup. Linux establishes seccomp
+with pipe-only reads/writes, restricted syscalls
 and process/CPU/stack/address-space limits. Windows launches workers in a
 capability-free AppContainer and a job with process/memory quotas. Startup checks
 the isolation identity and performs file, network, process and memory enforcement
@@ -137,6 +142,14 @@ limit each process to 512 MiB, the job to 1 GiB and the tree to eight processes.
 The compilation deadline covers the complete operation on both platforms.
 Linux limits do not provide an aggregate compiler-tree memory or process-count
 quota; production deployments can add host cgroup limits.
+
+Compilation explicitly selects the supported x86-64 target, disables debug
+information, remaps owned source paths and omits the Windows PE timestamp. Native
+qualification builds both language profiles in independent directories across a
+timestamp tick, compares complete executable bytes and executes both artifacts
+against reference semantics. This establishes reproducibility with the same
+local toolchain and host; native bytes are neither expected to match between
+Linux and Windows nor included in consensus commitments.
 
 Every native value, fuel count, state slot, write flag and event is compared with
 the reference evaluator. Reference verification supports cooperative local
@@ -213,6 +226,22 @@ fuel/error ordering, isolation startup, state rollback, concurrent worker reuse,
 and receipt/archive equality after restart. Certified validator tests verify a
 native call's finality certificate and receipt, then replay its state through
 observer catch-up and restart. CI is configured to install the pinned toolchain
-and require native qualification on Linux and Windows. Local executor measurements
+and require native qualification on Linux and Windows in both dev and release
+profiles. A separate real-process
+test submits signed native deployments and calls through RPC, exchanges finality
+over mutual TLS, authenticates state and receipts, checks rollback of staged
+writes/events and sender fees/nonce after overflow, and restarts both a validator
+and an observer. The checkpoint-pin recovery test constructs genuinely certified
+history using virtual round time before exercising the daemon, so host contention
+cannot turn history preparation into an unrelated network timeout. Local executor
+measurements
 cannot establish a worldwide ranking; network qualification must measure
 verified finality, durable publication, queue growth and latency under load.
+
+The [2026-11-02 local qualification record](assets/trocto-qualification-2026-11-02/native.json)
+lists all six native suites for each supported OS/build profile: 18 passing tests
+on Windows and 19 on Linux, in both dev and release (74 total). The Linux-only
+test additionally checks a large module under inherited compiler quotas. Linux
+ran under WSL2 on the same physical host as Windows; these results establish
+local conformance and reproducibility, not independent-machine or security-audit
+qualification.

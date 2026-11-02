@@ -151,8 +151,8 @@ impl NativeProgram {
                 != Some(LLVM_VERSION)
         {
             return Err(NativeError::CompilerIdentity(format!(
-                "{compiler_identity} {}",
-                identity.stderr
+                "{}; {compiler_identity} {}",
+                identity.status, identity.stderr
             )));
         }
         let module = directory.path.join("module.ll");
@@ -171,6 +171,7 @@ impl NativeProgram {
                 "--no-default-config",
                 "-O2",
                 "-static",
+                "-g0",
                 "-fuse-ld=lld",
                 "-Wno-override-module",
                 "-x",
@@ -181,20 +182,31 @@ impl NativeProgram {
             .arg(&harness)
             .arg(format!("-DTROCTO_KEYS={}", program.state_keys().len()))
             .arg(format!("-DTROCTO_LANGUAGE={}", program.language_version()))
+            .arg(format!(
+                "-ffile-prefix-map={}=/trocto",
+                directory.path.display()
+            ))
             .arg("-o")
             .arg(&executable);
         if cfg!(windows) {
             compiler.args([
+                "--target=x86_64-w64-windows-gnu",
+                "-Wl,--no-insert-timestamp",
                 "-rtlib=compiler-rt",
                 "-unwindlib=libunwind",
                 "-ladvapi32",
                 "-luserenv",
                 "-lws2_32",
             ]);
+        } else {
+            compiler.arg("--target=x86_64-unknown-linux-gnu");
         }
         let build = bounded_command(compiler, compilation_remaining(end)?)?;
         if !build.success {
-            return Err(NativeError::Compilation(build.stderr));
+            return Err(NativeError::Compilation(format!(
+                "{}; {}{}",
+                build.status, build.stdout, build.stderr
+            )));
         }
         let mut native = Self {
             program: std::sync::Arc::new(program),
@@ -626,6 +638,56 @@ impl Drop for Worker {
 mod tests {
     use super::*;
     use std::io::Cursor;
+
+    #[test]
+    #[ignore = "requires pinned native clang 22.1.8"]
+    fn native_builds_are_reproducible_across_owned_directories() {
+        let clang = std::env::var_os("ASTROLUNE_LLVM_CLANG").map_or_else(
+            || std::path::PathBuf::from("clang"),
+            std::path::PathBuf::from,
+        );
+        for source in [
+            "fn call(input: u64) -> u64 { return input + 7; }",
+            "fn call(input: u64) -> u64 { let next = state_get(\"counter\") + input; state_set(\"counter\", next); emit(height(), next); return next; }",
+        ] {
+            let program = trocto_compiler::compile(source).unwrap();
+            let mut first =
+                NativeProgram::compile(program.clone(), &clang, Duration::from_secs(30)).unwrap();
+            // Cross a timestamp tick so PE headers cannot accidentally compare equal.
+            std::thread::sleep(Duration::from_millis(1100));
+            let mut second =
+                NativeProgram::compile(program.clone(), &clang, Duration::from_secs(30)).unwrap();
+            assert_ne!(first.directory.path, second.directory.path);
+            let executable = if cfg!(windows) {
+                "worker.exe"
+            } else {
+                "worker"
+            };
+            let first_bytes = std::fs::read(first.directory.path.join(executable)).unwrap();
+            let second_bytes = std::fs::read(second.directory.path.join(executable)).unwrap();
+            assert!(
+                first_bytes == second_bytes,
+                "native bytes differ across directories for language {}",
+                program.language_version()
+            );
+            let context = ContractContext {
+                height: 5,
+                keys: program.state_keys().to_vec(),
+                state: vec![Some(9); program.state_keys().len()],
+                access: vec![true; program.state_keys().len()],
+                ..ContractContext::default()
+            };
+            let expected = program.evaluate_contract(3, &context, 100).unwrap();
+            for native in [&mut first, &mut second] {
+                assert_eq!(
+                    native
+                        .execute_contract(3, &context, 100, Duration::from_secs(5))
+                        .unwrap(),
+                    expected
+                );
+            }
+        }
+    }
 
     #[test]
     fn framing_preserves_address_words_and_rejects_noncanonical_effects() {

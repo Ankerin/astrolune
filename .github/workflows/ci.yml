@@ -97,11 +97,12 @@ jobs:
           retention-days: 90
 
   native-conformance:
-    name: Native Trocto conformance (${{ matrix.os }})
+    name: Native Trocto conformance (${{ matrix.os }}, ${{ matrix.profile }})
     strategy:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, windows-latest]
+        profile: [dev, release]
     runs-on: ${{ matrix.os }}
     timeout-minutes: 30
     steps:
@@ -110,7 +111,7 @@ jobs:
         run: rustup toolchain install
       - uses: Swatinem/rust-cache@v2.9.3
         with:
-          key: trocto-native
+          key: trocto-native-${{ matrix.profile }}
       - name: Install pinned LLVM on Ubuntu
         if: runner.os == 'Linux'
         run: |
@@ -121,15 +122,17 @@ jobs:
         shell: pwsh
         run: ./.github/scripts/install-llvm-windows.ps1
       - name: Native compiler, isolation, state and control flow
-        run: cargo test --locked -p trocto-runtime --test native -- --ignored
+        run: cargo test --locked -p trocto-runtime --profile ${{ matrix.profile }} --test native -- --ignored
       - name: Native worker replacement and bounded cache
-        run: cargo test --locked -p trocto-runtime --lib -- --ignored
+        run: cargo test --locked -p trocto-runtime --profile ${{ matrix.profile }} --lib -- --ignored
       - name: Signed native contracts and atomic rollback
-        run: cargo test --locked -p execution --test contracts -- --ignored
+        run: cargo test --locked -p execution --profile ${{ matrix.profile }} --test contracts -- --ignored
       - name: Native state and receipts after node restart
-        run: cargo test --locked -p node --test trocto -- --ignored
+        run: cargo test --locked -p node --profile ${{ matrix.profile }} --test trocto -- --ignored
+      - name: Native contracts over TLS and daemon recovery
+        run: cargo test --locked -p daemon --profile ${{ matrix.profile }} --test network -- --ignored
       - name: Native source package build and stateful CLI
-        run: cargo test --locked -p cargo-contract --test trocto -- --ignored
+        run: cargo test --locked -p cargo-contract --profile ${{ matrix.profile }} --test trocto -- --ignored
 
   suites:
     name: Four-leg suite qualification

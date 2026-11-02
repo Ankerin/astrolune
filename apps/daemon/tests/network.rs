@@ -42,6 +42,15 @@ impl Fixture {
         Self::with_governance(version, committee_size, potb, false)
     }
     fn with_governance(version: u16, committee_size: usize, potb: bool, governed: bool) -> Self {
+        Self::with_runtime(version, committee_size, potb, governed, 1)
+    }
+    fn with_runtime(
+        version: u16,
+        committee_size: usize,
+        potb: bool,
+        governed: bool,
+        runtime_version: u32,
+    ) -> Self {
         let path = std::env::temp_dir().join(format!(
             "astrolune-network-process-{}-{}",
             std::process::id(),
@@ -64,7 +73,7 @@ impl Fixture {
             chain_id: 42,
             committee_size,
             rotation_count: 1,
-            runtime_version: 1,
+            runtime_version,
             capacity: Resources {
                 compute: 1_000_000,
                 memory: 1_000_000,
@@ -154,7 +163,14 @@ impl Fixture {
             command
                 .arg("--validator-key")
                 .arg(data.join("validator.seed"))
-                .args(["--round-timeout-ms", "500"]);
+                .args([
+                    "--round-timeout-ms",
+                    if self.genesis.runtime_version == 3 {
+                        "5000"
+                    } else {
+                        "500"
+                    },
+                ]);
         }
         command.args(extra);
         if !seeds.is_empty() {
@@ -338,6 +354,144 @@ fn payment() -> Transaction {
     tx.resource_limit = execution::payment_resources(&tx).unwrap();
     tx.signature = ed25519_sign(&[99; 32], signing_hash(&tx).as_bytes());
     tx
+}
+
+fn native_transaction(nonce: u64, action: transaction::ContractAction) -> Transaction {
+    use transaction::{
+        ContractAction, ContractPayload, trocto_contract_address, trocto_contract_code_key,
+        trocto_contract_state_key,
+    };
+    let public_key = ed25519_public_key(&[99; 32]);
+    let sender = address_from_public_key(&public_key);
+    let mut access_list = vec![state::account_key(sender)];
+    match &action {
+        ContractAction::DeployTrocto(_) => access_list.push(trocto_contract_code_key(
+            trocto_contract_address(42, sender, nonce),
+        )),
+        ContractAction::CallTrocto { address, keys, .. } => {
+            access_list.push(trocto_contract_code_key(*address));
+            access_list.extend(
+                keys.iter()
+                    .map(|key| trocto_contract_state_key(*address, key)),
+            );
+        }
+        _ => unreachable!(),
+    }
+    access_list.sort();
+    let mut tx = Transaction {
+        version: 1,
+        chain_id: 42,
+        sender,
+        nonce,
+        expires_at: 1000,
+        lane: types::TransactionLane::Contracts,
+        access_list,
+        resource_prices: execution::PAYMENT_PRICES,
+        resource_limit: Resources {
+            compute: 100_000,
+            memory: 256_000,
+            io: 128_000,
+            bandwidth: 128_000,
+        },
+        payload: ContractPayload { public_key, action }.to_bytes(),
+        signature: [0; 64],
+    };
+    tx.signature = ed25519_sign(&[99; 32], signing_hash(&tx).as_bytes());
+    tx
+}
+
+#[test]
+#[ignore = "requires pinned LLVM 22.1.8 and native OS isolation"]
+fn native_contracts_finalize_over_tls_and_recover_with_verified_receipts() {
+    use transaction::{ContractAction, trocto_contract_address, trocto_contract_state_key};
+    let fixture = Fixture::with_runtime(1, 4, false, false, 3);
+    let reservations: Vec<_> = (0..5).map(|_| testkit::port::reserve()).collect();
+    let peers: Vec<_> = reservations
+        .iter()
+        .map(|port| port.address().to_string())
+        .collect();
+    let mut validators: Vec<_> = (1..=3).map(|index| fixture.start(index, &peers)).collect();
+    let client =
+        rpc::TcpRpcClient::new(validators[0].1.parse().unwrap(), Duration::from_secs(15)).unwrap();
+    let deploy = native_transaction(0, ContractAction::DeployTrocto(b"fn call(input: u64) -> u64 { let next = state_get(\"counter\") + input; state_set(\"counter\", next); emit(height(), next); return input * 2; }".to_vec()));
+    let address = trocto_contract_address(42, deploy.sender, 0);
+    let submit = |tx: &Transaction| {
+        let id = transaction::compute_tx_id(tx);
+        assert_eq!(client.submit_transaction(&tx.to_bytes()).unwrap(), id);
+        let proof = client
+            .wait_receipt(id, Duration::from_secs(60))
+            .unwrap()
+            .expect("native transaction finalized");
+        proof
+            .verify(&fixture.genesis, &fixture.keys, id, 1)
+            .unwrap();
+        proof
+    };
+    submit(&deploy);
+    let make_call = |nonce, input: u64| {
+        native_transaction(
+            nonce,
+            ContractAction::CallTrocto {
+                address,
+                input: input.to_le_bytes().to_vec(),
+                keys: vec![b"counter".to_vec()],
+            },
+        )
+    };
+    let first_call = make_call(1, 11);
+    let receipt = submit(&first_call);
+    let state_key = trocto_contract_state_key(address, b"counter");
+    let account_before = client.account(deploy.sender).unwrap();
+    assert_eq!(account_before.as_ref().unwrap().nonce, 2);
+    // Overflow happens after a staged write and event: neither may escape.
+    assert!(
+        client
+            .submit_transaction(&make_call(2, u64::MAX / 2 + 1).to_bytes())
+            .is_err()
+    );
+    assert_eq!(client.account(deploy.sender).unwrap(), account_before);
+    assert_eq!(
+        client
+            .state_proof(&state_key)
+            .unwrap()
+            .verify(&fixture.genesis, &fixture.keys, &state_key, 1)
+            .unwrap(),
+        Some(11u64.to_le_bytes().as_slice())
+    );
+    submit(&make_call(2, 7));
+    drop(validators.remove(1));
+    let restarted_validator = fixture.start(2, &peers);
+    let observer = fixture.start(5, &peers);
+    let check = |process: &Process| {
+        let client =
+            rpc::TcpRpcClient::new(process.1.parse().unwrap(), Duration::from_secs(15)).unwrap();
+        let proof = client
+            .wait_receipt(
+                transaction::compute_tx_id(&first_call),
+                Duration::from_secs(60),
+            )
+            .unwrap()
+            .unwrap();
+        assert_eq!(proof, receipt);
+        let deadline = Instant::now() + Duration::from_secs(60);
+        loop {
+            let state = client.state_proof(&state_key).unwrap();
+            if state
+                .verify(&fixture.genesis, &fixture.keys, &state_key, 1)
+                .unwrap()
+                == Some(18u64.to_le_bytes().as_slice())
+            {
+                break;
+            }
+            assert!(Instant::now() < deadline, "native state did not catch up");
+            std::thread::sleep(Duration::from_millis(100));
+        }
+    };
+    check(&restarted_validator);
+    check(&observer);
+    drop(observer);
+    let restarted_observer = fixture.start(5, &peers);
+    check(&restarted_observer);
 }
 fn await_payment(processes: &[&Process]) {
     let deadline = Instant::now() + Duration::from_secs(40);
@@ -1129,24 +1283,10 @@ fn governance_rpc_persists_only_valid_current_quorum_and_survives_restart() {
 fn daemon_retained_recovery_requires_both_descriptor_and_independent_pin() {
     let fixture = Fixture::with_governance(2, 3, true, true);
     let profile = potb_support::governed(potb_profile(&fixture.genesis));
-    let reservations: Vec<_> = (0..4).map(|_| testkit::port::reserve()).collect();
-    let peers: Vec<_> = reservations
-        .iter()
-        .map(|reservation| reservation.address().to_string())
-        .collect();
-    let mut processes = Vec::new();
-    for index in 1..=4 {
-        processes.push(fixture.start(index, &peers));
-    }
-    let client =
-        rpc::TcpRpcClient::new(processes[0].1.parse().unwrap(), Duration::from_secs(5)).unwrap();
-    let deadline = Instant::now() + Duration::from_secs(30);
-    while client.chain_status().unwrap().finalized_height < 3 {
-        assert!(Instant::now() < deadline);
-        std::thread::sleep(Duration::from_millis(20));
-    }
-    drop(processes);
     let network = node::network::StaticNetwork::with_potb(profile, fixture.keys.clone()).unwrap();
+    // Generate genuine certified history with virtual round time. This test
+    // exercises daemon checkpoint recovery; TLS liveness is covered separately.
+    create_certified_history(&fixture, &network, 3);
     let source = storage::ChainStorage::open(fixture.path.join("1/chain.bin")).unwrap();
     let destination = fixture.path.join("retained");
     let point = network.export_retained(&source, 1, &destination).unwrap();
@@ -1191,6 +1331,65 @@ fn daemon_retained_recovery_requires_both_descriptor_and_independent_pin() {
     altered[40] ^= 1;
     std::fs::write(destination.join("checkpoint.bin"), altered).unwrap();
     assert!(!run(Some(point.id().to_string())).status.success());
+}
+
+fn create_certified_history(
+    fixture: &Fixture,
+    network: &node::network::StaticNetwork,
+    height: u64,
+) {
+    let mut nodes: Vec<_> = (1..=4)
+        .map(|index| {
+            let path = fixture.path.join(index.to_string());
+            let signer = DurableSigner::open(
+                path.join("signing.journal"),
+                SigningContext {
+                    chain_id: network.chain_id(),
+                    genesis: network.genesis_hash(),
+                },
+                [index; 32],
+            )
+            .unwrap();
+            node::network::NetworkNode::open(
+                network.clone(),
+                &path,
+                signer,
+                Duration::from_millis(100),
+            )
+            .unwrap()
+        })
+        .collect();
+    let now = Instant::now();
+    for step in 0..400 {
+        for index in 0..nodes.len() {
+            if nodes[index].request().height > height {
+                continue;
+            }
+            let request = nodes[index].request();
+            let responses: Vec<_> = nodes
+                .iter()
+                .map(|node| node.respond(request).unwrap())
+                .collect();
+            for response in responses {
+                nodes[index].receive(&response).unwrap();
+            }
+            if nodes[index].request().height <= height {
+                nodes[index]
+                    .tick(now + Duration::from_millis(step * 20))
+                    .unwrap();
+            }
+        }
+        if nodes.iter().all(|node| node.request().height > height) {
+            return;
+        }
+    }
+    panic!(
+        "certified history stalled: {:?}",
+        nodes
+            .iter()
+            .map(|node| (node.request().height, node.round()))
+            .collect::<Vec<_>>()
+    );
 }
 
 /// Automated retention was reachable only from a library caller or the offline
