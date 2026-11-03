@@ -82,14 +82,22 @@ jobs:
       - uses: actions/setup-python@v7
         with:
           python-version: "3.14.7"
+      - name: Query OSV and refresh the snapshot for both lockfiles
+        run: >-
+          python -B .github/scripts/audit-dependencies.py
+          --write-snapshot --queried-on "$(date -u +%F)"
+          --timeout 30 --max-requests 16
       - name: Bounded lookup regression tests
         run: python -B -m unittest discover -s .github/scripts -p 'test_audit_dependencies.py' -v
-      - name: Verify the pinned snapshot still covers both lockfiles
-        run: python -B .github/scripts/audit-dependencies.py --offline
-      - name: Query OSV for every locked registry package
-        run: python -B .github/scripts/audit-dependencies.py --timeout 30 --max-requests 16
+      - name: Verify the refreshed snapshot covers both lockfiles
+        run: >-
+          python -B .github/scripts/audit-dependencies.py --offline
+          --output target/dependency-advisories-offline.json
       - uses: actions/upload-artifact@v7
         if: always()
         with:
           name: dependency-advisories
-          path: target/dependency-advisories.json
+          path: |
+            target/dependency-advisories.json
+            target/dependency-advisories-offline.json
+            .github/scripts/advisory-snapshot.json

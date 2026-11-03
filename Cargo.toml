@@ -40,7 +40,7 @@ edition = "2024"
 rust-version = "1.99"
 license = "MIT"
 authors = ["Ankerin"]
-repository = "https://github.com/astrolune-network/astrolune"
+repository = "https://github.com/Ankerin/astrolune"
 
 [workspace.lints.rust]
 unsafe_code = "forbid"

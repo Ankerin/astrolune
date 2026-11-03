@@ -34,6 +34,16 @@ run weekly. Superseded runs on the same branch or pull request are cancelled.
 
 Cargo commands use the pinned toolchain, `--locked`, and dependency caching.
 Each job has a timeout. Test matrix failures do not cancel other matrix entries.
+Windows workspace test legs have a 60-minute limit because unoptimized
+cryptographic integration tests can exceed 30 minutes on hosted runners; Linux
+legs retain a 30-minute limit.
+
+Release build jobs and registry advisory checks query OSV for both lockfiles and
+refresh the advisory snapshot in the CI checkout before running the regression
+tests that require exact snapshot coverage. Dependency updates therefore receive
+a live advisory result before offline verification. Query failures and reported
+advisories fail the job. CI does not commit the refreshed snapshot; the committed
+snapshot remains available for offline checks of its recorded package versions.
 
 ## Build artifacts
 
