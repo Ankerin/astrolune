@@ -122,7 +122,7 @@ jobs:
         shell: pwsh
         run: ./.github/scripts/install-llvm-windows.ps1
       - name: Native compiler, isolation, state and control flow
-        run: cargo test --locked -p trocto-runtime --profile ${{ matrix.profile }} --test native -- --ignored
+        run: cargo test --locked -p trocto-runtime --profile ${{ matrix.profile }} --test native -- --ignored --test-threads=1
       - name: Native worker replacement and bounded cache
         run: cargo test --locked -p trocto-runtime --profile ${{ matrix.profile }} --lib -- --ignored
       - name: Signed native contracts and atomic rollback
@@ -352,7 +352,7 @@ jobs:
         run: python -B -m unittest discover -s tools -p test_local_tps.py
       - name: Exercise all accelerators and durable recovery
         run: >-
-          python -B tools/local-tps.py --output target/local-throughput
+          python -B tools/local-tps.py --output target/local-throughput-${{ github.run_id }}
           --execution target/release/examples/local_tps${{ matrix.suffix }}
           --node target/release/examples/certified_tps${{ matrix.suffix }}
           --sizes 256 --rounds 3 --repeats 1 --workers 4
@@ -360,7 +360,7 @@ jobs:
         if: ${{ always() }}
         with:
           name: local-throughput-${{ matrix.os }}
-          path: target/local-throughput
+          path: target/local-throughput-${{ github.run_id }}
           retention-days: 90
 
   benchmarks:

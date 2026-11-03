@@ -23,7 +23,7 @@ trocto-runtime = { version = "0.1.0", path = "../../crates/trocto-runtime" }
 
 [dev-dependencies]
 contract-sdk = { version = "0.1.0", path = "../../crates/contract-sdk", default-features = false }
-wat = "=1.262.0"
+wat = "=1.263.0"
 
 [lints]
 workspace = true

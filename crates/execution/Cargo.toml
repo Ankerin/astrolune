@@ -23,7 +23,7 @@ transaction = { version = "0.1.0", path = "../transaction" }
 types = { version = "0.1.0", path = "../types" }
 
 [dev-dependencies]
-wat = "=1.262.0"
+wat = "=1.263.0"
 crypto = { version = "0.1.0", path = "../crypto" }
 testkit = { version = "0.1.0", path = "../testkit" }
 
