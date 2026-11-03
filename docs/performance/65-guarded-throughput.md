@@ -19,7 +19,7 @@ workload, hardware and completion boundary:
 | --- | ---: | --- |
 | [Firedancer tuning guide](https://docs.firedancer.io/guide/tuning.html) | about 112,000 TPS stock; 389,500 TPS tuned | One 64-core AMD EPYC 9555P. Locally generated signed independent transfers reach the validator over QUIC loopback. The tuned experiment raises block/shred limits. |
 | [Block-STM paper, §4.1](https://aptoslabs.com/pdf/2203.06871.pdf) | up to 170,000 TPS for Aptos payments | AWS c5a.16xlarge, AMD EPYC, 128 GB, up to 32 physical cores, Ubuntu 18.04. Move execution and outputs; persistence is excluded. |
-| [Solana's historical architecture article](https://solana.com/uk/news/8-innovations-that-make-solana-the-first-web-scale-blockchain) | 50,000 TPS | A testnet of over 200 separate nodes, rather than a one-host result. |
+| [Solana's historical architecture article (archived copy)](https://web.archive.org/web/20260422212050/https://solana.com/uk/news/8-innovations-that-make-solana-the-first-web-scale-blockchain) | 50,000 TPS | A testnet of over 200 separate nodes, rather than a one-host result. |
 
 Firedancer distinguishes packet ingress above one million TPS per network tile
 from execution. Its guide gives a protocol-limited estimate around 81,000 TPS
@@ -160,12 +160,13 @@ detecting stale reads and re-executing transactions. VeyraFold's supported payme
 amounts are signed inputs and its successful path constructs exact account
 prefixes before reference checks. It does not replace the arbitrary contract DAG.
 
-[SWMT](https://doi.org/10.1145/3786701), an accepted SIGMOD 2026 paper, explicitly
-studies delayed writes and separating commitment work from execution. Its
-publisher abstract is evidence of closely related work; the complete paper was
-not accessible in this session. LuneSeal keeps this block's root synchronous and
-unchanged. This distinction is a design description, not proof that equivalent
-prior algorithms do not exist. Global architectural uniqueness is unproven.
+[Crossref metadata and abstract for SWMT](https://api.crossref.org/works/10.1145/3786701),
+an accepted SIGMOD 2026 paper, explicitly studies delayed writes and separating
+commitment work from execution. Its publisher abstract is evidence of closely
+related work; the complete paper was not accessible in this session. LuneSeal
+keeps this block's root synchronous and unchanged. This distinction is a design
+description, not proof that equivalent prior algorithms do not exist. Global
+architectural uniqueness is unproven.
 
 ## Reproduction and completion boundaries
 
