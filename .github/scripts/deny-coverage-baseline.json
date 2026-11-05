@@ -16,13 +16,13 @@
     ],
     "wasmparser": [
       "0.228.0",
-      "0.262.0"
+      "0.263.0"
     ]
   },
   "graph_packages": 123,
   "license": "MIT",
   "locked_packages": 160,
-  "measured_on": "2026-10-31",
+  "measured_on": "2026-11-05",
   "uncovered": [
     {
       "license": "MIT OR Apache-2.0",
@@ -220,25 +220,25 @@
       "license": "Apache-2.0 WITH LLVM-exception OR Apache-2.0 OR MIT",
       "name": "wasm-encoder",
       "reason": "workspace dev-dependency",
-      "version": "0.262.0"
+      "version": "0.263.0"
     },
     {
       "license": "Apache-2.0 WITH LLVM-exception OR Apache-2.0 OR MIT",
       "name": "wasmparser",
       "reason": "disabled optional dependency",
-      "version": "0.262.0"
+      "version": "0.263.0"
     },
     {
       "license": "Apache-2.0 WITH LLVM-exception OR Apache-2.0 OR MIT",
       "name": "wast",
       "reason": "workspace dev-dependency",
-      "version": "262.0.0"
+      "version": "263.0.0"
     },
     {
       "license": "Apache-2.0 WITH LLVM-exception OR Apache-2.0 OR MIT",
       "name": "wat",
       "reason": "workspace dev-dependency",
-      "version": "1.262.0"
+      "version": "1.263.0"
     },
     {
       "license": "MIT OR Apache-2.0",
@@ -247,5 +247,5 @@
       "version": "0.18.1"
     }
   ],
-  "uncovered_digest": "39a12e4686d2971dae98a381cbf1581503c6d601b573f48d6f24cd7545ad897d"
+  "uncovered_digest": "f00447b83b78df3924445d2bcd82221c18ca93e8cb04495098d23c3071268649"
 }
