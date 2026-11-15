@@ -22,7 +22,7 @@
   "graph_packages": 123,
   "license": "MIT",
   "locked_packages": 160,
-  "measured_on": "2026-11-05",
+  "measured_on": "2026-11-15",
   "uncovered": [
     {
       "license": "MIT OR Apache-2.0",
@@ -208,7 +208,7 @@
       "license": "MIT OR Apache-2.0",
       "name": "toml_writer",
       "reason": "disabled optional dependency",
-      "version": "1.1.3+spec-1.1.0"
+      "version": "1.2.0+spec-1.1.0"
     },
     {
       "license": "MIT OR Apache-2.0",
@@ -247,5 +247,5 @@
       "version": "0.18.1"
     }
   ],
-  "uncovered_digest": "f00447b83b78df3924445d2bcd82221c18ca93e8cb04495098d23c3071268649"
+  "uncovered_digest": "324afeb4feda11c586570afd11a814e5e73d02d5860d8a92b8bbb6bebc839125"
 }

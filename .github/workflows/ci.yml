@@ -70,6 +70,11 @@ jobs:
         shell: bash
         run: |
           set -o pipefail
+          # Concurrent debug-mode validator clusters can starve RPC deadlines
+          # on Windows runners. Run these tests one at a time.
+          if [ "$RUNNER_OS" = "Windows" ] && [ "${{ matrix.profile }}" = "dev" ]; then
+            export RUST_TEST_THREADS=1
+          fi
           mkdir -p target/suite
           cargo test --locked --workspace --all-features --profile ${{ matrix.profile }} 2>&1 \
             | tee target/suite/tests.log
